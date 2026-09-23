@@ -117,6 +117,25 @@ table.perm th{font-size:.82rem}
 .json{background:#0f1a2b;color:#cfe3ff;padding:.7rem;border-radius:10px;overflow:auto;max-height:18rem;font-size:.75rem;direction:ltr;text-align:left}
 #flash{position:fixed;inset-inline:0;bottom:1.2rem;margin:auto;width:max-content;max-width:90%;background:var(--navy);color:#fff;padding:.5rem 1rem;border-radius:999px;font-size:.9rem;opacity:0;transform:translateY(.6rem);transition:.2s;pointer-events:none;z-index:50}
 #flash.on{opacity:1;transform:none}
+.sep{display:flex;align-items:center;gap:.6rem;color:#8494a8;font-size:.82rem;margin:1rem 0 .4rem}
+.sep::before,.sep::after{content:"";flex:1;height:1px;background:var(--line)}
+.btn.dark{background:var(--navy)}
+.cards{display:grid;gap:.6rem;grid-template-columns:repeat(auto-fill,minmax(9rem,1fr));margin:.7rem 0}
+.stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:.6rem .75rem}
+.stat b{display:block;font-size:1.45rem;color:var(--navy);line-height:1.3}
+.stat span{font-size:.8rem;color:#5b6b80}
+.stat.g b{color:#1E6B3B}.stat.r b{color:#8B2C2C}
+.pill{display:inline-block;border-radius:999px;padding:.05rem .55rem;font-size:.78rem}
+.pill.in{background:#E8F7EE;color:#1E6B3B}.pill.out{background:#FDECEC;color:#8B2C2C}
+table.follow th{font-size:.78rem}
+table.follow td{white-space:nowrap}
+.tw.codes td:nth-child(4){font-family:"Times New Roman",serif;direction:ltr;text-align:center;letter-spacing:.06em}
+.radar{background:#fff;border:1px solid var(--line);border-radius:12px;margin:.6rem 0}
+#modal{position:fixed;inset:0;background:#0b1a2e99;display:none;align-items:flex-start;justify-content:center;z-index:60;padding:1.2rem;overflow:auto}
+#modal.on{display:flex}
+.mcard{background:var(--bg);border-radius:16px;padding:1rem;max-width:26rem;width:100%}
+.mcard h3{margin:.1rem 0 .4rem;color:var(--navy);font-size:1.05rem}
+@media print{#modal{position:static;background:none;display:block}#modal:not(.on){display:none}.mcard{max-width:none}}
 .draw{border:1px dashed #9AA7B8;border-radius:8px;padding:1.2rem;text-align:center;color:#8494a8;font-size:.85rem;margin:.5rem 0}
 .foot{margin-top:2.5rem;text-align:center;color:#8494a8;font-size:.8rem}
 .empty{text-align:center;color:#8494a8;padding:2rem}

@@ -33,5 +33,12 @@
   "dur": 45,
   "win": 15
  },
- "units": {}
+ "units": {},
+ "salt": "dosiati",
+ "roster": [],
+ "log": {
+  "url": "",
+  "key": "",
+  "on": true
+ }
 }
