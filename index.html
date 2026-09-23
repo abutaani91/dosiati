@@ -80,6 +80,28 @@ tr:nth-child(even) td{background:#FAFCFE}
 textarea{width:100%;min-height:4.5rem;border:1px solid var(--line);border-radius:10px;padding:.5rem;font-family:inherit;font-size:.95rem;margin:.4rem 0}
 .gate{background:#fff;border:1px solid var(--line);border-radius:14px;padding:1rem;text-align:center}
 .gate input{padding:.5rem .8rem;border:1px solid var(--line);border-radius:9px;font-size:1rem;margin:.4rem}
+.gate.big{padding:1.6rem 1.2rem;max-width:30rem;margin:1rem auto}
+.gate.big input{font-size:1.25rem;letter-spacing:.12em;text-align:center;width:14rem}
+.gate .lock{font-size:2rem;margin-bottom:.3rem}
+.err{color:#B03030;font-size:.9rem;min-height:1.2em;margin:.3rem 0}
+.frow{display:flex;flex-wrap:wrap;gap:.6rem;margin:.6rem 0}
+.fl{display:flex;flex-direction:column;font-size:.82rem;color:#40506a;gap:.15rem}
+.fl select,.fl input{padding:.35rem .5rem;border:1px solid var(--line);border-radius:8px;font-size:.95rem;font-family:inherit;background:#fff}
+.num{width:6rem}
+.codes table{font-size:.9rem}.codes td:nth-child(2){font-family:"Times New Roman",serif;direction:ltr;text-align:center;font-size:1.05rem;letter-spacing:.06em}
+.tkbig{background:var(--navy);color:#fff;border-radius:12px;padding:.6rem;text-align:center;font-family:"Times New Roman",serif;font-size:2rem;letter-spacing:.25em;margin:.6rem 0}
+.thead.run{position:sticky;top:5.6rem;z-index:9;border-color:#D06060}
+.thead.done{background:#E8F7EE;border-color:#48A96B}
+.timer.warn{animation:bl 1s steps(2,start) infinite}
+@keyframes bl{50%{opacity:.35}}
+.btn.danger{background:#B03030}
+.opt.sel{background:#E7EEFA;border-color:var(--blue);box-shadow:inset 0 0 0 1px var(--blue)}
+.opt.res{cursor:default}
+.mine{background:#F7F9FC;border:1px dashed var(--line);border-radius:10px;padding:.5rem .7rem;margin:.5rem 0;font-size:.95rem;white-space:normal}
+.mt{font-weight:700;color:var(--navy);font-size:.85rem;margin-bottom:.2rem}
+.mark{min-width:5rem}
+.score.big{font-size:1.02rem;border:1px solid #BFD8D2}
+#bar #who{font-size:.8rem;opacity:.85;margin-inline-end:.4rem}
 .draw{border:1px dashed #9AA7B8;border-radius:8px;padding:1.2rem;text-align:center;color:#8494a8;font-size:.85rem;margin:.5rem 0}
 .foot{margin-top:2.5rem;text-align:center;color:#8494a8;font-size:.8rem}
 .empty{text-align:center;color:#8494a8;padding:2rem}
@@ -88,15 +110,17 @@ body.present .tabs{top:0}
 body.present #bar .brand,body.present .uhead .back{display:none}
 body.present .wrap{max-width:70rem}
 body.present .card2,body.present .box,body.present table{font-size:1.02em}
-@media print{#bar,.tabs,.btn,textarea{display:none}.ans,.sol{display:block!important}}
+@media print{#bar,.tabs,.btn,.btns2,textarea{display:none}.ans,.sol{display:block!important}}
 </style>
 </head>
 <body>
 <div id="bar">
   <span class="brand">دوسياتي</span>
+  <span id="who"></span>
   <button id="zout" title="تصغير الخط">أ−</button>
   <button id="zin" title="تكبير الخط">أ+</button>
   <button id="pbtn">وضع العرض</button>
+  <button id="out" style="display:none">خروج</button>
 </div>
 <div id="app"></div>
 <script src="app.js"></script>
