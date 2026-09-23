@@ -1,0 +1,37 @@
+{
+ "year": 2027,
+ "term": "01",
+ "checkYear": true,
+ "checkTerm": false,
+ "school": "مدرسة رجم الشامي الشرقي الثانوية للبنين",
+ "teacherName": "المعلم محمد الطعاني",
+ "pinHash": "yhwgaq",
+ "lock": false,
+ "lockMsg": "التطبيق مغلق مؤقتًا . راجع معلّمك.",
+ "grades": {
+  "10": {
+   "on": true,
+   "max": 60
+  },
+  "08": {
+   "on": true,
+   "max": 60
+  },
+  "09": {
+   "on": true,
+   "max": 60
+  }
+ },
+ "perm": {
+  "search": true,
+  "present": true,
+  "print": true,
+  "qa": true,
+  "retake": false
+ },
+ "exam": {
+  "dur": 45,
+  "win": 15
+ },
+ "units": {}
+}
