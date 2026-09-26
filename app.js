@@ -588,7 +588,7 @@ const ADMIN_TABS = [['follow', 'متابعة الطلبة'], ['roster', 'قائ�
 function adminView() {
   const D = S.draft || (S.draft = clone(SET));
   const w = el('div', 'wrap');
-  w.append(el('div', 'uhead', `<a class="back" href="#">‹ الرئيسة</a><div><strong>لوحة التحكّم</strong><span>كل ما تغيّره هنا يُحفظ على هذا الجهاز ، ولنشره للطلبة نزّل ملف الإعدادات وارفعه إلى الموقع.</span></div>`));
+  w.append(el('div', 'uhead', `<a class="back" href="#">‹ الرئيسة</a><div><strong>لوحة التحكّم</strong><span>كل ما تغيّره هنا يُحفظ على هذا الجهاز ، ولنشره لكل الأجهزة نزّل settings.json من تبويب « حفظ ونشر » وارفعه إلى الموقع.</span></div>`));
   const tabs = el('div', 'tabs');
   ADMIN_TABS.forEach(([k, t]) => {
     const b = el('a', 'tab' + (S.admin === k ? ' on' : ''));
@@ -1067,7 +1067,7 @@ function adminView() {
   }
 
   function filePage() {
-    const b = sec('نشر الإعدادات على الموقع', 'ما تحفظه هنا يسري على جهازك فقط . ليصل للطلبة : نزّل ملف الإعدادات وارفعه إلى مجلّد الموقع بجانب index.html ، ثم ارفع رقم الكاش في sw.js.');
+    const b = sec('نشر الإعدادات على الموقع', 'ما تحفظه هنا يسري على جهازك فقط . ليصل للطلبة : نزّل settings.json وارفعه إلى مجلّد الموقع بجانب index.html — واستبدل القديم به. لا حاجة لرفع رقم الكاش في sw.js لأجل الإعدادات ، فملفّها يُقرأ من الشبكة أوّلًا ويصل لأجهزة الطلبة ( حاسوب وهاتف ) عند أوّل فتح مع إنترنت. رقم الكاش يُرفع فقط عند تغيير app.js أو index.html أو data.json.');
     const r = el('div', 'btns');
     const dl2 = el('button', 'btn', 'تنزيل settings.json');
     dl2.onclick = () => download(D);
