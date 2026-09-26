@@ -20,15 +20,19 @@ const DEF = {
   pinHash: hash('2027'),
   lock: false, lockMsg: 'التطبيق مغلق مؤقتًا . راجع معلّمك.',
   grades: { '08': { on: true, max: 60 }, '09': { on: true, max: 60 }, '10': { on: true, max: 60 } },
-  perm: { search: true, present: true, print: true, qa: true, retake: false },
+  perm: { search: true, present: true, print: true, qa: true, retake: false, seq: true, exit: true, peer: true },
   exam: { dur: 45, win: 15 },
+  quiz: { n: 5, dur: 5 },
+  snd: { on: true, vol: 0.5 },
+  audio: { on: false, file: 'nasheed.mp3', vol: 0.7, title: 'النشيد' },
+  org: { dir: 'مديرية التربية والتعليم للواء الموقر', title: 'صفحة التعلّم الذاتي' },
   units: {},
   salt: 'dosiati',
   roster: [],              // [{h, e, g, s, n}]  h=بصمة الرمز ، e=الاسم مشفّرًا برمز صاحبه
   log: { url: '', key: '', on: true }
 };
 let SET = clone(DEF);
-const DEF_UNIT = { on: true, sum: true, ex: true, q: true, qa: true, test: true };
+const DEF_UNIT = { on: true, sum: true, ex: true, q: true, qa: true, test: true, lab: true, quiz: true, book: true };
 const uset = id => Object.assign({}, DEF_UNIT, SET.units[id] || {});
 function merge(base, add) {
   if (!add || typeof add !== 'object') return base;
@@ -38,6 +42,13 @@ function merge(base, add) {
   });
   return base;
 }
+let EXTRAS = {};
+async function loadExtras() {
+  if (window.__EXTRAS__) { EXTRAS = window.__EXTRAS__; return; }
+  try { const r = await fetch('extras.json'); if (r.ok) EXTRAS = await r.json(); } catch (e) { EXTRAS = {}; }
+}
+const xOf = id => EXTRAS[id] || {};
+
 async function loadSettings() {
   SET = clone(DEF);
   if (window.__SETTINGS__) merge(SET, window.__SETTINGS__);
@@ -213,6 +224,7 @@ const GS_CODE = [
 "}",
 "",
 "function doGet(e) {",
+"  if (e.parameter.stats) return stats_(e.parameter.g, e.parameter.u);",
 "  if ((e.parameter.k || '') !== KEY) return out_({ error: 'key' });",
 "  const sh = sheet_();",
 "  const v = sh.getDataRange().getValues();",
@@ -225,8 +237,95 @@ const GS_CODE = [
 "",
 "function out_(o) {",
 "  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);",
+"}",
+"",
+"/* إحصاءات مجهّلة للصف : لا أسماء ولا أرقام طلبة */",
+"function stats_(g, unit) {",
+"  const v = sheet_().getDataRange().getValues(); v.shift();",
+"  const per = {};",
+"  v.forEach(function (r) {",
+"    if (String(r[3]) !== String(g)) return;",
+"    if (unit && r[7] !== unit) return;",
+"    const c = String(r[1]); per[c] = per[c] || {};",
+"    if (r[6] === 'station') per[c][r[8]] = 1;",
+"  });",
+"  const vals = Object.keys(per).map(function (c) { return Math.min(100, Math.round(Object.keys(per[c]).length / 6 * 100)); });",
+"  if (!vals.length) return out_({ n: 0 });",
+"  vals.sort(function (a, b) { return a - b; });",
+"  const q = function (p) { return vals[Math.min(vals.length - 1, Math.floor(p * vals.length))]; };",
+"  const avg = Math.round(vals.reduce(function (a, b) { return a + b; }, 0) / vals.length);",
+"  return out_({ n: vals.length, avg: avg, q1: q(0.25), med: q(0.5), q3: q(0.75) });",
 "}"
 ].join('\n');
+
+/* ============ محرّك الأصوات ( مُولَّدة داخل المتصفّح بلا ملفات ) ============ */
+const SND = { ctx: null };
+const sndOn = () => {
+  if (localStorage.getItem('dosiati-snd') === '0') return false;
+  return !(SND && SET.snd && SET.snd.on === false);
+};
+function tone(freq, start, dur, type, gain) {
+  const C = SND.ctx; if (!C) return;
+  const o = C.createOscillator(), g = C.createGain();
+  o.type = type || 'sine'; o.frequency.value = freq;
+  const v = (gain === undefined ? 0.22 : gain) * ((SET.snd && SET.snd.vol) || 0.5) * 2;
+  const t = C.currentTime + start;
+  g.gain.setValueAtTime(0.0001, t);
+  g.gain.exponentialRampToValueAtTime(Math.max(0.0002, v), t + 0.012);
+  g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g); g.connect(C.destination);
+  o.start(t); o.stop(t + dur + 0.02);
+}
+const SEQ = {
+  ok:    [[659, 0, .10], [880, .09, .16]],
+  bad:   [[190, 0, .16, 'square', .16], [150, .14, .22, 'square', .16]],
+  done:  [[523, 0, .10], [659, .10, .10], [784, .20, .10], [1047, .30, .26]],
+  badge: [[880, 0, .07], [1175, .07, .07], [1568, .14, .22]],
+  warn:  [[880, 0, .06, 'triangle', .14], [880, .14, .06, 'triangle', .14]],
+  send:  [[440, 0, .10], [330, .10, .18]],
+  step:  [[700, 0, .07, 'triangle', .12]]
+};
+function play(name) {
+  if (!sndOn() || !SEQ[name]) return;
+  try {
+    if (!SND.ctx) SND.ctx = new (window.AudioContext || window.webkitAudioContext)();
+    if (SND.ctx.state === 'suspended') SND.ctx.resume();
+    SEQ[name].forEach(a => tone(a[0], a[1], a[2], a[3], a[4]));
+  } catch (e) {}
+}
+function toggleSnd() {
+  const off = localStorage.getItem('dosiati-snd') === '0';
+  localStorage.setItem('dosiati-snd', off ? '1' : '0');
+  if (off) play('ok');
+  bar();
+}
+
+/* ============ نشيد صفحة البداية ============ */
+const AUD = { el: null, armed: false };
+function nasheed(box) {
+  const A = SET.audio || {};
+  if (!A.on || !A.file) return;
+  if (!AUD.el) {
+    AUD.el = new Audio(A.file);
+    AUD.el.loop = false;
+    AUD.el.volume = Math.min(1, Math.max(0, A.vol === undefined ? 0.7 : A.vol));
+  }
+  const c = el('div', 'nash');
+  const b = el('button', 'btn sm ghost', '▶  ' + esc(A.title || 'النشيد'));
+  const upd = () => { b.textContent = (AUD.el.paused ? '▶  ' : '⏸  ') + (A.title || 'النشيد'); };
+  b.onclick = () => { if (AUD.el.paused) AUD.el.play().catch(() => {}); else AUD.el.pause(); upd(); };
+  AUD.el.onended = upd; AUD.el.onplay = upd; AUD.el.onpause = upd;
+  c.append(b);
+  box.append(c);
+  /* المتصفّحات تمنع التشغيل التلقائي قبل أوّل لمسة ، فنُشغّله عند أوّل تفاعل */
+  if (!AUD.armed) {
+    AUD.armed = true;
+    const go = () => { if (AUD.el && AUD.el.paused && (SET.audio || {}).on && S.screenLogin) AUD.el.play().catch(() => {}); document.removeEventListener('pointerdown', go); };
+    document.addEventListener('pointerdown', go, { once: true });
+  }
+  upd();
+}
+function stopNasheed() { try { if (AUD.el) { AUD.el.pause(); AUD.el.currentTime = 0; } } catch (e) {} }
 
 /* ============ التخزين المحلي ============ */
 let KEY = 'dosiati-v1', store = {};
@@ -240,17 +339,22 @@ const prog = id => (store[id] = store[id] || { mcq: {}, seen: [] });
 /* ============ تحميل البيانات ============ */
 async function boot() {
   await loadSettings();
+  await loadExtras();
   let data = window.__DATA__;
   if (!data) { const r = await fetch('data.json'); data = await r.json(); }
   S.units = data;
   S.units.forEach(u => {
     u.chapters = [];
     let cur = null;
+    u.aims = [];
+    let aimMode = false;
     u.body.forEach(n => {
       if (n.t === 'cover') return;
-      if (n.t === 'h1') { cur = { title: n.x, nodes: [] }; u.chapters.push(cur); return; }
+      if (n.t === 'h1') { cur = { title: n.x, nodes: [] }; u.chapters.push(cur); aimMode = false; return; }
       if (n.t === 'questions') { u.questions = n; return; }
       if (n.t === 'exam') { u.exam = n; return; }
+      if (n.t === 'h2') { aimMode = /ماذا\s*سأتعلم/.test(n.x || ''); if (aimMode) return; }
+      if (aimMode && n.t === 'li') { u.aims.push(n.x); return; }
       if (!cur) { cur = { title: 'مقدّمة', nodes: [] }; u.chapters.push(cur); }
       cur.nodes.push(n);
     });
@@ -276,7 +380,7 @@ function route() {
   if (S.unit && !isTeacher()) {
     if (S.unit.gno !== (S.user || {}).grade || !uset(S.unit.id).on) S.unit = null;
   }
-  S.tab = tab || 'sum';
+  S.tab = tab || 'aims';
   render();
   window.scrollTo(0, 0);
 }
@@ -289,6 +393,7 @@ function render() {
   document.body.classList.toggle('present', S.present);
   bar();
   if (!S.user) { app.append(loginView()); return; }
+  S.screenLogin = false;
   if (isTeacher() && S.adminPage) { app.append(adminView()); return; }
   if (!S.unit) { app.append(home()); return; }
   app.append(unitView(S.unit));
@@ -296,16 +401,32 @@ function render() {
 
 function bar() {
   const who = $('#who'), out = $('#out'), pb = $('#pbtn');
+  const br = document.querySelector('#bar .brand'); if (br) br.textContent = (SET.org && SET.org.title) || 'دوسياتي';
+  const sb = $('#sbtn'); if (sb) { const off = localStorage.getItem('dosiati-snd') === '0'; sb.textContent = off ? '🔇' : '🔊'; sb.title = off ? 'تشغيل الأصوات' : 'كتم الأصوات'; sb.style.display = (SET.snd && SET.snd.on === false && !isTeacher()) ? 'none' : ''; }
+  const tb = $('#tbtn'); if (tb) tb.textContent = document.body.classList.contains('dark') ? '☀' : '🌙';
   pb.style.display = (S.user && !isTeacher() && !SET.perm.present) ? 'none' : '';
   if (!S.user) { who.textContent = ''; out.style.display = 'none'; return; }
   who.textContent = isTeacher() ? 'المعلّم' : ((S.user.name ? S.user.name.split(' ')[0] + ' · ' : '') + GRADES[S.user.grade] + ' · ' + S.user.no);
   out.style.display = '';
 }
 
+const LOGO = 'logo.png';
+function orgHead() {
+  const o = SET.org || {};
+  return el('div', 'ohead', `<img class="olog" src="${window.__LOGO__ || LOGO}" alt="">
+    <div class="d1">${esc(o.dir || '')}</div>
+    <div class="d2">${esc(SET.school || '')}</div>
+    <div class="d3">${esc(o.title || 'صفحة التعلّم الذاتي')}</div>
+    <div class="d4">إعداد : ${esc(SET.teacherName || '')}</div>`);
+}
+
 /* ---------- شاشة الدخول ---------- */
 function loginView() {
+  S.screenLogin = true;
   const w = el('div', 'wrap');
-  w.append(el('div', 'hero', `<h1>دوسياتي</h1><p>ملخّصات ونماذج وأسئلة تفاعلية — تعمل بدون إنترنت</p>`));
+  const head = orgHead();
+  w.append(head);
+  nasheed(head);
   const g = el('div', 'gate big');
   const teacherMode = !!S.loginTeacher;
   g.append(el('p', '', teacherMode ? 'دخول المعلّم : أدخل رمزك.' : 'أدخل رمز الدخول الخاص بك.'));
@@ -317,13 +438,13 @@ function loginView() {
   const b = el('button', 'btn', 'دخول');
   b.onclick = () => {
     const v = i.value.trim();
-    if (v && okPin(v)) { setUser({ teacher: true }); openStore(); S.loginTeacher = false; location.hash = ''; render(); return; }
+    if (v && okPin(v)) { setUser({ teacher: true }); openStore(); S.loginTeacher = false; S.screenLogin = false; stopNasheed(); location.hash = ''; render(); return; }
     if (teacherMode) { msg.textContent = 'رمز غير صحيح.'; i.select(); return; }
     if (SET.lock) { msg.textContent = SET.lockMsg || 'الدخول مغلق حاليًّا.'; return; }
     const u = readCode(v);
     if (!u) { msg.textContent = 'رمز غير صحيح.'; i.select(); return; }
     setUser(u); openStore(); location.hash = '';
-    logEvent('login');
+    logEvent('login'); S.screenLogin = false; stopNasheed(); play('ok');
     render();
   };
   i.onkeydown = e => { if (e.key === 'Enter') b.click(); };
@@ -334,18 +455,85 @@ function loginView() {
   tb.onclick = () => { S.loginTeacher = !teacherMode; render(); };
   g.append(tb);
   w.append(g);
-  w.append(el('p', 'foot', esc(SET.teacherName) + (SET.school ? ' — ' + esc(SET.school) : '')));
+  w.append(el('p', 'foot', 'يعمل بدون إنترنت بعد أوّل فتح'));
   setTimeout(() => i.focus(), 50);
   return w;
 }
 
 /* ---------- الصفحة الرئيسة ---------- */
+/* ---------- تابِع من حيث توقفت ---------- */
+function continueCard() {
+  let L; try { L = JSON.parse(localStorage.getItem('dosiati-last') || 'null'); } catch (e) { L = null; }
+  if (!L || !L.id) return null;
+  const u = S.units.find(x => x.id === L.id);
+  if (!u || u.gno !== (S.user || {}).grade || !uset(u.id).on) return null;
+  const names = {}; ST_ALL.forEach(([k, t]) => names[k] = t);
+  const c = el('div', 'box mint');
+  c.append(el('div', 'bt', 'تابِع من حيث توقفت'));
+  c.append(el('p', '', `${fmt(u.unit.unitTitle)}  —  ${esc(names[L.k] || '')}`));
+  const b = el('button', 'btn', 'أكمل الآن');
+  b.onclick = () => { location.hash = `#${u.id}/${L.k}`; };
+  c.append(b);
+  return c;
+}
+
+/* ---------- المراجعة المتباعدة ---------- */
+function spacedCard() {
+  const cand = S.units.filter(u => u.gno === (S.user || {}).grade && uset(u.id).on && u.exam).map(u => {
+    const p = (store[u.id] || {}).path;
+    if (!p || !p.done.includes('print')) return null;
+    const last = p.rev || p.first || 0;
+    return (Date.now() - last > 7 * 86400000) ? u : null;
+  }).filter(Boolean);
+  if (!cand.length) return null;
+  const u = cand[0];
+  const c = el('div', 'box gold');
+  c.append(el('div', 'bt', 'مراجعة سريعة'));
+  c.append(el('p', '', `مرّ أسبوع على إنهائك وحدة « ${fmt(u.unit.unitTitle)} » . ثلاث فقرات فقط لتثبيت ما تعلّمته.`));
+  const b = el('button', 'btn', 'ابدأ المراجعة ( 3 فقرات )');
+  b.onclick = () => { S.spaced = u.id; render(); };
+  if (S.spaced !== u.id) c.append(b); else c.append(spacedQuiz(u));
+  return c;
+}
+function spacedQuiz(u) {
+  const box = el('div', '');
+  const idx = u.exam.mcq.map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, 3);
+  let answered = 0, right = 0;
+  idx.forEach((ix, i) => {
+    const it = u.exam.mcq[ix];
+    const c = el('div', 'card2');
+    c.append(el('p', 'qq', `<b>${i + 1} )</b> ${fmt(it.q)}`));
+    const opts = el('div', 'opts');
+    it.o.forEach((o, j) => {
+      const x = el('button', 'opt', `<span>${AR[j]}</span> ${fmt(o)}`);
+      x.onclick = () => {
+        if (c.dataset.d) return; c.dataset.d = '1'; answered++;
+        const ok = AR[j] === it.a; if (ok) right++;
+        play(ok ? 'ok' : 'bad');
+        x.classList.add(ok ? 'right' : 'wrong');
+        if (!ok) [...opts.children].forEach((y, k) => { if (AR[k] === it.a) y.classList.add('right'); });
+        c.append(el('div', 'fb ' + (ok ? 'g' : 'r'), ok ? '✔ صحيحة' : '✘ الصحيحة : ' + it.a));
+        if (answered === idx.length) {
+          const p = pathP(u); p.rev = Date.now(); save();
+          logEvent('spaced', u.id, right + '/' + idx.length, Math.round(right / idx.length * 100));
+          box.append(el('div', 'box', `<div class="bt">انتهت المراجعة : ${right} من ${idx.length}</div>`));
+        }
+      };
+      opts.append(x);
+    });
+    c.append(opts); box.append(c);
+  });
+  return box;
+}
+
 function home() {
   const w = el('div', 'wrap');
   const sub = isTeacher() ? 'وضع المعلّم — جميع الصفوف والاختبارات'
     : GRADES[S.user.grade] + (S.user.sec ? ' · الشعبة ' + S.user.sec : '') + ' · ' + (TERMS[S.user.term] || '') + ' · رقمك ' + S.user.no;
-  const head = isTeacher() ? 'دوسياتي' : (S.user.name ? 'أهلًا ' + S.user.name : 'دوسياتي');
+  const head = isTeacher() ? 'وضع المعلّم' : (S.user.name ? 'أهلًا ' + S.user.name : 'أهلًا بك');
+  w.append(orgHead());
   w.append(el('div', 'hero', `<h1>${esc(head)}</h1><p>${esc(sub)}</p>`));
+  if (!isTeacher()) { const cn = continueCard(); if (cn) w.append(cn); const rv = spacedCard(); if (rv) w.append(rv); }
   if (isTeacher()) {
     const row = el('div', 'btns2');
     const a = el('button', 'btn', 'لوحة التحكّم');
@@ -380,10 +568,12 @@ function home() {
         const hid = isTeacher() && !uset(u.id).on;
         const c = el('a', 'card' + (hid ? ' off' : ''));
         c.href = '#' + u.id;
-        c.innerHTML = `<span class="sub">${esc(u.meta.subject)}</span>
+        const pp = pathP(u), sts2 = stations(u).filter(s2 => s2[0] !== 't' && s2[0] !== 'print');
+        const pc = Math.round(sts2.filter(s2 => pp.done.includes(s2[0])).length / Math.max(1, sts2.length) * 100);
+        c.innerHTML = `<div class="crow">${ringSvg(pc, 48)}<div><span class="sub">${esc(u.meta.subject)}</span>
           <strong>${fmt(u.unit.unitTitle)}</strong>
-          <span class="meta">الوحدة ${esc(u.unit.unitNo.replace(/ـ/g, ''))} · ص ${fmt(u.unit.pages)} · ${fmt(u.unit.periods)}</span>
-          ${hid ? '<span class="tag">مخفيّة عن الطلبة</span>' : ''}`;
+          <span class="meta">ص ${fmt(u.unit.pages)} · ${pc ? pc + ' % منجز' : 'لم تبدأ بعد'}</span>
+          ${hid ? '<span class="tag">مخفيّة عن الطلبة</span>' : ''}</div></div>`;
         row.append(c);
       });
       out.push(row);
@@ -473,10 +663,14 @@ function adminView() {
     fchk(b, 'لا تقبل إلا أكواد هذه السنة', D, 'checkYear');
     fchk(b, 'لا تقبل إلا أكواد الفصل الحالي', D, 'checkTerm', '( يمنع أكواد الفصل السابق )');
 
-    const b2 = sec('الترويسة');
+    const b2 = sec('الترويسة الرسمية');
+    D.org = D.org || {};
     const r2 = frow(b2);
-    ftxt(r2, 'اسم المعلّم', D, 'teacherName');
+    ftxt(r2, 'المديرية', D.org, 'dir');
     ftxt(r2, 'اسم المدرسة', D, 'school');
+    const r2b = frow(b2);
+    ftxt(r2b, 'عنوان الصفحة', D.org, 'title');
+    ftxt(r2b, 'اسم المعلّم', D, 'teacherName');
 
     const b3 = sec('الصفوف', 'أطفئ الصف الذي لا تدرّسه ، وحدّد أعلى رقم طالب لمنع الأكواد العشوائية.');
     GORDER.forEach(g => {
@@ -514,11 +708,33 @@ function adminView() {
     fchk(b, 'السماح بوضع العرض وتكبير الخطّ', D.perm, 'present');
     fchk(b, 'السماح بطباعة ورقة النتيجة', D.perm, 'print');
     fchk(b, 'السماح بإعادة محاولة الاختبار برمز جديد', D.perm, 'retake', '( الأصل : محاولة واحدة )');
+    fchk(b, 'إلزام الترتيب : لا تُفتح محطّة قبل إتمام سابقتها', D.perm, 'seq');
+    fchk(b, 'إظهار بطاقة الخروج في نهاية كل محطّة', D.perm, 'exit');
+    fchk(b, 'إظهار موقع الطالب بين زملائه في البصمة', D.perm, 'peer', '( بلا ترتيب رقمي ولا أسماء )');
+    const b9 = sec('الأصوات والنشيد', 'للطالب زرّ كتم في الشريط العلوي يعمل في كل الأحوال.');
+    D.snd = D.snd || { on: true, vol: 0.5 };
+    fchk(b9, 'تشغيل أصوات التفاعل ( صحيح · خطأ · إتمام محطّة · شارة · تنبيه الوقت )', D.snd, 'on');
+    const r8 = frow(b9);
+    const vs = el('input'); vs.type = 'range'; vs.min = 0; vs.max = 1; vs.step = 0.1; vs.value = D.snd.vol;
+    vs.oninput = () => { D.snd.vol = +vs.value; };
+    r8.append(wrapLab('مستوى الأصوات', vs));
+    const tb2 = el('button', 'btn sm ghost', 'جرّب الصوت');
+    tb2.onclick = () => { const old = SET.snd; SET.snd = D.snd; play('done'); setTimeout(() => { SET.snd = old; }, 1200); };
+    r8.append(tb2);
+    D.audio = D.audio || { on: false, file: 'nasheed.mp3', vol: 0.7, title: 'النشيد' };
+    fchk(b9, 'تشغيل نشيد في صفحة الدخول', D.audio, 'on');
+    const r7 = frow(b9);
+    ftxt(r7, 'اسم ملف النشيد', D.audio, 'file', 'nasheed.mp3');
+    ftxt(r7, 'الاسم الظاهر على الزرّ', D.audio, 'title');
+    const va = el('input'); va.type = 'range'; va.min = 0; va.max = 1; va.step = 0.1; va.value = D.audio.vol;
+    va.oninput = () => { D.audio.vol = +va.value; };
+    r7.append(wrapLab('مستوى النشيد', va));
+    b9.append(el('p', 'hint', 'ضع ملف الصوت ( mp3 ) بجانب index.html في الموقع بالاسم نفسه. المتصفّحات تمنع التشغيل التلقائي قبل أوّل لمسة ، فيبدأ النشيد عند أوّل لمسة على الشاشة أو بالضغط على الزرّ ، ويتوقّف تلقائيًّا عند الدخول.'));
   }
 
   function units() {
     const b = sec('إظهار الوحدات وتبويباتها', 'الوحدة المطفأة لا تظهر للطالب إطلاقًا . والتبويب المطفأ يختفي من وحدته.');
-    const cols = [['on', 'إظهار'], ['sum', 'الملخّص'], ['ex', 'نماذج'], ['q', 'أسئلة'], ['qa', 'حلول الأسئلة'], ['test', 'الاختبار']];
+    const cols = [['on', 'إظهار'], ['lab', 'تجارب'], ['sum', 'شرح'], ['ex', 'أمثلة'], ['q', 'أسئلة'], ['book', 'حلول الكتاب'], ['quiz', 'قصير'], ['test', 'الوحدة']];
     GORDER.forEach(g => {
       const list = S.units.filter(u => u.gno === g);
       if (!list.length) return;
@@ -552,8 +768,12 @@ function adminView() {
   function examSet() {
     const b = sec('الاختبار', 'هذه قيم افتراضية تظهر لك في شاشة توليد رمز الاختبار داخل كل وحدة.');
     const r = frow(b);
-    fnum(r, 'مدة الاختبار ( دقيقة )', D.exam, 'dur', 1, 180);
+    fnum(r, 'مدة اختبار الوحدة ( دقيقة )', D.exam, 'dur', 1, 180);
     fnum(r, 'مهلة الدخول ( دقيقة )', D.exam, 'win', 1, 240);
+    D.quiz = D.quiz || { n: 5, dur: 5 };
+    const r9 = frow(b);
+    fnum(r9, 'فقرات الاختبار القصير', D.quiz, 'n', 1, 10);
+    fnum(r9, 'مدة الاختبار القصير ( دقيقة )', D.quiz, 'dur', 1, 60);
     b.append(el('p', 'hint', 'تذكير : لا يُفتح الاختبار عند الطالب إلا برمز تولّده أنت من تبويب « للمعلّم » داخل الوحدة ، ولا تظهر له الإجابات إلا بعد التسليم.'));
     const b2 = sec('محاولات هذا الجهاز');
     const cl = el('button', 'btn ghost', 'مسح كل محاولات هذا الجهاز');
@@ -894,37 +1114,567 @@ function printList(html) {
 }
 
 /* ---------- عرض الوحدة ---------- */
-const TABS = [['sum', 'الملخّص'], ['ex', 'نماذج محلولة'], ['q', 'أسئلة'], ['test', 'اختبار الوحدة'], ['t', 'للمعلّم']];
+/* ================= مسار التعلّم ( المحطّات ) ================= */
 function liveNow(u) { const a = att(u); return !!(a && !a.submitted && Date.now() < a.start + a.dur * 60000); }
+const ST_ALL = [
+  ['aims', 'أهداف الوحدة', null],
+  ['lab', 'تجارب ومحاكاة', 'lab'],
+  ['learn', 'الشرح والأشكال', 'sum'],
+  ['ex', 'أمثلة تفاعلية', 'ex'],
+  ['q', 'أسئلة أحلّها', 'q'],
+  ['book', 'حلول أسئلة الكتاب', 'book'],
+  ['quiz', 'اختبار قصير', 'quiz'],
+  ['test', 'اختبار الوحدة', 'test'],
+  ['print', 'بصمة الوحدة', null],
+  ['t', 'للمعلّم', null]
+];
+function stations(u) {
+  const cfg = uset(u.id), x = xOf(u.id);
+  return ST_ALL.filter(([k, t, c]) => {
+    if (k === 't') return isTeacher();
+    if (k === 'lab') return !!(x.lab || (x.sims || []).length) && (isTeacher() || cfg.lab);
+    if (k === 'book') return !!(x.book || []).length && (isTeacher() || cfg.book);
+    if (k === 'ex') return u.examples.length && (isTeacher() || cfg.ex);
+    if (k === 'q') return !!u.questions && (isTeacher() || cfg.q);
+    if (k === 'quiz') return !!u.exam && (isTeacher() || cfg.quiz);
+    if (k === 'test') return !!u.exam && (isTeacher() || cfg.test);
+    if (k === 'learn') return isTeacher() || cfg.sum;
+    return true;
+  });
+}
+function pathP(u) {
+  const p = prog(u.id);
+  p.path = p.path || { done: [], ans: {}, exit: {}, review: [], quiz: null, first: Date.now(), secs: 0 };
+  return p.path;
+}
+function markDone(u, k) {
+  const p = pathP(u);
+  if (!p.done.includes(k)) { p.done.push(k); save(); logEvent('station', u.id, k); }
+}
+
 function unitView(u) {
-  const cfg = uset(u.id);
   const w = el('div', 'wrap');
   const live = liveNow(u);
-  const allow = k => isTeacher() ? true : (k === 't' ? false : cfg[k]);
-  if (!allow(S.tab) && !live) S.tab = ['sum', 'ex', 'q', 'test'].find(allow) || 'sum';
+  const sts = stations(u);
+  const keys = sts.map(s => s[0]);
+  if (!keys.includes(S.tab)) S.tab = keys[0];
   if (live && S.tab !== 'test') { location.hash = `#${u.id}/test`; S.tab = 'test'; }
-  const head = el('div', 'uhead', `${live ? '' : '<a class="back" href="#">‹ الوحدات</a>'}
-    <div><strong>${fmt(u.unit.unitTitle)}</strong><span>${esc(u.meta.subject)} — ${esc(u.meta.grade)} · ص ${fmt(u.unit.pages)}</span></div>`);
+  const p = pathP(u);
+  const learn = keys.filter(k => k !== 't' && k !== 'print');
+  const pct = Math.round(learn.filter(k => p.done.includes(k)).length / Math.max(1, learn.length) * 100);
+
+  const head = el('div', 'uhead uhead2');
+  head.innerHTML = `<div style="flex:1">
+      ${live ? '' : '<a class="back" href="#">‹ كل الوحدات</a>'}
+      <strong>${fmt(u.unit.unitTitle)}</strong>
+      <span>${esc(u.meta.subject)} — ${esc(u.meta.grade)} · ص ${fmt(u.unit.pages)}</span></div>${ringSvg(pct)}`;
   w.append(head);
-  const tabs = el('div', 'tabs');
-  TABS.forEach(([k, t]) => {
-    if (k === 't' && !isTeacher()) return;
-    if (live && k !== 'test') return;
-    if (!isTeacher() && !allow(k)) return;
-    const b = el('a', 'tab' + (S.tab === k ? ' on' : '') + (isTeacher() && k !== 't' && !cfg[k] ? ' dim' : ''), esc(t));
-    b.href = `#${u.id}/${k}`;
-    tabs.append(b);
+
+  const nav = el('div', 'steps');
+  sts.forEach(([k, t], i) => {
+    const prev = i > 0 ? sts[i - 1][0] : null;
+    const locked = !isTeacher() && SET.perm.seq && k !== 't' && prev && prev !== 't' && !p.done.includes(prev) && !p.done.includes(k);
+    const b = el('button', 'st' + (S.tab === k ? ' on' : '') + (p.done.includes(k) ? ' done' : '') + (locked ? ' lock' : ''));
+    b.innerHTML = `<b>${p.done.includes(k) ? '✓' : (k === 't' ? '★' : i + 1)}</b>${esc(t)}`;
+    b.onclick = () => { if (locked) { flash('أكمل المحطّة السابقة أوّلًا.'); return; } location.hash = `#${u.id}/${k}`; };
+    if (live && k !== 'test') b.style.display = 'none';
+    nav.append(b);
   });
-  w.append(tabs);
-  if (!isTeacher()) logEvent('open', u.id, S.tab);
+  w.append(nav);
+
+  if (!isTeacher()) { logEvent('open', u.id, S.tab); try { localStorage.setItem('dosiati-last', JSON.stringify({ id: u.id, k: S.tab, t: Date.now() })); } catch (e) {} }
   const body = el('div', 'tabbody');
-  if (S.tab === 'sum') body.append(...summary(u));
-  if (S.tab === 'ex') body.append(...examplesView(u));
-  if (S.tab === 'q') body.append(...questionsView(u));
-  if (S.tab === 'test') body.append(examView(u));
-  if (S.tab === 't') body.append(isTeacher() ? teacherView(u) : el('p', 'empty', 'هذا القسم للمعلّم.'));
+  const R = { aims: stAims, lab: stLab, learn: stLearn, ex: stEx, q: stQ, book: stBook, quiz: stQuiz, test: stTest, print: stPrint, t: stTeacher };
+  (R[S.tab] || stAims)(body, u);
   w.append(body);
   return w;
+}
+function ringSvg(p, size) {
+  const R = 22, C = 2 * Math.PI * R, s = size || 54;
+  return `<svg class="ring" width="${s}" height="${s}" viewBox="0 0 52 52"><circle cx="26" cy="26" r="${R}" fill="none" stroke="#E7EDF5" stroke-width="6"/>
+  <circle cx="26" cy="26" r="${R}" fill="none" stroke="#2B5CA8" stroke-width="6" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - p / 100)}" transform="rotate(-90 26 26)"/>
+  <text x="26" y="31" text-anchor="middle" font-size="14" fill="#00205B">${p}%</text></svg>`;
+}
+function nextBtn(b, u, k, label) {
+  const sts = stations(u).map(x => x[0]).filter(x => x !== 't');
+  const i = sts.indexOf(k);
+  const row = el('div', 'btns2');
+  const x = el('button', 'btn ok', label || 'أنهيتُ هذه المحطّة ← التالية');
+  x.onclick = () => { markDone(u, k); play('done'); const n = sts[i + 1]; location.hash = `#${u.id}/${n || 'print'}`; };
+  row.append(x);
+  b.append(row);
+}
+/* بطاقة الخروج */
+function exitCard(b, u, k) {
+  if (!SET.perm.exit || isTeacher()) return;
+  const p = pathP(u);
+  const c = el('div', 'box gold');
+  c.append(el('div', 'bt', 'بطاقة الخروج'));
+  if (p.exit[k]) { c.append(el('p', 'hint', 'أجبت : ' + esc(p.exit[k]))); b.append(c); return; }
+  c.append(el('p', 'hint', 'بسطر واحد : ما أهمّ فكرة تعلّمتها في هذه المحطّة ؟ أو ما الذي لم يتّضح لك ؟'));
+  const i = el('input'); i.type = 'text'; i.className = 'wide'; i.placeholder = 'اكتب سطرًا واحدًا …';
+  const s1 = el('button', 'btn sm', 'إرسال للمعلّم');
+  s1.onclick = () => { if (i.value.trim().length < 2) return flash('اكتب سطرًا قصيرًا.'); p.exit[k] = i.value.trim(); save(); logEvent('exit', u.id, k, i.value.trim().slice(0, 120)); flash('وصلت معلّمك . شكرًا.'); render(); };
+  const s2 = el('button', 'btn sm ghost', 'تخطّي');
+  s2.onclick = () => { p.exit[k] = '—'; save(); render(); };
+  const r = el('div', 'frow'); r.append(i, s1, s2);
+  c.append(r); b.append(c);
+}
+/* أعدها عليّ */
+function againBtn(u, label) {
+  const p = pathP(u);
+  const on = p.review.includes(label);
+  const x = el('button', 'btn sm ' + (on ? '' : 'ghost'), on ? '★ في قائمة الإعادة' : '☆ أعدها عليّ');
+  x.onclick = () => {
+    const i = p.review.indexOf(label);
+    if (i >= 0) p.review.splice(i, 1); else { p.review.push(label); logEvent('again', u.id, label); }
+    save(); render();
+  };
+  return x;
+}
+
+/* ---------- 1 ) الأهداف ---------- */
+function stAims(b, u) {
+  const c = el('div', 'card2');
+  c.append(el('h2', 'lvl', 'ماذا سأتعلّم في هذه الوحدة ؟'));
+  c.append(el('p', 'hint', 'اقرأ الأهداف أوّلًا ؛ فهي التي سيُقاس عليها الاختبار.'));
+  const aims = (u.aims && u.aims.length) ? u.aims : u.body.filter(n => n.t === 'li').slice(0, 10).map(n => n.x);
+  aims.forEach(t => c.append(el('div', 'li', fmt(t))));
+  b.append(c);
+  const sts = stations(u).filter(x => x[0] !== 't').map(x => x[1]);
+  b.append(el('div', 'box', `<div class="bt">خطّتك في هذه الوحدة</div><p style="margin:0">${esc(sts.join('  ←  '))}</p>
+    ${SET.perm.seq ? '<p class="hint" style="margin:.3rem 0 0">لا تُفتح المحطّة إلا بعد إتمام التي قبلها.</p>' : ''}`));
+  nextBtn(b, u, 'aims', 'قرأتُ الأهداف ← ابدأ');
+}
+
+/* ---------- 2 ) التجارب والمحاكاة ---------- */
+function stLab(b, u) {
+  const x = xOf(u.id);
+  const labs = Array.isArray(x.lab) ? x.lab : (x.lab ? [x.lab] : []);
+  labs.forEach((L, li) => {
+    const c = el('div', 'card2');
+    c.append(el('h2', 'lvl', fmt(L.t)));
+    if (L.tools) c.append(el('p', '', '<b>المواد والأدوات :</b> ' + fmt(L.tools)));
+    if (L.safe) c.append(el('p', 'hint', '<b>إرشادات السلامة :</b> ' + fmt(L.safe)));
+    (L.steps || []).forEach((t, i) => c.append(el('div', 'li', `<b>${i + 1} )</b> ` + fmt(t))));
+    if (L.tbl) c.append(nodeEl({ t: 'table', rows: L.tbl }));
+    b.append(c);
+    if (L.sim === 'ionic') b.append(ionicSim());
+    if ((L.qs || []).length) {
+      b.append(el('h2', 'lvl', 'التحليل والاستنتاج'));
+      L.qs.forEach((q, i) => b.append(lockCard(u, 'lab' + li + '-' + i, q.q, q.a)));
+    }
+  });
+  const sims = x.sims || [];
+  if (sims.length) {
+    const c = el('div', 'card2');
+    c.append(el('h2', 'lvl', 'محاكاة تفاعلية'), el('p', 'hint', 'محاكاة PhET بالعربية — تحتاج إنترنت . اضغط الاسم ليُفتح داخل الصفحة.'));
+    const row = el('div', 'btns');
+    const holder = el('div', '');
+    sims.forEach(sm => {
+      const bb = el('button', 'btn sm ghost', '▶ ' + esc(sm.n));
+      bb.onclick = () => {
+        holder.innerHTML = `<iframe class="sim" src="https://phet.colorado.edu/sims/html/${sm.s}/latest/${sm.s}_ar.html" allowfullscreen></iframe>
+          <p class="hint">إن لم تظهر المحاكاة فلا يوجد إنترنت الآن — <a href="https://phet.colorado.edu/ar/simulations/${sm.s}" target="_blank" rel="noopener">افتحها في المتصفّح</a>.</p>`;
+        logEvent('sim', u.id, sm.s);
+      };
+      row.append(bb);
+    });
+    c.append(row, holder);
+    b.append(c);
+  }
+  exitCard(b, u, 'lab');
+  nextBtn(b, u, 'lab');
+}
+function ionicSim() {
+  const d = el('div', 'card2');
+  d.innerHTML = `<h2 class="lvl">محاكاة مدمجة تعمل بدون إنترنت</h2><p class="hint">اضغط الإلكترون البرتقالي في الصوديوم لتنقله إلى الكلور.</p>
+  <svg viewBox="0 0 420 190" width="100%" height="190" class="isim">
+   <circle cx="110" cy="95" r="48" fill="none" stroke="#9AC4E8"/><circle cx="110" cy="95" r="31" fill="none" stroke="#9AC4E8"/>
+   <circle cx="110" cy="95" r="17" fill="#C0392B"/><text class="l1" x="110" y="100" text-anchor="middle" fill="#fff" font-size="13">Na</text>
+   <circle cx="300" cy="95" r="48" fill="none" stroke="#9AC4E8"/><circle cx="300" cy="95" r="31" fill="none" stroke="#9AC4E8"/>
+   <circle cx="300" cy="95" r="17" fill="#1E8449"/><text class="l2" x="300" y="100" text-anchor="middle" fill="#fff" font-size="13">Cl</text>
+   <circle class="ee" cx="110" cy="47" r="7.5" fill="#E67E22" stroke="#7A4A12" style="cursor:pointer"/>
+   <text class="cap" x="210" y="178" text-anchor="middle" font-size="13" fill="#12243B">اضغط الإلكترون البرتقالي</text>
+  </svg>`;
+  setTimeout(() => {
+    const e = d.querySelector('.ee'); if (!e) return;
+    e.onclick = () => {
+      e.setAttribute('cx', '300'); e.setAttribute('cy', '47');
+      d.querySelector('.l1').textContent = 'Na⁺'; d.querySelector('.l2').textContent = 'Cl⁻';
+      d.querySelector('.cap').textContent = 'فقدَ Na إلكترونه فصار Na⁺ ، وكسبه Cl فصار Cl⁻ ← تجاذب = رابطة أيونية';
+    };
+  }, 30);
+  return d;
+}
+
+/* ---------- 3 ) الشرح والأشكال ---------- */
+function stLearn(b, u) {
+  const figs = (xOf(u.id).figs) || [];
+  u.chapters.forEach(ch => {
+    const sec = el('section', 'chap');
+    sec.append(el('h1', 'ch', fmt(ch.title)));
+    ch.nodes.forEach(n => { if (n.t === 'examples') return; const x = nodeEl(n); if (x) sec.append(x); });
+    const r = el('div', 'btns'); r.append(againBtn(u, ch.title.slice(0, 40))); sec.append(r);
+    b.append(sec);
+  });
+  const kc = keycardOf(u);
+  if (kc) {
+    const c = el('div', 'card2');
+    c.append(el('h2', 'lvl', 'بطاقات المصطلحات'), el('p', 'hint', 'اقلب البطاقة لترى التعريف ، ثم انتقل إلى التالية. طريقة سريعة لتثبيت المصطلحات قبل الاختبار.'));
+    c.append(flashCards(kc));
+    b.append(c);
+  }
+  if (figs.length) {
+    b.append(el('h2', 'lvl', 'أشكال من الكتاب'));
+    figs.forEach(f => {
+      const d = el('div', 'fig');
+      d.innerHTML = `<img src="${f.d}" alt="" loading="lazy"><div class="cap">${esc(f.c)}</div>`;
+      b.append(d);
+    });
+  }
+  exitCard(b, u, 'learn');
+  nextBtn(b, u, 'learn');
+}
+
+function keycardOf(u) {
+  for (const ch of u.chapters) for (const n of ch.nodes)
+    if (n.t === 'table' && n.rows && n.rows.length > 2 && /المصطلح/.test(n.rows[0][0] || '')) return n.rows.slice(1);
+  return null;
+}
+function flashCards(rows) {
+  const box = el('div', 'flash');
+  let i = 0, shown = false;
+  const card = el('div', 'fcard');
+  const nav = el('div', 'btns');
+  const prev = el('button', 'btn sm ghost', '‹ السابقة');
+  const flip = el('button', 'btn sm', 'اقلب البطاقة');
+  const next = el('button', 'btn sm ghost', 'التالية ›');
+  const cnt = el('span', 'hint', '');
+  const draw = () => {
+    const r = rows[i];
+    card.className = 'fcard' + (shown ? ' back' : '');
+    card.innerHTML = shown ? `<div class="fb2">${fmt(r[1])}</div>` : `<div class="ff">${fmt(r[0])}</div>`;
+    cnt.textContent = ` ${i + 1} من ${rows.length} `;
+  };
+  card.onclick = () => { shown = !shown; play('step'); draw(); };
+  flip.onclick = card.onclick;
+  prev.onclick = () => { i = (i - 1 + rows.length) % rows.length; shown = false; draw(); };
+  next.onclick = () => { i = (i + 1) % rows.length; shown = false; play('step'); draw(); };
+  nav.append(prev, flip, next, cnt);
+  box.append(card, nav);
+  draw();
+  return box;
+}
+
+/* ---------- 4 ) أمثلة تفاعلية ---------- */
+function stEx(b, u) {
+  b.append(el('p', 'hint', 'حاول حلّ النموذج في دفترك ، ثم اكشف الخطوات واحدة واحدة.'));
+  u.examples.forEach(ex => ex.list.forEach(item => {
+    const c = el('div', 'card2');
+    c.append(el('div', 'ct', fmt(item.t)));
+    c.append(el('p', 'qq', fmt(item.q)));
+    const sol = el('div', 'sol');
+    let shown = 0;
+    const next = el('button', 'btn', 'الخطوة التالية');
+    const all = el('button', 'btn ghost', 'إظهار الحلّ كاملًا');
+    const push = () => { sol.insertAdjacentHTML('beforeend', line(item.sol[shown++])); if (shown >= item.sol.length) next.disabled = true; };
+    next.onclick = push;
+    all.onclick = () => { while (shown < item.sol.length) push(); };
+    const btns = el('div', 'btns'); btns.append(next, all, againBtn(u, item.t.slice(0, 40)));
+    c.append(btns, sol);
+    b.append(c);
+  }));
+  exitCard(b, u, 'ex');
+  nextBtn(b, u, 'ex');
+}
+
+/* ---------- 5 ) أسئلة : لا حلّ قبل الإجابة ---------- */
+function lockCard(u, id, qtext, answer, tbl) {
+  const p = pathP(u);
+  const c = el('div', 'card2');
+  c.append(el('p', 'qq', fmt(qtext)));
+  if (tbl) c.append(nodeEl({ t: 'table', rows: tbl }));
+  const saved = p.ans[id];
+  const ta = el('textarea'); ta.placeholder = 'اكتب إجابتك هنا …';
+  if (saved) { ta.value = saved; ta.disabled = true; }
+  const st = el('div', '');
+  const sub = el('button', 'btn', 'تثبيت إجابتي');
+  const show = el('button', 'btn ghost', 'أظهر الحلّ');
+  const sol = el('div', 'ans hidden');
+  sol.append(el('div', 'mt', 'الإجابة النموذجية :'));
+  (Array.isArray(answer) ? answer : [answer]).forEach(a => sol.insertAdjacentHTML('beforeend', line(a)));
+  const openAns = () => { sol.classList.toggle('hidden'); show.textContent = sol.classList.contains('hidden') ? 'أظهر الحلّ' : 'إخفاء الحلّ'; };
+  show.onclick = openAns;
+  sub.onclick = () => {
+    if (ta.value.trim().length < 3) { st.innerHTML = '<div class="fb r">اكتب إجابتك أوّلًا ولو بجملة قصيرة.</div>'; return; }
+    p.ans[id] = ta.value.trim(); save(); play('send');
+    ta.disabled = true; sub.disabled = true; show.classList.remove('hidden');
+    st.innerHTML = '<div class="fb g">✔ ثُبّتت إجابتك . قارنها الآن بالحلّ.</div>';
+    logEvent('answer', u.id, id, ta.value.trim().length);
+  };
+  if (saved) { sub.disabled = true; st.innerHTML = '<div class="fb g">✔ إجابتك مُثبّتة.</div>'; }
+  else show.classList.add('hidden');
+  const row = el('div', 'btns'); row.append(sub, show, againBtn(u, id));
+  c.append(ta, row, st, sol);
+  return c;
+}
+function stQ(b, u) {
+  const q = u.questions;
+  b.append(el('p', 'hint', 'لا يظهر زرّ « أظهر الحلّ » إلا بعد تثبيت إجابتك ، وبعد التثبيت لا يمكن تغييرها.'));
+  let n = 1;
+  [['المستوى ( أ ) : تذكّر وفهم', q.a], ['المستوى ( ب ) : تطبيق', q.b], ['المستوى ( جـ ) : تحليل واستدلال', q.c]].forEach(([t, arr]) => {
+    b.append(el('h2', 'lvl', esc(t)));
+    (arr || []).forEach(item => { b.append(lockCard(u, 'q' + n, `<b>س ${n} )</b> ` + item.q, item.a, item.tbl)); n++; });
+  });
+  exitCard(b, u, 'q');
+  nextBtn(b, u, 'q');
+}
+
+/* ---------- 6 ) حلول أسئلة الكتاب ---------- */
+function stBook(b, u) {
+  const list = xOf(u.id).book || [];
+  b.append(el('p', 'hint', 'أسئلة الكتاب المدرسي مرتّبة بحسب الدرس ، والحلّ يظهر بعد تثبيت إجابتك.'));
+  let last = '';
+  list.forEach((it, i) => {
+    if (it.g && it.g !== last) { b.append(el('h2', 'lvl', esc(it.g))); last = it.g; }
+    b.append(lockCard(u, 'bk' + i, it.q, it.a, it.tbl));
+  });
+  exitCard(b, u, 'book');
+  nextBtn(b, u, 'book');
+}
+
+/* ---------- 7 ) اختبار قصير ---------- */
+function stQuiz(b, u) {
+  const p = pathP(u), ex = u.exam;
+  const N = Math.max(1, Math.min(ex.mcq.length, (SET.quiz || {}).n || 5));
+  const D = Math.max(1, (SET.quiz || {}).dur || 5);
+  if (!p.quiz) {
+    const c = el('div', 'card2');
+    c.innerHTML = `<h2 class="lvl">اختبار قصير</h2><p class="hint">${N} فقرات · ${D} دقائق . تظهر الإجابات بعد التسليم فقط ، ومعها سبب الخطأ.</p>`;
+    const go2 = el('button', 'btn', 'ابدأ الاختبار');
+    go2.onclick = () => {
+      const idx = ex.mcq.map((_, i) => i).sort(() => Math.random() - 0.5).slice(0, N);
+      p.quiz = { idx, a: {}, start: Date.now(), dur: D, sub: 0 }; save(); render();
+    };
+    c.append(go2); b.append(c);
+    return;
+  }
+  const Q = p.quiz;
+  const notes = u.keyk.mcqNotes || [];
+  if (!Q.sub) {
+    const head = el('div', 'thead run');
+    head.append(el('strong', '', 'اختبار قصير'), el('span', '', `${Q.idx.length} فقرات · ${Q.dur} دقائق`));
+    const tm = el('div', 'timer', ''); head.append(tm);
+    const sb = el('button', 'btn danger', 'تسليم');
+    sb.onclick = () => done(false);
+    head.append(sb); b.append(head);
+    Q.idx.forEach((ix, i) => {
+      const it = ex.mcq[ix];
+      const c = el('div', 'card2');
+      c.append(el('p', 'qq', `<b>${i + 1} )</b> ${fmt(it.q)}`));
+      const opts = el('div', 'opts');
+      it.o.forEach((o, j) => {
+        const x = el('button', 'opt' + (Q.a[i] === AR[j] ? ' sel' : ''), `<span>${AR[j]}</span> ${fmt(o)}`);
+        x.onclick = () => { Q.a[i] = AR[j]; save(); play('step'); [...opts.children].forEach(y => y.classList.remove('sel')); x.classList.add('sel'); };
+        opts.append(x);
+      });
+      c.append(opts); b.append(c);
+    });
+    const tick = () => {
+      const left = Math.floor((Q.start + Q.dur * 60000 - Date.now()) / 1000);
+      tm.textContent = mmss(left);
+      if (left === 60 || left === 30 || left === 10) play('warn');
+      tm.classList.toggle('warn', left <= 60);
+      if (left <= 0) { clearInterval(S.iv); S.iv = null; done(true); }
+    };
+    tick(); S.iv = setInterval(tick, 1000);
+    return;
+    function done(auto) {
+      Q.sub = Date.now(); Q.auto = !!auto; save();
+      if (S.iv) { clearInterval(S.iv); S.iv = null; }
+      let r = 0; Q.idx.forEach((ix, i) => { if (Q.a[i] === ex.mcq[ix].a) r++; });
+      logEvent('quiz', u.id, r + '/' + Q.idx.length, (r / Q.idx.length * 100).toFixed(0));
+      render();
+    }
+  }
+  let right = 0; Q.idx.forEach((ix, i) => { if (Q.a[i] === ex.mcq[ix].a) right++; });
+  if (!Q.played) { Q.played = 1; save(); play(right / Q.idx.length >= 0.6 ? 'done' : 'bad'); }
+  const c = el('div', 'card2');
+  c.innerHTML = `<h2 class="lvl">نتيجتك : ${right} من ${Q.idx.length}</h2><p class="hint">${Q.auto ? 'سُلّم تلقائيًّا عند انتهاء الوقت . ' : ''}راجع أسباب الخطأ أدناه.</p>`;
+  b.append(c);
+  Q.idx.forEach((ix, i) => {
+    const it = ex.mcq[ix];
+    const d = el('div', 'card2');
+    d.append(el('p', 'qq', `<b>${i + 1} )</b> ${fmt(it.q)}`));
+    const opts = el('div', 'opts');
+    it.o.forEach((o, j) => opts.append(el('div', 'opt res' + (AR[j] === it.a ? ' right' : (Q.a[i] === AR[j] ? ' wrong' : '')), `<span>${AR[j]}</span> ${fmt(o)}`)));
+    d.append(opts);
+    const ok = Q.a[i] === it.a;
+    const fb = el('div', 'fb ' + (ok ? 'g' : 'r'), ok ? '✔ إجابة صحيحة' : (Q.a[i] ? '✘ إجابتك : ' + Q.a[i] + ' — الصحيحة : ' + it.a : '— لم تُجب . الصحيحة : ' + it.a));
+    const nt = notes.find(t => t.includes(`(${ix + 1})`));
+    if (!ok && nt) fb.insertAdjacentHTML('beforeend', `<div class="note"><b>لماذا ؟</b> ${fmt(nt.replace(/^الفقرة \(\d+\) : /, ''))}</div>`);
+    d.append(fb);
+    if (!ok) { const r = el('div', 'btns'); r.append(againBtn(u, 'فقرة ' + (ix + 1))); d.append(r); }
+    b.append(d);
+  });
+  const again = el('div', 'btns2');
+  const rt = el('button', 'btn ghost', 'محاولة جديدة بفقرات أخرى');
+  rt.onclick = () => { p.quiz = null; save(); render(); };
+  again.append(rt); b.append(again);
+  exitCard(b, u, 'quiz');
+  nextBtn(b, u, 'quiz');
+}
+
+/* ---------- 8 ) اختبار الوحدة ---------- */
+function stTest(b, u) { b.append(examView(u)); if (att(u) && att(u).submitted) nextBtn(b, u, 'test'); }
+function stTeacher(b, u) { b.append(teacherView(u)); }
+
+/* ---------- 9 ) بصمة الوحدة ---------- */
+function stPrint(b, u) {
+  const p = pathP(u), x = xOf(u.id);
+  const sts = stations(u).filter(s => s[0] !== 't' && s[0] !== 'print');
+  const doneN = sts.filter(s => p.done.includes(s[0])).length;
+  const qTotal = u.questions ? (u.questions.a.length + u.questions.b.length + u.questions.c.length) : 0;
+  const qDone = Object.keys(p.ans).filter(k => k.startsWith('q')).length;
+  const quizPct = p.quiz && p.quiz.sub ? Math.round(p.quiz.idx.filter((ix, i) => p.quiz.a[i] === u.exam.mcq[ix].a).length / p.quiz.idx.length * 100) : 0;
+  const a = att(u);
+  let examPct = 0;
+  if (a && a.submitted) { let r = 0; u.exam.mcq.forEach((it, i) => { if (a.mcq[i] === it.a) r++; }); examPct = Math.round(r / u.exam.mcq.length * 100); }
+  const overall = Math.round((doneN / Math.max(1, sts.length)) * 100);
+
+  const c = el('div', 'card2');
+  c.append(el('h2', 'lvl', 'بصمتك في هذه الوحدة'));
+  c.append(radarSvg([
+    ['المحطّات', Math.round(doneN / Math.max(1, sts.length) * 100)],
+    ['الأسئلة', qTotal ? Math.round(qDone / qTotal * 100) : 0],
+    ['الاختبار القصير', quizPct],
+    ['اختبار الوحدة', examPct],
+    ['التجارب', p.done.includes('lab') ? 100 : 0],
+    ['الشرح', p.done.includes('learn') ? 100 : 0]
+  ]));
+  b.append(c);
+
+  const d = el('div', 'card2');
+  d.append(el('h2', 'lvl', 'ماذا أنجزت ؟'));
+  [['محطّات أنهيتها', doneN + ' من ' + sts.length, Math.round(doneN / Math.max(1, sts.length) * 100)],
+   ['أسئلة ثبّتَّ إجابتها', qDone + ' من ' + qTotal, qTotal ? Math.round(qDone / qTotal * 100) : 0],
+   ['الاختبار القصير', p.quiz && p.quiz.sub ? quizPct + ' %' : 'لم تبدأه', quizPct],
+   ['اختبار الوحدة', a && a.submitted ? examPct + ' %' : 'لم تُقدّمه', examPct]
+  ].forEach(r => {
+    const row = el('div', 'brow');
+    row.innerHTML = `<span class="nm">${r[0]}</span><div class="bar"><i class="${r[2] >= 80 ? 'g' : ''}" style="width:${r[2]}%"></i></div><b>${r[1]}</b>`;
+    d.append(row);
+  });
+  b.append(d);
+
+  /* الشارات */
+  const badges = [];
+  if (doneN === sts.length) badges.push(['🏁', 'أنهى الوحدة']);
+  if (qTotal && qDone === qTotal) badges.push(['✍️', 'أجاب عن كل الأسئلة قبل كشف الحلّ']);
+  if (quizPct >= 80) badges.push(['🎯', 'أتقن الاختبار القصير']);
+  if (examPct >= 80) badges.push(['🏅', 'أتقن اختبار الوحدة']);
+  if (Object.keys(p.exit).length >= 3) badges.push(['💬', 'شارك في بطاقات الخروج']);
+  if (badges.length) {
+    if (!p.bdg || p.bdg < badges.length) { p.bdg = badges.length; save(); play('badge'); }
+    const g = el('div', 'card2');
+    g.append(el('h2', 'lvl', 'شاراتك'));
+    const row = el('div', 'badges');
+    badges.forEach(bd => row.append(el('span', 'badge', `<b>${bd[0]}</b> ${esc(bd[1])}`)));
+    g.append(row); b.append(g);
+  }
+
+  /* قائمة الإعادة */
+  if (p.review.length) {
+    const r = el('div', 'card2');
+    r.append(el('h2', 'lvl', 'طلبتَ إعادتها'));
+    p.review.forEach(t => r.append(el('div', 'li', esc(t))));
+    r.append(el('p', 'hint', 'راجعها قبل الاختبار ، وهي تصل إلى معلّمك أيضًا.'));
+    b.append(r);
+  }
+
+  /* الموقع بين الأقران */
+  if (SET.perm.peer && !isTeacher()) {
+    const pc = el('div', 'card2');
+    pc.append(el('h2', 'lvl', 'موقعك بين زملائك'));
+    const out = el('div', '', '<p class="hint">جارٍ الحساب …</p>');
+    pc.append(out); b.append(pc);
+    peerStats(u, overall, out);
+  }
+
+  const f = el('div', 'btns2');
+  if (isTeacher() || SET.perm.print) { const pr = el('button', 'btn ghost', 'طباعة البصمة'); pr.onclick = () => window.print(); f.append(pr); }
+  if (doneN === sts.length && (isTeacher() || SET.perm.print)) {
+    const cb = el('button', 'btn ok', '🏅 شهادة إتمام الوحدة');
+    cb.onclick = () => certificate(u);
+    f.append(cb);
+  }
+  const sh = el('button', 'btn ghost', 'مشاركة إنجازي');
+  sh.onclick = () => shareProgress(u, doneN, sts.length, qDone, qTotal, quizPct, examPct);
+  f.append(sh);
+  const hm = el('button', 'btn', 'العودة إلى الوحدات'); hm.onclick = () => { location.hash = ''; };
+  f.append(hm); b.append(f);
+  markDone(u, 'print');
+}
+function certificate(u) {
+  const o = SET.org || {};
+  const d = new Date();
+  const dt = d.getFullYear() + ' / ' + String(d.getMonth() + 1).padStart(2, '0') + ' / ' + String(d.getDate()).padStart(2, '0');
+  const name = (S.user && S.user.name) || ('الطالب رقم ' + ((S.user || {}).no || ''));
+  let box = $('#certbox');
+  if (!box) { box = el('div'); box.id = 'certbox'; document.body.append(box); }
+  box.innerHTML = `<div class="cert">
+    <img class="clogo" src="${window.__LOGO__ || LOGO}" alt="">
+    <div class="c1">${esc(o.dir || '')}</div>
+    <div class="c2">${esc(SET.school || '')}</div>
+    <div class="ctitle">شهادة إتمــام وحــدة</div>
+    <div class="c3">تشهد إدارة المدرسة بأنّ</div>
+    <div class="cname">${esc(name)}</div>
+    <div class="c3">قد أتمّ بنجاح جميع محطّات وحدة</div>
+    <div class="cunit">${fmt(u.unit.unitTitle)}</div>
+    <div class="c3">في مبحث ${esc(u.meta.subject)} — ${esc(u.meta.grade)}</div>
+    <div class="csign"><span>التاريخ : ${dt}</span><span>معلّم المبحث : ${esc(SET.teacherName || '')}</span></div>
+  </div>`;
+  document.body.classList.add('pcert');
+  play('badge');
+  setTimeout(() => { window.print(); setTimeout(() => document.body.classList.remove('pcert'), 400); }, 120);
+}
+function shareProgress(u, doneN, stsN, qDone, qTotal, quizPct, examPct) {
+  const name = (S.user && S.user.name) || ('الطالب رقم ' + ((S.user || {}).no || ''));
+  const t = `${name}\n${u.meta.subject} — ${u.unit.unitTitle}\n`
+    + `• المحطّات : ${doneN} من ${stsN}\n`
+    + `• الأسئلة المُثبّتة : ${qDone} من ${qTotal}\n`
+    + `• الاختبار القصير : ${quizPct} %\n`
+    + `• اختبار الوحدة : ${examPct ? examPct + ' %' : 'لم يُقدَّم'}\n`
+    + `( صفحة التعلّم الذاتي )`;
+  logEvent('share', u.id, doneN + '/' + stsN);
+  if (navigator.share) { navigator.share({ text: t }).catch(() => {}); return; }
+  window.open('https://wa.me/?text=' + encodeURIComponent(t), '_blank');
+}
+function peerStats(u, mine, out) {
+  const L = SET.log || {};
+  if (!L.url) { out.innerHTML = `<div class="brow"><span class="nm">إنجازك</span><div class="bar"><i class="g" style="width:${mine}%"></i></div><b>${mine} %</b></div><p class="hint">المقارنة بالصف تحتاج اتصالًا بالإنترنت.</p>`; return; }
+  fetch(L.url + (L.url.includes('?') ? '&' : '?') + 'stats=1&g=' + encodeURIComponent((S.user || {}).grade || '') + '&u=' + encodeURIComponent(u.id))
+    .then(r => r.json()).then(d => {
+      if (!d || !d.n) { out.innerHTML = '<p class="hint">لا توجد بيانات كافية للمقارنة بعد.</p>'; return; }
+      const band = mine >= d.q3 ? 'الربع الأعلى من الصف' : mine >= d.med ? 'أعلى من نصف الصف' : mine >= d.q1 ? 'حول متوسّط الصف' : 'تحتاج إلى تسريع الإنجاز';
+      out.innerHTML = `<p style="margin:.2rem 0"><b>أنت في ${band}</b></p>
+        <div class="brow"><span class="nm">إنجازك</span><div class="bar"><i class="g" style="width:${mine}%"></i></div><b>${mine} %</b></div>
+        <div class="brow"><span class="nm">متوسّط الصف</span><div class="bar"><i style="width:${d.avg}%"></i></div><b>${d.avg} %</b></div>
+        <p class="hint">عدد من بدأ الوحدة : ${d.n} . لا يظهر ترتيبك الرقمي ولا أسماء زملائك.</p>`;
+    })
+    .catch(() => { out.innerHTML = `<div class="brow"><span class="nm">إنجازك</span><div class="bar"><i class="g" style="width:${mine}%"></i></div><b>${mine} %</b></div><p class="hint">تعذّرت المقارنة الآن.</p>`; });
+}
+function radarSvg(axes) {
+  const R = 100, cx = 150, cy = 132, n = axes.length;
+  const pt = (i, v) => { const a = -Math.PI / 2 + i * 2 * Math.PI / n, r = R * Math.max(0, Math.min(100, v)) / 100; return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; };
+  let g = '';
+  [25, 50, 75, 100].forEach(l => { g += `<polygon points="${axes.map((_, i) => pt(i, l).join(',')).join(' ')}" fill="none" stroke="#DCE3EC"/>`; });
+  axes.forEach((_, i) => { const p = pt(i, 100); g += `<line x1="${cx}" y1="${cy}" x2="${p[0]}" y2="${p[1]}" stroke="#DCE3EC"/>`; });
+  g += `<polygon points="${axes.map((x, i) => pt(i, x[1]).join(',')).join(' ')}" fill="rgba(43,92,168,.28)" stroke="#2B5CA8" stroke-width="2"/>`;
+  axes.forEach((x, i) => { const p = pt(i, x[1]); g += `<circle cx="${p[0]}" cy="${p[1]}" r="3" fill="#00205B"/>`; });
+  axes.forEach((x, i) => { const p = pt(i, 128); g += `<text x="${p[0]}" y="${p[1]}" text-anchor="middle" dominant-baseline="middle" font-size="11" fill="#12243B">${esc(x[0])}</text>`; });
+  const d = el('div', 'radar'); d.innerHTML = `<svg viewBox="0 0 300 275" width="100%" height="275">${g}</svg>`; return d;
 }
 
 function nodeEl(n) {
@@ -954,71 +1704,9 @@ function nodeEl(n) {
   return null;
 }
 
-function summary(u) {
-  const out = [];
-  u.chapters.forEach(ch => {
-    const sec = el('section', 'chap');
-    sec.append(el('h1', 'ch', fmt(ch.title)));
-    ch.nodes.forEach(n => { if (n.t === 'examples') return; const x = nodeEl(n); if (x) sec.append(x); });
-    out.push(sec);
-  });
-  return out;
-}
 
 /* ---------- النماذج المحلولة ---------- */
-function examplesView(u) {
-  const out = [el('p', 'hint', 'حاول حلّ النموذج بنفسك ، ثم أظهر الخطوات واحدة واحدة.')];
-  u.examples.forEach(ex => {
-    ex.list.forEach(item => {
-      const c = el('div', 'card2');
-      c.append(el('div', 'ct', fmt(item.t)));
-      c.append(el('p', 'qq', fmt(item.q)));
-      const sol = el('div', 'sol');
-      let shown = 0;
-      const btns = el('div', 'btns');
-      const next = el('button', 'btn', 'الخطوة التالية');
-      const all = el('button', 'btn ghost', 'إظهار الحلّ كاملًا');
-      next.onclick = () => { if (shown < item.sol.length) sol.insertAdjacentHTML('beforeend', line(item.sol[shown++])); if (shown >= item.sol.length) next.disabled = true; };
-      all.onclick = () => { while (shown < item.sol.length) sol.insertAdjacentHTML('beforeend', line(item.sol[shown++])); next.disabled = true; };
-      btns.append(next, all);
-      c.append(btns, sol);
-      out.push(c);
-    });
-  });
-  return out;
-}
 
-/* ---------- الأسئلة المتدرجة ---------- */
-function questionsView(u) {
-  const q = u.questions;
-  if (!q) return [el('p', '', 'لا توجد أسئلة.')];
-  const showA = isTeacher() || (SET.perm.qa && uset(u.id).qa);
-  const out = [];
-  if (!showA) out.push(el('p', 'hint', 'أجب في دفترك ؛ الحلول غير متاحة في هذا التبويب حاليًّا.'));
-  let n = 1;
-  [['المستوى ( أ ) : تذكّر وفهم', q.a], ['المستوى ( ب ) : تطبيق', q.b], ['المستوى ( جـ ) : تحليل واستدلال', q.c]].forEach(([title, arr]) => {
-    out.push(el('h2', 'lvl', esc(title)));
-    (arr || []).forEach(item => out.push(qCard(u, item, n++, showA)));
-  });
-  return out;
-}
-function qCard(u, item, n, showA) {
-  const c = el('div', 'card2');
-  c.append(el('div', 'qn', `س ${n}`));
-  c.append(el('p', 'qq', fmt(item.q)));
-  if (item.tbl) c.append(nodeEl({ t: 'table', rows: item.tbl }));
-  if (!showA) return c;
-  const ans = el('div', 'ans hidden');
-  (item.a || []).forEach(a => ans.insertAdjacentHTML('beforeend', line(a)));
-  const b = el('button', 'btn', 'أظهر الإجابة');
-  b.onclick = () => {
-    ans.classList.toggle('hidden');
-    b.textContent = ans.classList.contains('hidden') ? 'أظهر الإجابة' : 'إخفاء الإجابة';
-    const p = prog(u.id); if (!p.seen.includes(n)) { p.seen.push(n); save(); logEvent('reveal', u.id, 'س' + n); }
-  };
-  c.append(b, ans);
-  return c;
-}
 
 /* ================= اختبار الوحدة ================= */
 const AR = ['أ', 'ب', 'جـ', 'د'];
@@ -1275,8 +1963,17 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowRight' || e.key === 'PageUp') scrollBy(0, -innerHeight * 0.85);
 });
 
+function setTheme(dark) {
+  document.body.classList.toggle('dark', !!dark);
+  try { localStorage.setItem('dosiati-theme', dark ? 'd' : 'l'); } catch (e) {}
+  const m = document.querySelector('meta[name=theme-color]'); if (m) m.content = dark ? '#0E1726' : '#00205B';
+  bar();
+}
 window.addEventListener('DOMContentLoaded', () => {
   $('#pbtn').onclick = togglePresent;
+  $('#sbtn').onclick = toggleSnd;
+  $('#tbtn').onclick = () => setTheme(!document.body.classList.contains('dark'));
+  setTheme(localStorage.getItem('dosiati-theme') === 'd');
   $('#zin').onclick = () => zoom(1);
   $('#zout').onclick = () => zoom(-1);
   $('#out').onclick = () => { if (confirm('تسجيل الخروج ؟')) logout(); };

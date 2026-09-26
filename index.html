@@ -144,6 +144,88 @@ body.present .tabs{top:0}
 body.present #bar .brand,body.present .uhead .back{display:none}
 body.present .wrap{max-width:70rem}
 body.present .card2,body.present .box,body.present table{font-size:1.02em}
+
+/* ===== الترويسة الرسمية ===== */
+.ohead{background:#fff;border:1px solid var(--line);border-radius:16px;padding:.9rem;text-align:center;margin-bottom:.9rem}
+.ohead .olog{width:74px;height:74px;object-fit:contain;margin-bottom:.3rem}
+.ohead .d1{font-size:.9rem;color:#40506a}
+.ohead .d2{font-size:1rem;font-weight:700;color:var(--navy)}
+.ohead .d3{font-size:1.45rem;font-weight:700;color:var(--blue);margin:.3rem 0 .05rem}
+.ohead .d4{font-size:.84rem;color:#5b6b80}
+/* ===== مسار المحطّات ===== */
+.uhead2{display:flex;align-items:center;gap:.6rem;background:#fff;border:1px solid var(--line);border-radius:14px;padding:.7rem .85rem}
+.uhead2 strong{display:block;color:var(--navy);font-size:1.15rem}
+.uhead2 span{font-size:.8rem;color:#5b6b80}
+.uhead2 .back{display:inline-block;color:var(--blue);text-decoration:none;font-size:.85rem;margin-bottom:.15rem}
+.ring{flex:0 0 auto}
+.steps{display:flex;gap:.3rem;overflow:auto;padding:.5rem 0;position:sticky;top:2.6rem;background:var(--bg);z-index:10}
+.st{white-space:nowrap;border:1px solid var(--line);background:#fff;color:#5b6b80;border-radius:999px;padding:.3rem .7rem;font-size:.84rem;cursor:pointer;font-family:inherit;display:flex;gap:.35rem;align-items:center}
+.st b{background:#EDF1F7;color:#40506a;border-radius:50%;width:1.3rem;height:1.3rem;display:grid;place-items:center;font-size:.72rem}
+.st.on{background:var(--navy);color:#fff;border-color:var(--navy)}.st.on b{background:#ffffff33;color:#fff}
+.st.done{border-color:#9AD0B0}.st.done b{background:#E8F7EE;color:#1E6B3B}
+.st.lock{opacity:.5}
+.btn.ok{background:#1E6B3B}
+.card .crow{display:flex;gap:.6rem;align-items:center}
+.fig{background:#fff;border:1px solid var(--line);border-radius:12px;padding:.5rem;margin:.6rem 0;text-align:center}
+.fig img{max-width:100%;border-radius:8px}
+.fig .cap{font-size:.8rem;color:#5b6b80;margin-top:.3rem}
+iframe.sim{width:100%;height:26rem;border:1px solid var(--line);border-radius:12px;margin:.5rem 0;background:#fff}
+.isim{background:#fff;border:1px solid var(--line);border-radius:12px}
+.badges{display:flex;flex-wrap:wrap;gap:.4rem}
+.badge{background:var(--mint);border:1px solid #BFD8D2;border-radius:999px;padding:.2rem .7rem;font-size:.85rem;color:var(--navy)}
+.badge b{font-size:1rem}
+.brow{display:flex;align-items:center;gap:.5rem;margin:.35rem 0;font-size:.86rem}
+.brow .nm{min-width:8.5rem;color:#40506a}
+.bar{flex:1;height:.55rem;background:#E7EDF5;border-radius:999px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--blue)}
+.bar i.g{background:#48A96B}
+.radar{background:#fff;border-radius:12px}
+.mt{font-weight:700;color:var(--navy);font-size:.85rem;margin-bottom:.2rem}
+@media print{.steps,.ohead{display:none}}
+
+/* ===== الوضع الليلي ===== */
+body.dark{--navy:#7FA9E8;--blue:#8FB6EE;--mint:#16283F;--gold:#2E2919;--line:#243348;--ink:#DCE6F5;--bg:#0E1726}
+body.dark #bar{background:#0B1220}
+body.dark .card,body.dark .card2,body.dark table,body.dark .gate,body.dark .ohead,body.dark .uhead2,body.dark .st,body.dark .opt,body.dark textarea,body.dark .fl select,body.dark .fl input,body.dark .search,body.dark .stat,body.dark .fig,body.dark .radar,body.dark .eq,body.dark .isim,body.dark .fcard{background:#16202F;color:var(--ink);border-color:var(--line)}
+body.dark th{background:#1E3A5F;color:#EAF2FF}
+body.dark tr:nth-child(even) td{background:#1A2536}
+body.dark .box{border-color:var(--line)}
+body.dark .box.mint{background:#16283F}
+body.dark .box.gold{background:#2E2919;border-color:#4A3F22}
+body.dark .steps,body.dark .tabs{background:var(--bg)}
+body.dark .st.on,body.dark .tab.on{background:#1E3A5F;color:#fff;border-color:#2C5488}
+body.dark h1.ch{background:#1E3A5F}
+body.dark .opt.right{background:#16341F;border-color:#2F7A4A}
+body.dark .opt.wrong{background:#3A1A1A;border-color:#8B3A3A}
+body.dark .fb.g{background:#16341F;color:#8FE3AC}body.dark .fb.r{background:#3A1A1A;color:#F0A9A9}
+body.dark .btn.ghost{background:#16202F}
+body.dark .bar{background:#22304A}
+body.dark .mine{background:#141D2B}
+body.dark .json{background:#05090F}
+body.dark .hint,body.dark .card .meta,body.dark .uhead2 span{color:#9FB2CC}
+/* ===== بطاقات المصطلحات ===== */
+.flash{margin:.5rem 0}
+.fcard{background:#fff;border:1px solid var(--line);border-radius:14px;min-height:7.5rem;display:grid;place-items:center;text-align:center;padding:1rem;cursor:pointer;transition:.15s}
+.fcard:hover{border-color:var(--blue)}
+.fcard .ff{font-size:1.25rem;font-weight:700;color:var(--navy)}
+.fcard .fb2{font-size:1rem;color:var(--ink);line-height:1.9}
+.fcard.back{background:var(--mint)}
+.nash{margin-top:.5rem}
+/* ===== شهادة الإتمام ===== */
+#certbox{display:none}
+.cert{border:6px double var(--navy);border-radius:14px;padding:2rem 1.5rem;text-align:center;background:#fff;color:#12243B;max-width:26cm;margin:0 auto}
+.cert .clogo{width:90px;height:90px;object-fit:contain}
+.cert .c1{font-size:1rem;color:#40506a}
+.cert .c2{font-size:1.1rem;font-weight:700;color:#00205B}
+.cert .ctitle{font-size:2rem;font-weight:700;color:#2B5CA8;margin:1.2rem 0 .8rem;letter-spacing:.04em}
+.cert .c3{font-size:1.05rem;margin:.5rem 0}
+.cert .cname{font-size:1.7rem;font-weight:700;color:#00205B;margin:.4rem 0}
+.cert .cunit{font-size:1.4rem;font-weight:700;color:#7A2E2E;margin:.4rem 0}
+.cert .csign{display:flex;justify-content:space-between;margin-top:2.5rem;font-size:.95rem;color:#40506a}
+@media print{
+  body.pcert #app,body.pcert #bar,body.pcert #flash{display:none!important}
+  body.pcert #certbox{display:block}
+}
 @media print{#bar,.tabs,.btn,.btns2,textarea{display:none}.ans,.sol{display:block!important}}
 </style>
 </head>
@@ -153,6 +235,8 @@ body.present .card2,body.present .box,body.present table{font-size:1.02em}
   <span id="who"></span>
   <button id="zout" title="تصغير الخط">أ−</button>
   <button id="zin" title="تكبير الخط">أ+</button>
+  <button id="sbtn" title="كتم الأصوات">🔊</button>
+  <button id="tbtn" title="الوضع الليلي">🌙</button>
   <button id="pbtn">وضع العرض</button>
   <button id="out" style="display:none">خروج</button>
 </div>
