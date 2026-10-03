@@ -75,6 +75,7 @@ const SPAN = /[A-Za-z0-9°²³⁴⁵⁶⁷⁸⁹⁻¹⁰₀₁₂₃₄₅₆₇
 function fmt(raw) {
   let t = esc(chem(String(raw ?? '')));
   t = t.replace(/&lt;ltr&gt;([\s\S]*?)&lt;\/ltr&gt;/g, '\u0003$1\u0004');
+  t = t.replace(/&lt;(\/?)b&gt;/g, '<$1b>');
   t = t.replace(SPAN, m => {
     if (!/[A-Za-z0-9]/.test(m)) return m;
     if (!/[=<>+\-−×·÷\/√|]/.test(m) && !/\d[\d.,]*\s+[A-Za-zμΩ]/.test(m)) return m;
@@ -93,24 +94,124 @@ function line(s) {
   return `<p>${fmt(s)}</p>`;
 }
 
+/* ============ تجزئة آمنة : SHA-256 + HMAC + PBKDF2 ============
+   تعمل على https ( عبر crypto.subtle السريع ) وعلى file:// ( عبر الشيفرة النقيّة ) ، والناتج واحد. */
+const SHK = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+function sha256(bytes) {
+  const l = bytes.length, bl = l * 8, pad = ((l + 9 + 63) >> 6) << 6, m = new Uint8Array(pad);
+  m.set(bytes); m[l] = 0x80;
+  const dv = new DataView(m.buffer);
+  dv.setUint32(pad - 4, bl >>> 0, false); dv.setUint32(pad - 8, Math.floor(bl / 4294967296), false);
+  let h0=0x6a09e667,h1=0xbb67ae85,h2=0x3c6ef372,h3=0xa54ff53a,h4=0x510e527f,h5=0x9b05688c,h6=0x1f83d9ab,h7=0x5be0cd19;
+  const w = new Int32Array(64);
+  for (let i = 0; i < pad; i += 64) {
+    for (let j = 0; j < 16; j++) w[j] = dv.getUint32(i + j * 4, false);
+    for (let j = 16; j < 64; j++) { const a = w[j-15], b = w[j-2];
+      const s0 = ((a>>>7)|(a<<25)) ^ ((a>>>18)|(a<<14)) ^ (a>>>3);
+      const s1 = ((b>>>17)|(b<<15)) ^ ((b>>>19)|(b<<13)) ^ (b>>>10);
+      w[j] = (w[j-16] + s0 + w[j-7] + s1) | 0; }
+    let a=h0,b=h1,c=h2,d=h3,e=h4,f=h5,g=h6,h=h7;
+    for (let j = 0; j < 64; j++) {
+      const S1 = ((e>>>6)|(e<<26)) ^ ((e>>>11)|(e<<21)) ^ ((e>>>25)|(e<<7));
+      const ch = (e & f) ^ (~e & g);
+      const t1 = (h + S1 + ch + SHK[j] + w[j]) | 0;
+      const S0 = ((a>>>2)|(a<<30)) ^ ((a>>>13)|(a<<19)) ^ ((a>>>22)|(a<<10));
+      const mj = (a & b) ^ (a & c) ^ (b & c);
+      const t2 = (S0 + mj) | 0;
+      h=g; g=f; f=e; e=(d+t1)|0; d=c; c=b; b=a; a=(t1+t2)|0; }
+    h0=(h0+a)|0;h1=(h1+b)|0;h2=(h2+c)|0;h3=(h3+d)|0;h4=(h4+e)|0;h5=(h5+f)|0;h6=(h6+g)|0;h7=(h7+h)|0; }
+  const out = new Uint8Array(32), o = new DataView(out.buffer);
+  [h0,h1,h2,h3,h4,h5,h6,h7].forEach((v, i) => o.setUint32(i * 4, v >>> 0, false));
+  return out;
+}
+function shmac(key, msg) {
+  const k = key.length > 64 ? sha256(key) : key;
+  const kp = new Uint8Array(64); kp.set(k);
+  const ip = new Uint8Array(64 + msg.length), op = new Uint8Array(96);
+  for (let i = 0; i < 64; i++) { ip[i] = kp[i] ^ 0x36; op[i] = kp[i] ^ 0x5c; }
+  ip.set(msg, 64); op.set(sha256(ip), 64);
+  return sha256(op);
+}
+function pbkdf2js(pass, salt, iter) {
+  const p = new TextEncoder().encode(pass), s = new TextEncoder().encode(salt);
+  const b = new Uint8Array(s.length + 4); b.set(s); b[s.length + 3] = 1;
+  let u = shmac(p, b); const acc = u.slice();
+  for (let i = 1; i < iter; i++) { u = shmac(p, u); for (let j = 0; j < 32; j++) acc[j] ^= u[j]; }
+  return [...acc].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+const KDF_ITER = 20000;
+async function codeHash(code, salt) {
+  const s = 'dosiati:' + (salt === undefined ? (SET.salt || '') : salt);
+  try {
+    if (self.isSecureContext && self.crypto && crypto.subtle) {
+      const k = await crypto.subtle.importKey('raw', new TextEncoder().encode(code), 'PBKDF2', false, ['deriveBits']);
+      const bits = await crypto.subtle.deriveBits({ name: 'PBKDF2', salt: new TextEncoder().encode(s), iterations: KDF_ITER, hash: 'SHA-256' }, k, 256);
+      return [...new Uint8Array(bits)].map(x => x.toString(16).padStart(2, '0')).join('');
+    }
+  } catch (e) {}
+  return pbkdf2js(code, s, KDF_ITER);
+}
+
+/* ============ رمز الطالب : عشوائي غير قابل للتنبّؤ ============ */
+const CA = '23456789ACDEFGHJKMNPQRTUVWXY';   /* بلا 0 1 B I L O S Z منعًا للالتباس */
+const CLEN = 9;
+function newCode() {
+  const a = new Uint8Array(CLEN);
+  if (self.crypto && crypto.getRandomValues) crypto.getRandomValues(a);
+  else for (let i = 0; i < CLEN; i++) a[i] = Math.floor(Math.random() * 256);
+  let s = ''; for (let i = 0; i < CLEN; i++) s += CA[a[i] % CA.length];
+  return s;
+}
+const fmtCode = c => String(c || '').replace(/(.{3})(?=.)/g, '$1-');
+function normCode(v) {
+  const t = String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
+    .replace(/B/g, '8').replace(/S/g, '5').replace(/Z/g, '2');
+  return [...t].filter(c => CA.indexOf(c) >= 0).join('');
+}
+
+/* ============ خزنة الأكواد — على جهاز المعلّم وحده ============ */
+const VKEY = 'dosiati-codes';
+function vaultGet() { try { return JSON.parse(localStorage.getItem(VKEY) || '{}'); } catch (e) { return {}; } }
+function vaultPut(v) { try { localStorage.setItem(VKEY, JSON.stringify(v)); } catch (e) {} }
+function vaultSet(h, code) { const v = vaultGet(); v[h] = code; vaultPut(v); }
+const vaultOf = h => vaultGet()[h] || '';
+function saveBlob2(txt, name, type) {
+  const a = el('a'); a.href = URL.createObjectURL(new Blob([txt], { type: type || 'application/json' }));
+  a.download = name; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}
+
 /* ============ الهوية ============ */
-function readCode(v) {
+function legacyRead(v) {
   const t = String(v || '').replace(/[^0-9]/g, '');
   if (t.length < 9 || t.length > 12) return null;
-  const year = +t.slice(0, 4), term = t.slice(4, 6), grade = t.slice(6, 8), no = t.slice(8);
-  if (SET.checkYear && year !== +SET.year) return null;
-  if (year < 2020 || year > 2060) return null;
-  if (!TERMS[term]) return null;
-  if (SET.checkTerm && term !== SET.term) return null;
-  const g = SET.grades[grade];
+  const row = (SET.roster || []).find(r => r.h === hash(t));
+  if (!row) return null;
+  const g = SET.grades[row.g];
   if (!g || !g.on) return null;
-  if (!/^[0-9]{1,4}$/.test(no) || +no < 1 || +no > (+g.max || 999)) return null;
-  const u = { code: t, year, term, grade, no: String(+no) };
-  const h = hash(t);
-  const row = (SET.roster || []).find(r => r.h === h);
-  if (row) { u.name = decName(row.e, t); u.sec = row.s || ''; }
-  if ((SET.roster || []).length && !row) return null;   // القائمة موجودة فالرمز لا بدّ أن يكون فيها
-  return u;
+  return { code: t, sid: String(row.h).slice(0, 12), legacy: true, year: +SET.year, term: SET.term,
+           grade: row.g, no: String(row.n), sec: row.s || '', name: decName(row.e, t) || '' };
+}
+async function readCodeAsync(v) {
+  const t = normCode(v);
+  if (t.length === CLEN) {
+    const h = await codeHash(t);
+    const row = (SET.roster || []).find(r => r.h === h);
+    if (row) {
+      const g = SET.grades[row.g];
+      if (!g || !g.on) return null;
+      return { code: t, sid: h.slice(0, 12), year: +SET.year, term: SET.term,
+               grade: row.g, no: String(row.n), sec: row.s || '', name: decName(row.e, t) || '' };
+    }
+  }
+  return legacyRead(v);
 }
 const userKey = 'dosiati-user';
 function loadUser() { try { return JSON.parse(localStorage.getItem(userKey) || 'null'); } catch (e) { return null; } }
@@ -138,15 +239,18 @@ function decName(b64, code) {
   } catch (e) { return ''; }
 }
 const codeOf = (g, n, year, term) => String(year || SET.year) + (term || SET.term) + g + String(n).padStart(2, '0');
-function nameOf(code) {
-  const h = hash(code);
-  const row = (SET.roster || []).find(r => r.h === h);
-  return row ? decName(row.e, code) : '';
+/* الرمز المطبوع للطالب : من الخزنة ، أو مشتقّ إن كان الصفّ ما زال على النظام القديم */
+function pinOf(r) {
+  const v = vaultOf(r.h);
+  if (v) return v;
+  const old = codeOf(r.g, r.n);
+  return (r.h === hash(old)) ? old : '';
 }
 function rosterOf(g) {
   return (SET.roster || []).filter(r => r.g === g).map(r => {
-    const code = codeOf(r.g, r.n);
-    return { no: r.n, sec: r.s || '', code, name: decName(r.e, code) || '( بلا اسم )' };
+    const pin = pinOf(r);
+    return { no: r.n, sec: r.s || '', code: String(r.h).slice(0, 12), pin,
+             name: (pin ? decName(r.e, pin) : '') || ('طالب رقم ' + r.n) };
   }).sort((a, b) => (+a.no) - (+b.no));
 }
 
@@ -156,7 +260,7 @@ function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } 
 function lsPut(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 function logEvent(type, unit, detail, score) {
   if (!S.user || isTeacher() || !SET.log || SET.log.on === false) return;
-  const e = { t: Date.now(), code: S.user.code, name: S.user.name || '', g: S.user.grade, s: S.user.sec || '', n: S.user.no, type, unit: unit || '', detail: detail || '', score: (score === undefined ? '' : score) };
+  const e = { t: Date.now(), code: S.user.sid || S.user.code, name: S.user.name || '', g: S.user.grade, s: S.user.sec || '', n: S.user.no, type, unit: unit || '', detail: detail || '', score: (score === undefined ? '' : score) };
   const loc = lsGet(LOGL); loc.push(e); lsPut(LOGL, loc.slice(-800));
   const q = lsGet(LOGQ); q.push(e); lsPut(LOGQ, q.slice(-400));
   flushLog();
@@ -431,18 +535,21 @@ function loginView() {
   const teacherMode = !!S.loginTeacher;
   g.append(el('p', '', teacherMode ? 'دخول المعلّم : أدخل رمزك.' : 'أدخل رمز الدخول الخاص بك.'));
   const i = el('input');
-  if (teacherMode) { i.type = 'password'; } else { i.type = 'tel'; i.inputMode = 'numeric'; }
-  i.placeholder = teacherMode ? 'رمز المعلّم' : 'رمز الدخول';
+  if (teacherMode) { i.type = 'password'; } else { i.type = 'text'; i.autocapitalize = 'characters'; i.spellcheck = false; i.style.textTransform = 'uppercase'; i.style.letterSpacing = '.12em'; }
+  i.placeholder = teacherMode ? 'رمز المعلّم' : 'XXX-XXX-XXX';
   i.setAttribute('dir', 'ltr'); i.id = 'code'; i.autocomplete = 'off';
   const msg = el('p', 'err', '');
   const b = el('button', 'btn', 'دخول');
-  b.onclick = () => {
+  b.onclick = async () => {
     const v = i.value.trim();
     if (v && okPin(v)) { setUser({ teacher: true }); openStore(); S.loginTeacher = false; S.screenLogin = false; stopNasheed(); location.hash = ''; render(); return; }
     if (teacherMode) { msg.textContent = 'رمز غير صحيح.'; i.select(); return; }
     if (SET.lock) { msg.textContent = SET.lockMsg || 'الدخول مغلق حاليًّا.'; return; }
-    const u = readCode(v);
-    if (!u) { msg.textContent = 'رمز غير صحيح.'; i.select(); return; }
+    b.disabled = true; msg.className = 'err wait'; msg.textContent = 'جارٍ التحقّق من الرمز …';
+    let u = null;
+    try { u = await readCodeAsync(v); } catch (e) { u = null; }
+    b.disabled = false; msg.className = 'err';
+    if (!u) { msg.textContent = 'رمز غير صحيح . تحقّق من الحروف والأرقام كما هي على بطاقتك.'; i.select(); return; }
     setUser(u); openStore(); location.hash = '';
     logEvent('login'); S.screenLogin = false; stopNasheed(); play('ok');
     render();
@@ -1000,38 +1107,97 @@ function adminView() {
     ta.placeholder = 'الصق الأسماء سطرًا لكل طالب ، أو : الرقم ثم الاسم مفصولين بمسافة أو Tab';
     b.append(el('p', 'hint', 'الأسماء :'), ta);
     const r2 = el('div', 'btns');
-    const add = el('button', 'btn', 'استيراد وتوليد الأكواد');
-    add.onclick = () => {
+    const add = el('button', 'btn', 'استيراد وتوليد أكواد عشوائية');
+    add.onclick = async () => {
       const lines = ta.value.split(/\n/).map(x => x.trim()).filter(Boolean);
       if (!lines.length) return flash('الصق الأسماء أولًا.');
       let n = +st.value || 1;
+      add.disabled = true; add.textContent = 'جارٍ توليد الأكواد …';
       D.roster = (D.roster || []).filter(r => r.g !== gs.value || (se.value && r.s !== se.value));
-      lines.forEach(ln => {
+      const made = [];
+      for (const ln of lines) {
         const m = ln.match(/^(\d{1,3})[\s\t.\-]+(.+)$/);
         const no = m ? m[1] : String(n);
         const name = (m ? m[2] : ln).trim();
-        const code = codeOf(gs.value, no, D.year, D.term);
-        D.roster.push({ h: hash(code), e: encName(name, code), g: gs.value, s: se.value || '', n: String(+no) });
+        const pin = newCode();
+        const h = await codeHash(pin);
+        D.roster.push({ h, e: encName(name, pin), g: gs.value, s: se.value || '', n: String(+no) });
+        vaultSet(h, pin); made.push({ no: String(+no), name, pin });
         n = (+no) + 1;
-      });
-      flash('أُضيف ' + lines.length + ' طالبًا . اضغط « حفظ التغييرات ».');
+      }
+      add.disabled = false; add.textContent = 'استيراد وتوليد أكواد عشوائية';
+      backupVault();
+      flash('أُضيف ' + made.length + ' طالبًا بأكواد عشوائية ، ونُزِّلت نسخة احتياطية . اضغط « حفظ التغييرات ».');
       ta.value = ''; render();
     };
     const clr = el('button', 'btn ghost', 'حذف قائمة هذا الصف');
     clr.onclick = () => { if (confirm('حذف أسماء ' + GRADES[gs.value] + ' ؟')) { D.roster = (D.roster || []).filter(r => r.g !== gs.value); render(); } };
-    const pb = el('button', 'btn ghost', '🖨 طباعة قائمة الأكواد');
-    r2.append(add, clr, pb);
+    const pb = el('button', 'btn ghost', '🖨 طباعة بطاقات الأكواد');
+    const mg = el('button', 'btn ghost', '⟳ تحويل هذا الصف إلى أكواد آمنة');
+    mg.onclick = async () => {
+      const rows = (D.roster || []).filter(r => r.g === gs.value);
+      const old = rows.filter(r => !vaultOf(r.h));
+      if (!old.length) return flash('أكواد هذا الصف آمنة أصلًا.');
+      if (!confirm('سيُعطى ' + old.length + ' طالبًا أكوادًا جديدة ، وتبطل أكوادهم القديمة . هل تريد المتابعة ؟')) return;
+      mg.disabled = true; mg.textContent = 'جارٍ التحويل …';
+      for (const r of old) {
+        const oldPin = pinOf(r);
+        const name = oldPin ? decName(r.e, oldPin) : '';
+        const pin = newCode(); const h = await codeHash(pin);
+        r.e = encName(name || ('طالب رقم ' + r.n), pin); r.h = h;
+        vaultSet(h, pin);
+      }
+      mg.disabled = false; mg.textContent = '⟳ تحويل هذا الصف إلى أكواد آمنة';
+      backupVault();
+      flash('حُوِّل ' + old.length + ' طالبًا . وزّع البطاقات الجديدة ، ثمّ احفظ وانشر الإعدادات.');
+      render();
+    };
+    const bk = el('button', 'btn ghost', '⬇ نسخة احتياطية للأكواد');
+    bk.onclick = () => { backupVault(); flash('نُزِّلت نسخة الأكواد . احفظها في مكان آمن على حاسوبك.'); };
+    const rs = el('button', 'btn ghost', '⬆ استعادة نسخة الأكواد');
+    rs.onclick = () => {
+      const inp = el('input'); inp.type = 'file'; inp.accept = '.json';
+      inp.onchange = () => { const fl = inp.files[0]; if (!fl) return;
+        const rd = new FileReader();
+        rd.onload = () => { try { const o = JSON.parse(rd.result); const v = vaultGet();
+            Object.keys(o.codes || o).forEach(k => { v[k] = (o.codes || o)[k]; });
+            vaultPut(v); flash('استُعيدت ' + Object.keys(o.codes || o).length + ' بطاقة.'); render();
+          } catch (e) { flash('الملف غير صالح.'); } };
+        rd.readAsText(fl); };
+      inp.click();
+    };
+    r2.append(add, clr, pb, mg, bk, rs);
     b.append(r2);
 
-    const cur = (D.roster || []).filter(r => r.g === gs.value).map(r => { const c = codeOf(r.g, r.n, D.year, D.term); return { no: r.n, s: r.s, code: c, name: decName(r.e, c) }; }).sort((a, c) => (+a.no) - (+c.no));
+    const cur = (D.roster || []).filter(r => r.g === gs.value).map(r => {
+      const pin = pinOf(r);
+      return { no: r.n, s: r.s, pin, safe: !!vaultOf(r.h), name: (pin ? decName(r.e, pin) : '') || ('طالب رقم ' + r.n) };
+    }).sort((a, c) => (+a.no) - (+c.no));
+    const nOld = cur.filter(r => !r.safe).length;
     const tw = el('div', 'tw codes');
     const t = el('table');
-    t.innerHTML = '<tr><th>#</th><th>اسم الطالب</th><th>الشعبة</th><th>رمز الدخول</th></tr>' +
-      cur.map(r => `<tr><td>${esc(r.no)}</td><td>${esc(r.name)}</td><td>${esc(r.s)}</td><td>${esc(r.code)}</td></tr>`).join('');
+    t.innerHTML = '<tr><th>#</th><th>اسم الطالب</th><th>الشعبة</th><th>رمز الدخول</th><th>النوع</th></tr>' +
+      cur.map(r => `<tr><td>${esc(r.no)}</td><td>${esc(r.name)}</td><td>${esc(r.s)}</td><td>${esc(r.pin ? (r.safe ? fmtCode(r.pin) : r.pin) : '— غير متوفّر على هذا الجهاز —')}</td><td>${r.safe ? 'آمن' : 'قديم'}</td></tr>`).join('');
     tw.append(t); b.append(tw);
     b.append(el('p', 'hint', 'عدد الطلبة في هذا الصف : ' + cur.length));
-    pb.onclick = () => printList('<h3>أكواد ' + GRADES[gs.value] + ' — ' + TERMS[D.term] + ' ' + D.year + '</h3>' + tw.innerHTML);
-    b.append(el('div', 'box gold', '<div class="bt">ملحوظة صريحة على الخصوصية</div><p style="margin:0;font-size:.88rem">الاسم مُخزَّن مُشفَّرًا بمفتاح مُشتقّ من رمز الطالب ، فمَن يفتح ملف الإعدادات يرى حروفًا لا معنى لها ، ولا تلتقطها محرّكات البحث. لكنّ الرمز مكوّن من أرقام متوقّعة ، فشخص تقنيّ مُصرّ يستطيع تجريب الأرقام ليكشف الأسماء. إن أردت حماية أقوى نضيف خانتين عشوائيتين إلى رمز كل طالب.</p>'));
+    pb.onclick = () => {
+      const cards = cur.filter(r => r.pin).map(r => '<div class="cd"><div class="cn">' + esc(r.name) + '</div>' +
+        '<div class="cg">' + esc(GRADES[gs.value]) + (r.s ? ' / ' + esc(r.s) : '') + ' · رقم ' + esc(r.no) + '</div>' +
+        '<div class="cc">' + esc(r.safe ? fmtCode(r.pin) : r.pin) + '</div>' +
+        '<div class="cf">' + esc((D.site && D.site.url) || 'صفحة التعلّم الذاتي') + '</div></div>').join('');
+      printList('<style>.wrap{display:flex;flex-wrap:wrap;gap:6mm}.cd{width:85mm;border:1px dashed #888;border-radius:4mm;padding:4mm;text-align:center}' +
+        '.cn{font-weight:700;font-size:12pt}.cg{font-size:9pt;color:#444;margin:1mm 0 3mm}' +
+        '.cc{direction:ltr;font-family:Consolas,monospace;font-size:19pt;letter-spacing:.12em;font-weight:700}' +
+        '.cf{font-size:8pt;color:#666;margin-top:2mm}</style>' +
+        '<h3>بطاقات دخول ' + GRADES[gs.value] + ' — ' + TERMS[D.term] + ' ' + D.year + '</h3><div class="wrap">' + cards + '</div>');
+    };
+    b.append(el('div', 'box gold', '<div class="bt">كيف تُحفظ الأكواد — اقرأ هذا مرّة واحدة</div><p style="margin:0;font-size:.88rem">' +
+      'الملفّ المنشور <b>لا يحوي رمز أيّ طالب</b> ، بل بصمته فقط ( PBKDF2-SHA256 بعشرين ألف دورة ) ، والاسم مشفَّر بمفتاح مشتقّ من الرمز نفسه . فمن يفتح الملفّ لا يرى اسمًا ولا يستطيع الدخول بحساب أحد.<br>' +
+      'الرمز عشوائي من تسع خانات ، فلا يُتنبّأ برمز زميل مهما عرف الطالب رمزه هو.<br>' +
+      '<b>الأكواد تعيش على هذا الجهاز وحده.</b> إن مسحت بيانات المتصفّح ولم تكن عندك نسخة احتياطية فلا سبيل إلى استرجاعها ، ويلزم توليد أكواد جديدة للصفّ . احتفظ بالنسخة الاحتياطية خارج المتصفّح.<br>' +
+      'وهذه حماية تنظيمية قويّة ، لكنّها لا تمنع طالبًا من إعطاء رمزه لزميله طوعًا ؛ ولذلك يبقى إبطال الرمز وإصدار بديل متاحًا لك.' +
+      '</p>'));
+    if (nOld) b.append(el('div', 'box warn2', '<div class="bt">تنبيه</div><p style="margin:0;font-size:.88rem">' + nOld + ' طالبًا في هذا الصفّ ما زالوا على الأكواد القديمة القابلة للتنبّؤ . اضغط « تحويل هذا الصف إلى أكواد آمنة » ثمّ وزّع البطاقات الجديدة.</p>'));
   }
 
   /* ---------- الربط والإرسال ---------- */
@@ -1097,6 +1263,15 @@ function adminView() {
     document.body.append(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }
+}
+function backupVault() {
+  const v = vaultGet();
+  const rows = (SET.roster || []).concat((typeof D !== 'undefined' && D && D.roster) ? D.roster : [])
+    .filter((r, i, a) => r && a.findIndex(x => x.h === r.h) === i);
+  const list = rows.filter(r => v[r.h]).map(r => ({ g: r.g, s: r.s || '', n: r.n, h: r.h, code: v[r.h],
+    name: decName(r.e, v[r.h]) || '' }));
+  const out = { app: 'dosiati', kind: 'codes', at: new Date().toISOString(), count: list.length, codes: v, students: list };
+  saveBlob2(JSON.stringify(out, null, 1), 'dosiati-codes-backup.json');
 }
 function flash(t) {
   let f = $('#flash');
