@@ -293,8 +293,12 @@
     const bar = el('div', 'srow'), bar2 = el('div', 'srow'), body = el('div');
     host.append(bar, bar2, body);
     const re = () => draw();
-    bar.append(sld('مقدار A', S.a, 5, 60, 5, v => { S.a = v; re(); }), sld('زاوية A', S.aa, 0, 180, 15, v => { S.aa = v; re(); }));
-    bar2.append(sld('مقدار B', S.b, 5, 60, 5, v => { S.b = v; re(); }), sld('زاوية B', S.ba, 0, 180, 15, v => { S.ba = v; re(); }));
+    const mkbars = () => {
+      bar.innerHTML = ''; bar2.innerHTML = '';
+      bar.append(sld('مقدار A', S.a, 5, 60, 5, v => { S.a = v; re(); }), sld('زاوية A', S.aa, 0, 180, 15, v => { S.aa = v; re(); }));
+      bar2.append(sld('مقدار B', S.b, 5, 60, 5, v => { S.b = v; re(); }), sld('زاوية B', S.ba, 0, 180, 15, v => { S.ba = v; re(); }));
+    };
+    mkbars();
 
     function draw() {
       const k = 2.2;
@@ -323,8 +327,8 @@
       body.append(el('div', 'vwrap', s));
       const row = el('div', 'srow');
       row.append(btn(S.comp ? 'أخفِ المُركّبات' : 'أظهر مُركّبات المحصلة', '', () => { S.comp = !S.comp; draw(); }));
-      row.append(btn('متعامدان', 'gh', () => { S.aa = 0; S.ba = 90; host.innerHTML = ''; vecadd(host); }));
-      row.append(btn('في اتجاه واحد', 'gh', () => { S.aa = 0; S.ba = 0; host.innerHTML = ''; vecadd(host); }));
+      row.append(btn('متعامدان', 'gh', () => { S.aa = 0; S.ba = 90; mkbars(); draw(); }));
+      row.append(btn('في اتجاه واحد', 'gh', () => { S.aa = 0; S.ba = 0; mkbars(); draw(); }));
       body.append(row);
       const res = el('div', 'sres');
       res.append(el('div', 'sl', 'المُركّبات : <b class="ltr">Rx = ' + R2(rx) + '</b> &nbsp; <b class="ltr">Ry = ' + R2(ry) + '</b>'));
@@ -373,4 +377,207 @@
 
   window.SIMS.vecadd = vecadd;
   window.SIMS.veccomp = veccomp;
+})();
+
+/* ===== محاكاة بِنية الذرّة ( كيمياء العاشر — الوحدة الأولى ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const SUP = { '-': '⁻', '0': '⁰', '1': '¹', '2': '²', '3': '³', '4': '⁴', '5': '⁵', '6': '⁶', '7': '⁷', '8': '⁸', '9': '⁹' };
+  const sup = n => String(n).split('').map(c => SUP[c] || c).join('');
+  const sci = (x, d) => {
+    d = (d === undefined ? 2 : d);
+    if (!isFinite(x) || x === 0) return '0';
+    let e = Math.floor(Math.log10(Math.abs(x)));
+    let m = x / Math.pow(10, e);
+    m = Math.round(m * Math.pow(10, d)) / Math.pow(10, d);
+    if (Math.abs(m) >= 10) { m = m / 10; e = e + 1; }
+    return String(m).replace(/^-/, '\u2212') + ' × 10' + sup(e);
+  };
+  const sld = (lab, val, min, max, step, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const i = document.createElement('input'); i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = val;
+    const v = el('b', 'nv', String(val));
+    i.oninput = () => { v.textContent = i.value; fn(+i.value); };
+    w.append(i, v); return w;
+  };
+  const sel = (lab, val, opts, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const s = document.createElement('select');
+    opts.forEach(o => { const p = document.createElement('option'); p.value = o[0]; p.textContent = o[1]; if (o[0] == val) p.selected = true; s.append(p); });
+    s.onchange = () => fn(s.value); w.append(s); return w;
+  };
+  const C = 3e8, HP = 6.63e-34, RH = 2.18e-18;
+
+  /* ---------------- 1 · الموجة وطاقة الفوتون ---------------- */
+  function wave(host) {
+    host.innerHTML = '';
+    const S = { nm: 500 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sld('الطول الموجي ( nm )', S.nm, 100, 1000, 20, v => { S.nm = v; draw(); }));
+
+    const colOf = n => n < 350 ? '#6B4FA8' : n < 440 ? '#6A3FA0' : n < 490 ? '#1F57C3' : n < 520 ? '#12855A'
+      : n < 565 ? '#8FA314' : n < 590 ? '#D4A017' : n < 625 ? '#D96B13' : n < 800 ? '#B3261E' : '#7A5407';
+    const zoneOf = n => n < 350 ? 'غير مرئي — فوق بنفسجي' : n <= 800 ? 'مرئي' : 'غير مرئي — تحت الأحمر';
+    const nameOf = n => n < 350 ? 'ما قبل البنفسجي' : n < 440 ? 'بنفسجي' : n < 490 ? 'أزرق' : n < 520 ? 'أخضر'
+      : n < 565 ? 'أخضر مُصفرّ' : n < 590 ? 'أصفر' : n < 625 ? 'برتقالي' : n <= 800 ? 'أحمر' : 'ما بعد الأحمر';
+
+    function draw() {
+      const W = 340, H = 170, mid = 95, col = colOf(S.nm);
+      const px = S.nm * 0.3;                       /* بكسل لكلّ موجة */
+      let d = '';
+      for (let x = 0; x <= W; x += 2) {
+        const y = mid - 42 * Math.sin(2 * Math.PI * x / px);
+        d += (x === 0 ? 'M' : 'L') + x + ' ' + Math.round(y * 10) / 10 + ' ';
+      }
+      let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="vsvg">';
+      s += '<line x1="0" y1="' + mid + '" x2="' + W + '" y2="' + mid + '" stroke="#DDE4EC"/>';
+      s += '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="3"/>';
+      /* سهم يقيس طولًا موجيًّا واحدًا بين قمّتين */
+      const p1 = px / 4, p2 = px / 4 + px;
+      if (p2 < W) {
+        s += '<line x1="' + p1 + '" y1="' + (mid - 53) + '" x2="' + p2 + '" y2="' + (mid - 53) + '" stroke="#00205B" stroke-width="1.5"/>';
+        s += '<line x1="' + p1 + '" y1="' + (mid - 58) + '" x2="' + p1 + '" y2="' + (mid - 48) + '" stroke="#00205B" stroke-width="1.5"/>';
+        s += '<line x1="' + p2 + '" y1="' + (mid - 58) + '" x2="' + p2 + '" y2="' + (mid - 48) + '" stroke="#00205B" stroke-width="1.5"/>';
+        s += '<text x="' + ((p1 + p2) / 2 - 6) + '" y="' + (mid - 61) + '" font-size="13" fill="#00205B">λ</text>';
+      }
+      /* شريط الطيف */
+      s += '<rect x="20" y="' + (H - 30) + '" width="300" height="14" fill="#F3F6FA" stroke="#DDE4EC"/>';
+      s += '<rect x="' + (20 + 300 * (350 - 100) / 900) + '" y="' + (H - 30) + '" width="' + (300 * 450 / 900) + '" height="14" fill="#E8EEF7"/>';
+      const mk = 20 + 300 * (S.nm - 100) / 900;
+      s += '<polygon points="' + mk + ' ' + (H - 32) + ', ' + (mk - 5) + ' ' + (H - 40) + ', ' + (mk + 5) + ' ' + (H - 40) + '" fill="' + col + '"/>';
+      s += '<text x="22" y="' + (H - 4) + '" font-size="10" fill="#5b6b80" direction="ltr">100</text>';
+      s += '<text x="296" y="' + (H - 4) + '" font-size="10" fill="#5b6b80" direction="ltr">1000</text>';
+      s += '<text x="140" y="' + (H - 4) + '" font-size="10" fill="#5b6b80">الطيف بالنانومتر</text>';
+      s += '</svg>';
+
+      const lam = S.nm * 1e-9, nu = C / lam, E = HP * C / lam;
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'حرّك المنزلق : كلّما قصُر الطول الموجي تقاربت القمم ، فزاد التردد وزادت طاقة الفوتون.'));
+      body.append(el('div', 'vwrap', s));
+      const row = el('div', 'srow');
+      [['بنفسجي', 400], ['أخضر', 500], ['أحمر', 700], ['فوق بنفسجي', 200], ['تحت الأحمر', 900]]
+        .forEach(p => row.append(btn(p[0], 'gh', () => { S.nm = p[1]; bar.innerHTML = ''; bar.append(sld('الطول الموجي ( nm )', S.nm, 100, 1000, 20, v => { S.nm = v; draw(); })); draw(); })));
+      body.append(row);
+      const res = el('div', 'sres');
+      res.append(el('div', 'sl', 'التحويل : <b class="ltr">λ = ' + S.nm + ' nm = ' + sci(lam) + ' m</b>'));
+      res.append(el('div', 'sl', 'التردد : <b class="ltr">ν = c / λ = ' + sci(nu) + ' Hz</b>'));
+      res.append(el('div', 'sl', 'الطاقة : <b class="ltr">E = h c / λ = ' + sci(E) + ' J</b>'));
+      res.append(el('div', 'sl ok', 'الموقع في الطيف : ' + zoneOf(S.nm) + ' ( ' + nameOf(S.nm) + ' )'));
+      res.append(el('div', 'sl note', 'تحقّق سريع : ترددات الضوء المرئي في حدود <b class="ltr">10' + sup(14) + '</b> هرتز ، وطاقة فوتوناته في حدود <b class="ltr">10' + sup(-19) + '</b> جول . فإن خرج جوابك بعيدًا عن هذين الأسّين فالخطأ في تحويل النانومتر غالبًا.'));
+      body.append(res);
+    }
+    draw();
+  }
+
+  /* ---------------- 2 · مستويات الطاقة وانتقالات الإلكترون ---------------- */
+  function bohr(host) {
+    host.innerHTML = '';
+    const S = { a: 1, b: 3 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    const ns = [[1, '1'], [2, '2'], [3, '3'], [4, '4'], [99, '∞']];
+    const mkbar = () => { bar.innerHTML = '';
+      bar.append(sel('من المستوى', S.a, ns.slice(0, 4), v => { S.a = +v; draw(); }),
+        sel('إلى المستوى', S.b, ns, v => { S.b = +v; draw(); })); };
+    mkbar();
+
+    const En = n => (n >= 99 ? 0 : -RH / (n * n));
+    function draw() {
+      const W = 340, H = 250;
+      const yOf = n => (n >= 99 ? 26 : 26 + 190 / (n * n));
+      let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="vsvg"><defs>' +
+        '<marker id="eup" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#B3261E"/></marker>' +
+        '<marker id="edn" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#1C7C54"/></marker>' +
+        '<marker id="eax" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#9AA7B8"/></marker></defs>';
+      /* محور الطاقة */
+      s += '<line x1="18" y1="238" x2="18" y2="16" stroke="#9AA7B8" stroke-width="1.5" marker-end="url(#eax)"/>';
+      s += '<text transform="translate(13,150) rotate(-90)" font-size="10" fill="#5b6b80">الطاقة تزداد</text>';
+      s += '<line x1="34" y1="26" x2="286" y2="26" stroke="#9AA7B8" stroke-dasharray="4 3"/>';
+      s += '<text x="290" y="29" font-size="9" fill="#5b6b80" direction="ltr">n = ∞</text>';
+      [1, 2, 3, 4].forEach(n => {
+        const y = yOf(n);
+        s += '<line x1="34" y1="' + y + '" x2="286" y2="' + y + '" stroke="#00205B" stroke-width="2"/>';
+        s += '<text x="290" y="' + (y + 3) + '" font-size="9" fill="#00205B" direction="ltr">n = ' + n + '</text>';
+      });
+      const y1 = yOf(S.a), y2 = yOf(S.b), up = S.b > S.a;
+      if (S.a !== S.b) {
+        s += '<line x1="160" y1="' + y1 + '" x2="160" y2="' + y2 + '" stroke="' + (up ? '#B3261E' : '#1C7C54') +
+          '" stroke-width="3" marker-end="url(#' + (up ? 'eup' : 'edn') + ')"/>';
+        s += '<text x="167" y="' + ((y1 + y2) / 2) + '" font-size="11" fill="' + (up ? '#B3261E' : '#1C7C54') + '">' +
+          (up ? 'امتصاص' : 'انبعاث') + '</text>';
+      }
+      s += '<circle cx="100" cy="' + y1 + '" r="5" fill="#B07A12"/>';
+      s += '<text x="92" y="' + (y1 - 7) + '" font-size="9" fill="#B07A12" text-anchor="end">إلكترون</text>';
+      s += '</svg>';
+
+      const lo = Math.min(S.a, S.b), hi = Math.max(S.a, S.b);
+      const t1 = 1 / (lo * lo), t2 = (hi >= 99 ? 0 : 1 / (hi * hi));
+      const dE = RH * (t1 - t2);
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'لاحظ تقارب المستويات العليا : فرق الطاقة بين مستويين متتاليين يصغر كلّما ارتفعنا.'));
+      body.append(el('div', 'vwrap', s));
+      const row = el('div', 'srow');
+      [['من 1 إلى 2', 1, 2], ['من 3 إلى 1', 3, 1], ['تأيّن : 1 إلى ∞', 1, 99]]
+        .forEach(p => row.append(btn(p[0], 'gh', () => { S.a = p[1]; S.b = p[2]; mkbar(); draw(); })));
+      body.append(row);
+      const res = el('div', 'sres');
+      res.append(el('div', 'sl', 'طاقة المستوى ' + S.a + ' : <b class="ltr">' + sci(En(S.a)) + ' J</b>'));
+      res.append(el('div', 'sl', S.b >= 99 ? 'طاقة المستوى ∞ : <b class="ltr">0</b>' : 'طاقة المستوى ' + S.b + ' : <b class="ltr">' + sci(En(S.b)) + ' J</b>'));
+      if (S.a === S.b) { res.append(el('div', 'sl note', 'اختر مستويين مختلفين ليحدث انتقال.')); }
+      else {
+        res.append(el('div', 'sl', 'الصيغة : <b class="ltr">| ΔE | = RH ( 1/' + lo + '² − 1/' + (hi >= 99 ? '∞' : hi) + '² )</b>'));
+        res.append(el('div', 'sl', 'التعويض : <b class="ltr">| ΔE | = ' + sci(RH) + ' × ( ' + (Math.round(t1 * 1e4) / 1e4) + ' − ' + (Math.round(t2 * 1e4) / 1e4) + ' ) = ' + sci(dE) + ' J</b>'));
+        res.append(el('div', 'sl ok', 'الحكم : الانتقال ' + (up ? 'صعودًا ، فالطاقة <b>ممتصّة</b>' : 'نزولًا ، فالطاقة <b>منبعثة</b>') +
+          (up ? '' : ' على هيئة فوتون طوله الموجي <b class="ltr">' + Math.round(HP * C / dE * 1e9 * 10) / 10 + ' nm</b>')));
+        res.append(el('div', 'sl note', 'الطاقة الممتصّة بين هذين المستويين تساوي المنبعثة بينهما في المقدار ، والفرق في الاتجاه وحده.'));
+      }
+      body.append(res);
+    }
+    draw();
+  }
+
+  /* ---------------- 3 · أعداد الكمّ وسعة المستويات ---------------- */
+  function qn(host) {
+    host.innerHTML = '';
+    const S = { n: 3, fill: false };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sel('المستوى الرئيس n', S.n, [[1, '1'], [2, '2'], [3, '3'], [4, '4']], v => { S.n = +v; draw(); }));
+    const SUB = [['s', 1], ['p', 3], ['d', 5], ['f', 7]];
+
+    function draw() {
+      const subs = SUB.slice(0, S.n);
+      const orb = subs.reduce((a, b) => a + b[1], 0);
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'المستويات الفرعية عددها يساوي رقم المستوى الرئيس ، وكلّ مربّع فَلَك واحد يحمل إلكترونين غزلاهما متعاكسان.'));
+      const box = el('div');
+      subs.forEach(u => {
+        const r = el('div', 'orow');
+        r.append(el('b', 'olab ltr', S.n + u[0]));
+        for (let k = 0; k < u[1]; k++) r.append(el('span', 'obox', S.fill ? '↑↓' : ''));
+        const nOrb = u[1] === 1 ? 'فَلَك واحد' : u[1] + ' أفلاك';
+        const nEl = u[1] === 1 ? 'إلكترونان' : u[1] === 7 ? '14 إلكترونًا' : (u[1] * 2) + ' إلكترونات';
+        r.append(el('i', 'onote', nOrb + ' · ' + nEl));
+        box.append(r);
+      });
+      body.append(box);
+      const row = el('div', 'srow');
+      row.append(btn(S.fill ? 'أفرِغ الأفلاك' : 'املأ الأفلاك بالإلكترونات', '', () => { S.fill = !S.fill; draw(); }));
+      body.append(row);
+      const res = el('div', 'sres');
+      res.append(el('div', 'sl', 'المستويات الفرعية : <b class="ltr">' + subs.map(u => S.n + u[0]).join(' , ') + '</b> وعددها ' + S.n));
+      res.append(el('div', 'sl', 'الجمع : <b class="ltr">' + subs.map(u => u[1]).join(' + ') + ' = ' + orb + '</b> فَلَكًا'));
+      res.append(el('div', 'sl', 'بالقاعدة : <b class="ltr">n² = ' + S.n + '² = ' + (S.n * S.n) + '</b> فَلَكًا' + (orb === S.n * S.n ? ' — مطابق للجمع' : '')));
+      res.append(el('div', 'sl ok', 'السعة القصوى : <b class="ltr">2 n² = 2 × ' + (S.n * S.n) + ' = ' + (2 * S.n * S.n) + '</b> إلكترونًا'));
+      res.append(el('div', 'sl note', 'لا تخلط بينهما : <b class="ltr">n²</b> عدد الأفلاك و <b class="ltr">2 n²</b> عدد الإلكترونات . فإن سُئلت عن أفلاك فلا تضرب في اثنين.'));
+      body.append(res);
+    }
+    draw();
+  }
+
+  window.SIMS.wave = wave;
+  window.SIMS.bohr = bohr;
+  window.SIMS.qn = qn;
 })();
