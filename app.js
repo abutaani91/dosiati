@@ -1,5 +1,5 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '17';
+const APP_VER = '18';
 const APP_DATE = '2026/10/03';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
 const $ = s => document.querySelector(s);
@@ -30,6 +30,7 @@ const DEF = {
   org: { dir: 'مديرية التربية والتعليم للواء الموقر', title: 'صفحة التعلّم الذاتي' },
   units: {},
   salt: 'dosiati',
+  rev: 0,                  // رقم مراجعة الإعدادات : المنشور الأحدث يَغلب النسخة المحلّية
   roster: [],              // [{h, e, g, s, n}]  h=بصمة الرمز ، e=الاسم مشفّرًا برمز صاحبه
   log: { url: '', key: '', on: true }
 };
@@ -53,13 +54,21 @@ const xOf = id => EXTRAS[id] || {};
 
 async function loadSettings() {
   SET = clone(DEF);
-  if (window.__SETTINGS__) merge(SET, window.__SETTINGS__);
-  else {
-    try { const r = await fetch('settings.json', { cache: 'no-store' }); if (r.ok) merge(SET, await r.json()); } catch (e) {}
+  let pub = null;
+  if (window.__SETTINGS__) pub = window.__SETTINGS__;
+  else { try { const r = await fetch('settings.json', { cache: 'no-store' }); if (r.ok) pub = await r.json(); } catch (e) {} }
+  if (pub) merge(SET, pub);
+  let loc = null;
+  try { loc = JSON.parse(localStorage.getItem('dosiati-settings') || 'null'); } catch (e) {}
+  if (loc) {
+    /* النسخة المحفوظة على هذا الجهاز لا تَغلب الملفّ المنشور إلّا إذا كانت أحدث منه أو مساوية له ،
+       وإلّا بقي الجهاز عالقًا على قائمة طلبة قديمة بعد كلّ نشر. */
+    const lr = +loc.rev || 0, pr = +((pub || {}).rev) || 0;
+    if (lr >= pr) merge(SET, loc);
+    else { SET.stale = { from: lr, to: pr }; try { localStorage.removeItem('dosiati-settings'); } catch (e) {} }
   }
-  try { const l = JSON.parse(localStorage.getItem('dosiati-settings') || 'null'); if (l) merge(SET, l); } catch (e) {}
 }
-function saveSettings(s) { SET = s; try { localStorage.setItem('dosiati-settings', JSON.stringify(s)); } catch (e) {} }
+function saveSettings(s) { s.rev = (+s.rev || 0) + 1; SET = s; try { localStorage.setItem('dosiati-settings', JSON.stringify(s)); } catch (e) {} }
 
 /* ============ تنسيق النصوص ============ */
 function chem(s) {
@@ -263,7 +272,7 @@ const LOGQ = 'dosiati-logq', LOGL = 'dosiati-events';
 function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return []; } }
 function lsPut(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 function logEvent(type, unit, detail, score) {
-  if (!S.user || isTeacher() || !SET.log || SET.log.on === false) return;
+  if (!S.user || isTeacher() || S.user.prev || !SET.log || SET.log.on === false) return;
   const e = { t: Date.now(), code: S.user.sid || S.user.code, name: S.user.name || '', g: S.user.grade, s: S.user.sec || '', n: S.user.no, type, unit: unit || '', detail: detail || '', score: (score === undefined ? '' : score) };
   const loc = lsGet(LOGL); loc.push(e); lsPut(LOGL, loc.slice(-800));
   const q = lsGet(LOGQ); q.push(e); lsPut(LOGQ, q.slice(-400));
@@ -437,8 +446,11 @@ function stopNasheed() { try { if (AUD.el) { AUD.el.pause(); AUD.el.currentTime 
 
 /* ============ التخزين المحلي ============ */
 let KEY = 'dosiati-v1', store = {};
+const STPRE = 'dosiati-v1:';
 function openStore() {
-  KEY = 'dosiati-v1:' + ((S.user && S.user.code) || 'teacher');
+  const u = S.user || {};
+  /* وضع التجربة يكتب في مخزن منفصل ، فلا يمسّ بيانات الطالب الحقيقية على هذا الجهاز */
+  KEY = STPRE + (u.prev ? 'prev:' : '') + (u.code || 'teacher');
   try { store = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch (e) { store = {}; }
 }
 const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
@@ -497,13 +509,32 @@ function route() {
 }
 window.addEventListener('hashchange', route);
 
+function prevBar() {
+  const u = S.user || {};
+  const d = el('div', 'prevbar');
+  d.append(el('b', '', '🧪 وضع التجربة'),
+    el('span', 'pt', 'أنت داخل كحساب « ' + esc(u.name || ('طالب رقم ' + (u.no || ''))) + ' » . لا يُرسَل شيء إلى جدول المتابعة ، والتقدّم يُحفظ في مخزن تجربة منفصل لا يمسّ بيانات الطالب.'));
+  const z = el('button', 'mini', 'تصفير بيانات التجربة');
+  z.onclick = () => {
+    if (!confirm('تصفير تقدّم التجربة لهذا الحساب على هذا الجهاز ؟\nلا يؤثّر في بيانات الطالب الحقيقية.')) return;
+    try { localStorage.removeItem(KEY); } catch (e) {}
+    store = {}; flash('صُفّرت بيانات التجربة.'); location.hash = ''; render();
+  };
+  const x = el('button', 'mini', 'إنهاء التجربة والعودة للوحة');
+  x.onclick = () => { setUser({ teacher: true }); openStore(); S.adminPage = true; S.admin = S.admin || 'roster'; location.hash = ''; render(); };
+  d.append(z, x);
+  return d;
+}
+
 function render() {
   if (S.iv) { clearInterval(S.iv); S.iv = null; }
   const app = $('#app');
   app.innerHTML = '';
   document.body.classList.toggle('present', S.present);
+  document.body.classList.toggle('prevmode', !!(S.user && S.user.prev));
   bar();
   if (!S.user) { app.append(loginView()); return; }
+  if (S.user.prev) app.append(prevBar());
   S.screenLogin = false;
   if (isTeacher() && S.adminPage) { app.append(adminView()); return; }
   if (!S.unit) { app.append(home()); return; }
@@ -1181,7 +1212,15 @@ function adminView() {
         rd.readAsText(fl); };
       inp.click();
     };
-    r2.append(add, clr, pb, mg, bk, rs);
+    const zp = el('button', 'btn sm ghost', '🧪 تصفير كلّ بيانات التجربة على هذا الجهاز');
+    zp.onclick = () => {
+      const ks = Object.keys(localStorage).filter(k => k.indexOf('dosiati-v1:prev:') === 0);
+      if (!ks.length) return flash('لا توجد بيانات تجربة على هذا الجهاز.');
+      if (!confirm('حذف ' + ks.length + ' مخزن تجربة من هذا الجهاز ؟\nلا يؤثّر في بيانات الطلبة الحقيقية ولا في جدول المتابعة.')) return;
+      ks.forEach(k => { try { localStorage.removeItem(k); } catch (e) {} });
+      flash('حُذفت ' + ks.length + ' مخزن تجربة.'); render();
+    };
+    r2.append(add, clr, pb, mg, bk, rs, zp);
     b.append(r2);
 
     const cur = (D.roster || []).filter(r => r.g === gs.value).map(r => {
@@ -1207,6 +1246,14 @@ function adminView() {
         dl.onclick = () => rmStudent(r);
         td.append(bk, dl);
       } else {
+        const pv = el('button', 'mini', 'تجربة');
+        pv.title = 'ادخل بحساب هذا الطالب لتجربة التطبيق من دون المساس ببياناته ولا بجدول المتابعة';
+        pv.onclick = () => {
+          setUser({ code: String(r.h).slice(0, 12), sid: String(r.h).slice(0, 12), grade: gs.value,
+                    no: r.no, sec: r.s || '', name: r.name, prev: true });
+          openStore(); S.adminPage = false; S.unit = null; location.hash = ''; render();
+        };
+        td.append(pv);
         const mv = el('button', 'mini', 'نقل');
         mv.onclick = () => {
           if (!confirm('تعليم « ' + r.name + ' » منقولًا ؟\nيتوقّف رمزه عن العمل ، ويبقى سجلّه محفوظًا ، ويمكنك إرجاعه في أيّ وقت.')) return;
@@ -1279,6 +1326,11 @@ function adminView() {
     vb.append(el('div', 'box mint', '<div class="bt">الإصدار ' + APP_VER + ' · ' + APP_DATE + '</div>' +
       '<p style="margin:0;font-size:.88rem">عدد الوحدات : ' + S.units.length + ' · الطلبة : ' + nIn + ' على رأس عملهم و' + nOutAll + ' منقولون.<br>' +
       'رقم الإصدار يظهر أيضًا أسفل شاشة الدخول . فإن رأيتَ على جهاز طالب رقمًا أقدم فنسخته من الكاش قديمة : يُغلق الصفحة ويفتحها ثانية مع إنترنت.</p>'));
+    if (SET.stale) vb.append(el('div', 'box gold', '<div class="bt">حُدّثت الإعدادات من الملفّ المنشور</div>' +
+      '<p style="margin:0;font-size:.88rem">كانت على هذا الجهاز نسخة إعدادات رقمها ' + SET.stale.from +
+      ' ، والمنشور على الموقع رقمه ' + SET.stale.to + ' فهو الأحدث ، فأُخذ به وأُهملت النسخة القديمة.<br>' +
+      'اعمل دائمًا من جهاز واحد عند تعديل قائمة الطلبة ، وانشر الملفّ بعد كلّ تعديل.</p>'));
+    vb.append(el('p', 'hint', 'رقم مراجعة الإعدادات الحالي : ' + (+SET.rev || 0) + ' . يزيد واحدًا مع كلّ « حفظ التغييرات » ، ويُستعمل ليَغلب الملفُّ المنشور أيَّ نسخة قديمة على أجهزة الطلبة.'));
     const b = sec('نشر الإعدادات على الموقع', 'ما تحفظه هنا يسري على جهازك فقط . ليصل للطلبة : نزّل settings.json وارفعه إلى مجلّد الموقع بجانب index.html — واستبدل القديم به. لا حاجة لرفع رقم الكاش في sw.js لأجل الإعدادات ، فملفّها يُقرأ من الشبكة أوّلًا ويصل لأجهزة الطلبة ( حاسوب وهاتف ) عند أوّل فتح مع إنترنت. رقم الكاش يُرفع فقط عند تغيير app.js أو index.html أو data.json.');
     const r = el('div', 'btns');
     const dl2 = el('button', 'btn', 'تنزيل settings.json');
@@ -1405,7 +1457,7 @@ function unitView(u) {
   });
   w.append(nav);
 
-  if (!isTeacher()) { logEvent('open', u.id, S.tab); try { localStorage.setItem('dosiati-last', JSON.stringify({ id: u.id, k: S.tab, t: Date.now() })); } catch (e) {} }
+  if (!isTeacher() && !(S.user || {}).prev) { logEvent('open', u.id, S.tab); try { localStorage.setItem('dosiati-last', JSON.stringify({ id: u.id, k: S.tab, t: Date.now() })); } catch (e) {} }
   const body = el('div', 'tabbody');
   const R = { aims: stAims, lrn: stLrn, lab: stLab, learn: stLearn, ex: stEx, q: stQ, book: stBook, quiz: stQuiz, test: stTest, print: stPrint, t: stTeacher };
   (R[S.tab] || stAims)(body, u);
