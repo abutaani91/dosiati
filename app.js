@@ -1,5 +1,5 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '14';
+const APP_VER = '15';
 const APP_DATE = '2026/10/03';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
 const $ = s => document.querySelector(s);
@@ -448,6 +448,7 @@ const prog = id => (store[id] = store[id] || { mcq: {}, seen: [] });
 async function boot() {
   await loadSettings();
   await loadExtras();
+  await loadLearn();
   let data = window.__DATA__;
   if (!data) { const r = await fetch('data.json'); data = await r.json(); }
   S.units = data;
@@ -481,7 +482,9 @@ async function boot() {
 /* ============ التوجيه ============ */
 function route() {
   const h = decodeURIComponent(location.hash.slice(1));
-  const [id, tab] = h.split('/');
+  const pr = h.split('/');
+  const id = pr[0], tab = pr[1];
+  S.lp = pr.slice(2);
   S.adminPage = (id === '!admin');
   if (!S.adminPage) S.draft = null;
   S.unit = S.adminPage ? null : (S.units.find(u => u.id === id) || null);
@@ -1336,6 +1339,7 @@ function printList(html) {
 function liveNow(u) { const a = att(u); return !!(a && !a.submitted && Date.now() < a.start + a.dur * 60000); }
 const ST_ALL = [
   ['aims', 'أهداف الوحدة', null],
+  ['lrn', 'مسار الإتقان', null],
   ['lab', 'تجارب ومحاكاة', 'lab'],
   ['learn', 'الشرح والأشكال', 'sum'],
   ['ex', 'أمثلة تفاعلية', 'ex'],
@@ -1350,6 +1354,7 @@ function stations(u) {
   const cfg = uset(u.id), x = xOf(u.id);
   return ST_ALL.filter(([k, t, c]) => {
     if (k === 't') return isTeacher();
+    if (k === 'lrn') return !!lrnOf(u.id);
     if (k === 'lab') return !!(x.lab || (x.sims || []).length) && (isTeacher() || cfg.lab);
     if (k === 'book') return !!(x.book || []).length && (isTeacher() || cfg.book);
     if (k === 'ex') return u.examples.length && (isTeacher() || cfg.ex);
@@ -1391,7 +1396,7 @@ function unitView(u) {
   const nav = el('div', 'steps');
   sts.forEach(([k, t], i) => {
     const prev = i > 0 ? sts[i - 1][0] : null;
-    const locked = !isTeacher() && SET.perm.seq && k !== 't' && prev && prev !== 't' && !p.done.includes(prev) && !p.done.includes(k);
+    const locked = !isTeacher() && SET.perm.seq && k !== 't' && k !== 'lrn' && prev && prev !== 't' && prev !== 'lrn' && !p.done.includes(prev) && !p.done.includes(k);
     const b = el('button', 'st' + (S.tab === k ? ' on' : '') + (p.done.includes(k) ? ' done' : '') + (locked ? ' lock' : ''));
     b.innerHTML = `<b>${p.done.includes(k) ? '✓' : (k === 't' ? '★' : i + 1)}</b>${esc(t)}`;
     b.onclick = () => { if (locked) { flash('أكمل المحطّة السابقة أوّلًا.'); return; } location.hash = `#${u.id}/${k}`; };
@@ -1402,7 +1407,7 @@ function unitView(u) {
 
   if (!isTeacher()) { logEvent('open', u.id, S.tab); try { localStorage.setItem('dosiati-last', JSON.stringify({ id: u.id, k: S.tab, t: Date.now() })); } catch (e) {} }
   const body = el('div', 'tabbody');
-  const R = { aims: stAims, lab: stLab, learn: stLearn, ex: stEx, q: stQ, book: stBook, quiz: stQuiz, test: stTest, print: stPrint, t: stTeacher };
+  const R = { aims: stAims, lrn: stLrn, lab: stLab, learn: stLearn, ex: stEx, q: stQ, book: stBook, quiz: stQuiz, test: stTest, print: stPrint, t: stTeacher };
   (R[S.tab] || stAims)(body, u);
   w.append(body);
   return w;
@@ -2204,4 +2209,445 @@ function setZoom(z) {
   z = Math.max(-2, Math.min(6, z));
   localStorage.setItem('dosiati-zoom', z);
   document.documentElement.style.setProperty('--z', 1 + z * 0.12);
+}
+
+/* ================= طبقة التحقّق من التعلّم ( الإصدار 15 ) ================= */
+let LRN = {};
+async function loadLearn() {
+  if (window.__LEARN__) { LRN = window.__LEARN__; return; }
+  try { const r = await fetch('learn.json', { cache: 'no-cache' }); if (r.ok) LRN = await r.json(); } catch (e) { LRN = {}; }
+}
+const lrnOf = id => LRN[id] || null;
+const ftxtP = t => String(t || '').split('\n').map(x => x.trim()).filter(Boolean).map(x => '<p>' + fmt(x) + '</p>').join('');
+const segOf = (L, i) => L.segments.find(s => s.i === +i);
+const segsOfOut = (L, o) => L.segments.filter(s => +s.o === +o).map(s => s.i);
+const itemsOfSeg = (L, i) => L.items.filter(x => +x.s === +i);
+const itemsOfOut = (L, o) => L.items.filter(x => +x.o === +o);
+
+function lp(u) {
+  const p = prog(u.id);
+  p.lrn = p.lrn || { out: {}, seg: {}, tk: null, test: null, res: null };
+  const L = lrnOf(u.id);
+  if (L) {
+    L.segments.forEach(s => { p.lrn.seg[s.i] = p.lrn.seg[s.i] || { done: false, fail: 0, streak: 0, tries: 0 }; });
+    Object.keys(L.outcomes).forEach(n => { p.lrn.out[n] = p.lrn.out[n] || { tries: 0, first: 0, streak: 0, mast: false }; });
+  }
+  return p.lrn;
+}
+function lOst(u, n) {
+  const L = lrnOf(u.id), P = lp(u), sg = segsOfOut(L, n), o = P.out[n] || {};
+  if (o.mast || (sg.length && sg.every(i => P.seg[i].done))) return 'ok';
+  if (o.tries > 0 || sg.some(i => P.seg[i].tries > 0)) return 'mid';
+  return 'no';
+}
+const lStName = s => (s === 'ok' ? 'أتقنته' : s === 'mid' ? 'يحتاج مراجعة' : 'لم أبدأ');
+function lUnlocked(u, i) { const P = lp(u); return +i === 1 || (P.seg[+i - 1] && P.seg[+i - 1].done); }
+function lDoneCount(u) { const L = lrnOf(u.id), P = lp(u); return L.segments.filter(s => P.seg[s.i].done).length; }
+function lCur(u) { const L = lrnOf(u.id), P = lp(u); const n = L.segments.find(s => !P.seg[s.i].done); return n ? n.i : null; }
+function lSync(u) {
+  const L = lrnOf(u.id); if (!L) return;
+  const all = Object.keys(L.outcomes).every(n => lOst(u, n) === 'ok');
+  if (all) markDone(u, 'lrn');
+}
+function lPct(u, n) { const o = lp(u).out[n]; return o && o.tries ? Math.round(100 * o.first / o.tries) : null; }
+const lGo = (u, ...a) => { location.hash = '#' + u.id + '/lrn' + (a.length ? '/' + a.join('/') : ''); };
+const shufL = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1));[a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+/* ---------- الموجّه ---------- */
+function stLrn(b, u) {
+  const L = lrnOf(u.id);
+  if (!L) { b.append(el('p', 'hint', 'لم يُجهَّز مسار الإتقان لهذه الوحدة بعد.')); return; }
+  const w = el('div', 'lrn');
+  const a = S.lp || [];
+  const P = lp(u);
+  if (P.tk && a[0] === 'tk') lrTicket(w, u, L);
+  else if (a[0] === 'les') lrLessons(w, u, L, a[1]);
+  else if (a[0] === 'seg') lrSeg(w, u, L, a[1], false);
+  else if (a[0] === 'p' && a[1]) lrSeg(w, u, L, a[1], true);
+  else if (a[0] === 'p') lrPath(w, u, L);
+  else if (a[0] === 'rev') lrReview(w, u, L);
+  else if (a[0] === 'test') lrTest(w, u, L);
+  else if (a[0] === 'res') lrRes(w, u, L);
+  else lrHome(w, u, L);
+  b.append(w);
+}
+
+/* ---------- الصفحة الرئيسة للمسار ---------- */
+function lrHome(w, u, L) {
+  const ns = Object.keys(L.outcomes);
+  const ok = ns.filter(n => lOst(u, n) === 'ok').length;
+  const mid = ns.filter(n => lOst(u, n) === 'mid').length;
+  const done = lDoneCount(u), cur = lCur(u);
+  const h = el('div', 'lrhead');
+  h.innerHTML = `<strong>مسار الإتقان</strong>
+    <span>${L.segments.length} مقطعًا · ${L.items.length} فقرة · ${ns.length} نتاجات</span>
+    <div class="lbar"><i style="width:${ok / ns.length * 100}%"></i><i class="m" style="width:${mid / ns.length * 100}%"></i></div>
+    <span class="sm">أتقنتَ ${ok} من ${ns.length} نتاجات · ${mid} تحتاج مراجعة · أنهيتَ ${done} من ${L.segments.length} مقاطع</span>`;
+  w.append(h);
+
+  w.append(el('h3', 'lsec', 'ماذا تريد أن تفعل الآن ؟'));
+  w.append(el('p', 'hint', 'أنت تختار ، ولكلّ مدخل شرط إغلاق مختلف.'));
+  const g = el('div', 'lentry');
+  const mk = (t, s, tag, cls, fn) => {
+    const x = el('button', '', `<b>${t}</b><i>${s}</i><em class="${cls}">${tag}</em>`);
+    x.onclick = fn; g.append(x);
+  };
+  mk('درس فاتني أو لم أفهمه', 'الشرح والمثال المحلول ، ثمّ إثبات الإتقان', 'يُغلق بالإتقان', 'gate', () => lGo(u, 'les', 'catch'));
+  mk('أُحضّر لحصّة قادمة', 'النتاجات والشرح والمحاكاة قبل الحصّة', 'بلا شرط إتقان', 'nogate', () => lGo(u, 'les', 'prep'));
+  mk('أُراجع', 'فقرات على النتاجات التي لم تُتقنها فقط', 'يُغلق بالإتقان', 'gate', () => lGo(u, 'rev'));
+  mk('أتعلّم الوحدة وحدي من الصفر', done ? ('وصلتَ إلى المقطع ' + (cur || L.segments.length) + ' من ' + L.segments.length) : (L.segments.length + ' مقاطع متتابعة ، لا يُفتح مقطع إلّا بإتقان ما قبله'), 'مسار مُقفل', 'gate', () => lGo(u, 'p'));
+  w.append(g);
+
+  const tc = el('div', 'box mint');
+  tc.append(el('div', 'bt', 'اختبار الوحدة الذاتي'));
+  tc.append(el('p', 'hint', L.selftest.n + ' فقرة بجدول مواصفات . لا تُعرض الإجابات أثناءه ، وينتهي بخريطة نتاجاتك وقرار بما تفعله بعده.'));
+  const tb = el('button', 'btn', 'ابدأ الاختبار');
+  tb.onclick = () => lrStartTest(u, L);
+  tc.append(tb);
+  if (lp(u).res) {
+    const r = lp(u).res;
+    tc.append(el('p', 'hint', 'آخر محاولة : ' + r.ok + ' من ' + r.n + ' ( ' + r.pct + '% ) — ' + esc(r.label)));
+    const rb = el('button', 'btn ghost sm', 'عرض النتيجة السابقة'); rb.onclick = () => lGo(u, 'res'); tc.append(rb);
+  }
+  w.append(tc);
+
+  w.append(el('h3', 'lsec', 'حالة النتاجات'));
+  const ch = el('div', 'lchips');
+  ns.forEach(n => { const s = lOst(u, n); const p = lPct(u, n);
+    ch.append(el('span', 'lchip ' + s, 'نتاج ' + n + ' · ' + lStName(s) + (p !== null ? ' · ' + p + '%' : ''))); });
+  w.append(ch);
+  w.append(el('p', 'hint', 'النسبة هي الصحّة من المحاولة الأولى — وهي المؤشّر الصادق ، لأنّ النسبة بعد الإعادة تتحسّن حتمًا.'));
+}
+
+/* ---------- قائمة الدروس ---------- */
+function lrLessons(w, u, L, mode) {
+  const prep = mode === 'prep';
+  w.append(backLink(() => lGo(u)));
+  w.append(el('h3', 'lsec', prep ? 'أيّ درس تُحضّر له ؟' : 'أيّ درس تريد ؟'));
+  if (prep) w.append(el('div', 'box gold', '<div class="bt">لن يُطلب منك إثبات إتقان هنا</div><p class="hint" style="margin:0">هذا الدرس لم يُشرح بعد ، وقياس ما لم يُدرَّس عبث . اقرأ وانظر المحاكاة ، وبعد الحصّة ارجع من مدخل « درس لم أفهمه ».</p>'));
+  L.lessons.forEach(le => {
+    const segs = L.segments.filter(s => +s.les === +le.n);
+    const dn = segs.filter(s => lp(u).seg[s.i].done).length;
+    const c = el('div', 'lrow');
+    c.innerHTML = `<div><strong>${fmt(le.t)}</strong><span>${fmt(le.p)} · ${segs.length} مقاطع · النتاجات ${le.o.join(' و ')}</span></div>
+      <span class="lchip ${dn === segs.length ? 'ok' : dn ? 'mid' : 'no'}">${dn} / ${segs.length}</span>`;
+    c.onclick = () => { S.lles = le.n; S.lmode = mode; lGo(u, 'les', mode, le.n); };
+    w.append(c);
+  });
+  const ln = (S.lp || [])[2];
+  if (ln) {
+    w.append(el('h3', 'lsec', 'مقاطع ' + fmt(L.lessons.find(x => +x.n === +ln).t)));
+    L.segments.filter(s => +s.les === +ln).forEach(s => {
+      const st = lp(u).seg[s.i];
+      const c = el('div', 'lrow');
+      c.innerHTML = `<div class="num">${st.done ? '✓' : s.i}</div>
+        <div><strong>${fmt(s.t)}</strong><span>نتاج ${s.o} · نحو ${s.min} دقيقة</span></div>
+        <span class="lchip ${st.done ? 'ok' : st.tries ? 'mid' : 'no'}">${st.done ? 'أتقنته' : st.tries ? 'بدأته' : 'لم أبدأ'}</span>`;
+      c.onclick = () => lGo(u, 'seg', s.i);
+      w.append(c);
+    });
+  }
+}
+
+/* ---------- المسار المُقفل ---------- */
+function lrPath(w, u, L) {
+  const P = lp(u), done = lDoneCount(u), cur = lCur(u);
+  w.append(backLink(() => lGo(u)));
+  const h = el('div', 'lrhead dark');
+  h.innerHTML = `<strong>${done} من ${L.segments.length} مقاطع</strong>
+    <div class="lbar"><i style="width:${done / L.segments.length * 100}%"></i></div>
+    <span class="sm">${cur ? 'المقطع التالي : ' + cur : 'أتممتَ المسار كلّه'}</span>`;
+  w.append(h);
+  w.append(el('p', 'hint', 'هذا المسار لمن لم يحضر الشرح أصلًا . المقاطع متتابعة ومُقفلة : لا يُفتح مقطع إلّا بإتقان الذي قبله ، حتى لا تبني على أساس ناقص.'));
+  if (cur) { const g = el('button', 'btn ok wide'); g.textContent = (P.seg[cur].tries ? 'أكمل من المقطع ' : 'ابدأ من المقطع ') + cur; g.onclick = () => lGo(u, 'p', cur); w.append(g); }
+  L.lessons.forEach(le => {
+    w.append(el('h3', 'lsec', fmt(le.t)));
+    L.segments.filter(s => +s.les === +le.n).forEach(s => {
+      const st = P.seg[s.i], lock = !lUnlocked(u, s.i);
+      const c = el('div', 'lrow' + (lock ? ' off' : ''));
+      c.innerHTML = `<div class="num">${st.done ? '✓' : lock ? '🔒' : s.i}</div>
+        <div><strong>${fmt(s.t)}</strong><span>المقطع ${s.i} · نتاج ${s.o}${st.fail ? ' · تعثّر ' + st.fail + ' مرّة' : ''}</span></div>
+        <span class="lchip ${st.done ? 'ok' : lock ? 'no' : 'mid'}">${st.done ? 'أتقنته' : lock ? 'مُقفل' : 'متاح الآن'}</span>`;
+      if (!lock) c.onclick = () => lGo(u, 'p', s.i);
+      w.append(c);
+    });
+  });
+}
+
+/* ---------- صفحة المقطع ---------- */
+function lrSeg(w, u, L, i, path) {
+  const s = segOf(L, i); if (!s) { lrHome(w, u, L); return; }
+  if (path && !lUnlocked(u, i)) { lrPath(w, u, L); return; }
+  const P = lp(u), st = P.seg[s.i];
+  w.append(backLink(() => (path ? lGo(u, 'p') : lGo(u, 'les', 'catch', s.les))));
+  const hd = el('div', 'card2');
+  hd.innerHTML = `<span class="hint">المقطع ${s.i} من ${L.segments.length} · ${fmt(L.lessons.find(x => +x.n === +s.les).t)} · نتاج ${s.o}</span>
+    <strong class="lt">${fmt(s.t)}</strong>`;
+  w.append(hd);
+
+  w.append(el('h3', 'lsec', 'الشرح'));
+  w.append(el('div', 'lsum', ftxtP(s.teach)));
+  if (s.fig) w.append(el('div', 'lfig', '🖼️ ' + fmt(s.fig)));
+
+  if (s.sim && window.SIMS && SIMS[s.sim]) {
+    w.append(el('h3', 'lsec', 'محاكاة تفاعلية'));
+    const box = el('div', 'simbox'); w.append(box);
+    setTimeout(() => { try { SIMS[s.sim](box); } catch (e) {} }, 0);
+  }
+
+  w.append(el('h3', 'lsec', 'مثال محلول خطوة بخطوة'));
+  const ex = el('div', 'card2');
+  ex.innerHTML = `<p class="lq">${fmt(s.ex.q)}</p><div class="lfb good"><b>الحلّ :</b> ${ftxtP(s.ex.a)}</div>`;
+  w.append(ex);
+
+  if (s.warn) w.append(el('div', 'lwarn', '<b>انتبه — خطأ شائع :</b> ' + fmt(String(s.warn).replace('الخطأ الشائع : ', ''))));
+
+  if (s.before || (s.after || []).length) {
+    const th = el('div', 'lthread');
+    if (s.before) th.append(el('div', 'th1', '<b>من أين جاءت هذه الفكرة</b>' + ftxtP(s.before)));
+    if ((s.after || []).length) {
+      const d = el('div', 'th2'); d.innerHTML = '<b>وإلى أين تمضي بك</b>' +
+        s.after.map(a => '<p><span class="tu">' + esc(a.t) + '</span> ' + fmt(a.x) + '</p>').join('');
+      th.append(d);
+    }
+    w.append(th);
+  }
+
+  if (st.fail) { w.append(el('h3', 'lsec', 'شرح بطريقة أخرى')); w.append(el('div', 'box gold', ftxtP(s.alt))); }
+  if (st.fail >= 2) {
+    const c = el('div', 'box bad');
+    c.innerHTML = '<div class="bt">تعثّرتَ مرّتين في هذا المقطع</div><p class="hint" style="margin:0">هذا ليس فشلًا ، بل إشارة إلى أنّ المقطع يحتاج معلّمًا.</p>';
+    const a = el('a', 'btn ghost sm', 'أرسل لأستاذي موضع تعثّري');
+    a.href = waAsk(u, s); a.target = '_blank'; a.style.marginTop = '.5rem'; a.style.display = 'inline-block';
+    c.append(a); w.append(c);
+  }
+
+  const go = el('button', 'btn ok wide');
+  go.textContent = st.done ? 'أعد تذكرة الخروج' : 'ابدأ تذكرة الخروج · ثلاث صحيحة متتالية';
+  go.onclick = () => lrStartTk(u, L, { seg: s.i, path: !!path });
+  w.append(go);
+  w.append(el('p', 'hint ctr', st.done ? 'أتقنتَ هذا المقطع ، والإعادة اختيارية.'
+    : (path && s.i < L.segments.length ? 'بإتقانها يُفتح المقطع ' + (s.i + 1) + ' .' : 'بإتقانها يُسجَّل النتاج مُتقَنًا.')));
+}
+function waAsk(u, s) {
+  const t = 'السلام عليكم أستاذ . أنا في وحدة ' + u.unit.unitTitle.replace(/<[^>]*>/g, '') +
+    ' ، ووقفت عند المقطع ' + s.i + ' : ' + String(s.t).replace(/<[^>]*>/g, '') +
+    ' ( نتاج ' + s.o + ' ) . حاولت تذكرة الخروج مرّتين ولم أتقنها . أرجو مساعدتي.';
+  const ph = (SET.org && SET.org.wa) ? String(SET.org.wa).replace(/[^0-9]/g, '') : '';
+  return 'https://wa.me/' + ph + '?text=' + encodeURIComponent(t);
+}
+
+/* ---------- المراجعة ---------- */
+function lrReview(w, u, L) {
+  w.append(backLink(() => lGo(u)));
+  w.append(el('h3', 'lsec', 'مراجعة'));
+  w.append(el('p', 'hint', 'لا تُعرض عليك النتاجات التي أتقنتها.'));
+  const weak = Object.keys(L.outcomes).filter(n => lOst(u, n) !== 'ok');
+  if (!weak.length) { w.append(el('div', 'box mint', 'أتقنتَ نتاجات الوحدة كلّها . انتقل إلى اختبار الوحدة الذاتي.')); return; }
+  weak.forEach(n => {
+    const p = lPct(u, n), s = lOst(u, n);
+    const c = el('div', 'lrow');
+    c.innerHTML = `<div><strong>نتاج ${n}</strong><span>${fmt(L.outcomes[n])}${p !== null ? ' · الصحّة من المحاولة الأولى ' + p + '%' : ''}</span></div>
+      <span class="lchip ${s}">${lStName(s)}</span>`;
+    c.onclick = () => lrStartTk(u, L, { out: +n });
+    w.append(c);
+  });
+  w.append(el('p', 'hint', 'تُسحب لك فقرات موازية من مقاطع النتاج ، لا الفقرات التي أخطأت فيها.'));
+}
+
+/* ---------- تذكرة الخروج ---------- */
+function lrStartTk(u, L, opt) {
+  const P = lp(u);
+  const pool = opt.seg ? itemsOfSeg(L, opt.seg) : itemsOfOut(L, opt.out);
+  if (!pool.length) { flash('لا توجد فقرات لهذا المقطع.'); return; }
+  if (opt.seg) P.seg[opt.seg].streak = 0; else P.out[opt.out].streak = 0;
+  P.tk = { seg: opt.seg || null, out: opt.out || segOf(L, opt.seg).o, path: !!opt.path, max: 6, cur: 0, pick: null, log: [], q: shufL(pool.map(x => x.id)) };
+  save(); lGo(u, 'tk');
+}
+function tkItemOf(L, P) { const id = P.tk.q[P.tk.cur]; return L.items.find(x => x.id === id); }
+function lrTicket(w, u, L) {
+  const P = lp(u), t = P.tk, it = tkItemOf(L, P);
+  if (!it) { lrTkEnd(u, L); return; }
+  const unit = t.seg ? P.seg[t.seg] : P.out[t.out];
+  const streak = unit.streak || 0;
+  const picked = t.pick !== null && t.pick !== undefined;
+  const ttl = t.seg ? ('المقطع ' + t.seg + ' : ' + fmt(segOf(L, t.seg).t)) : ('نتاج ' + t.out);
+  w.append(backLink(() => { P.tk = null; save(); lGo(u, t.path ? 'p' : ''); }, 'خروج ( لا يُحفظ إتقان ناقص )'));
+  const m = el('div', 'lmeter');
+  m.innerHTML = 'تذكرة خروج · ' + ttl + ' ' + [0, 1, 2].map(i => '<span class="dot' + (i < streak ? ' on' : '') + '"></span>').join('') +
+    ' <span class="hint">صحيح متتالٍ ' + streak + ' من 3 · الفقرة ' + (t.log.length + (picked ? 0 : 1)) + ' من ' + t.max + ' كحدّ أقصى</span>';
+  w.append(m);
+  const c = el('div', 'card2');
+  c.append(el('p', 'lq', fmt(it.q)));
+  const ops = el('div', 'lopts');
+  it.op.forEach((x, i) => {
+    let cls = 'lopt';
+    if (picked) { if (i === t.pick) cls += i === it.a ? ' pick-ok' : ' pick-bad'; else if (i === it.a) cls += ' show-ok'; }
+    const bb = el('button', cls, '<span class="k">' + ['أ', 'ب', 'جـ', 'د'][i] + ' )</span> <span class="v">' + fmt(x) + '</span>');
+    bb.disabled = picked;
+    bb.onclick = () => lrAnswer(u, L, i);
+    ops.append(bb);
+  });
+  c.append(ops);
+  if (picked) {
+    const ok = t.pick === it.a;
+    const fin = t.seg ? P.seg[t.seg].done : P.out[t.out].mast;
+    const d = el('div', 'lfb ' + (ok ? 'good' : 'bad'));
+    d.innerHTML = ok
+      ? '<b>صحيح.</b> ' + (fin ? (t.seg ? 'بهذا يكتمل المقطع.' : 'بهذا يكتمل إتقان النتاج.') : 'بقي ' + (3 - streak) + ' من ثلاث متتالية.')
+      : '<b>غير صحيح.</b> ' + fmt(it.fb[t.pick] || '') + '<br>الصواب : ' + fmt(it.op[it.a]) + ' .<br><span class="sm">ستعود فقرة أخرى على الموضوع نفسه ، وعدّاد المتتالية يبدأ من الصفر.</span>';
+    c.append(d);
+  } else c.append(el('p', 'hint', 'لديك محاولة واحدة لهذه الفقرة . الجواب لا يُعرض قبل اختيارك.'));
+  w.append(c);
+  if (picked) { const n = el('button', 'btn wide', 'التالي'); n.onclick = () => lrNext(u, L); w.append(n); }
+}
+function lrAnswer(u, L, i) {
+  const P = lp(u), t = P.tk, it = tkItemOf(L, P);
+  const rec = P.out[it.o], sg = t.seg ? P.seg[t.seg] : null;
+  t.pick = i; rec.tries++; if (sg) sg.tries++;
+  const ok = i === it.a;
+  if (ok) {
+    rec.first++;
+    if (sg) { sg.streak++; if (sg.streak >= 3) { sg.done = true; logEvent('مقطع', u.id, 'المقطع ' + t.seg, 1); } }
+    else { rec.streak++; if (rec.streak >= 3) { rec.mast = true; logEvent('إتقان', u.id, 'نتاج ' + it.o, 1); } }
+  } else {
+    if (sg) sg.streak = 0; else { rec.streak = 0; rec.mast = false; }
+    const seen = t.q.slice(0, t.cur + 1);
+    const scope = t.seg ? itemsOfSeg(L, t.seg) : itemsOfOut(L, t.out);
+    let add = shufL(scope.filter(x => seen.indexOf(x.id) < 0))[0];
+    if (!add) add = shufL(scope.filter(x => x.id !== it.id))[0];
+    if (add) t.q.splice(t.cur + 1, 0, add.id);
+  }
+  t.log.push(ok ? 1 : 0);
+  lSync(u); save(); render();
+}
+function lrNext(u, L) {
+  const P = lp(u), t = P.tk;
+  t.cur++; t.pick = null;
+  const fin = t.seg ? P.seg[t.seg].done : P.out[t.out].mast;
+  if (fin || t.log.length >= t.max || t.q[t.cur] === undefined) { lrTkEnd(u, L); return; }
+  save(); render();
+}
+function lrTkEnd(u, L) {
+  const P = lp(u), t = P.tk || { log: [] };
+  const fin = t.seg ? P.seg[t.seg].done : (t.out ? P.out[t.out].mast : false);
+  if (!fin && t.seg) P.seg[t.seg].fail++;
+  const info = { seg: t.seg, out: t.out, path: t.path, ok: t.log.filter(Boolean).length, n: t.log.length, fin: fin };
+  P.tk = null; P.last = info; save();
+  play(fin ? 'done' : 'no');
+  lrShowEnd(u, L, info);
+}
+function lrShowEnd(u, L, info) {
+  const b = $('#app .tabbody') || $('#app');
+  const w = el('div', 'lrn');
+  const s = info.seg ? segOf(L, info.seg) : null;
+  const P = lp(u);
+  if (info.fin) {
+    const nx = s && s.i < L.segments.length ? s.i + 1 : null;
+    w.append(el('div', 'lrhead ok', `<strong>${s ? 'أتقنتَ المقطع ' + s.i : 'أتقنتَ نتاج ' + info.out}</strong><span>${s ? fmt(s.t) : fmt(L.outcomes[info.out])}</span><span class="sm">${info.ok} صحيحة من ${info.n} فقرة في هذه التذكرة</span>`));
+    if (info.path && nx) {
+      w.append(el('div', 'box mint', '<div class="bt">فُتح المقطع ' + nx + '</div><p class="hint" style="margin:0">' + fmt(segOf(L, nx).t) + ' · تقدّمك محفوظ على جهازك.</p>'));
+      const g = el('button', 'btn ok wide', 'انتقل إلى المقطع ' + nx); g.onclick = () => lGo(u, 'p', nx); w.append(g);
+    }
+    const h = el('button', 'btn ghost wide', 'رجوع إلى مسار الإتقان'); h.onclick = () => lGo(u); w.append(h);
+  } else {
+    w.append(el('div', 'lrhead warn', `<strong>لم تكتمل التذكرة</strong><span>${s ? fmt(s.t) : fmt(L.outcomes[info.out])}</span>`));
+    w.append(el('div', 'box', '<b>لم تُغلق ، ولم ينقص منك شيء.</b><p class="hint" style="margin:.3rem 0 0">قاعدة الإتقان ثلاث صحيحة متتالية ، ولم تكتمل في ' + info.n + ' فقرات.' + (info.path ? ' والمقطع الذي بعده يبقى مُقفلًا لأنّه يُبنى عليه.' : '') + '</p>'));
+    if (s) {
+      w.append(el('h3', 'lsec', 'اقرأ الشرح بطريقة أخرى'));
+      w.append(el('div', 'box gold', ftxtP(s.alt)));
+      const g = el('button', 'btn ok wide', 'ارجع إلى الشرح وأعد المحاولة');
+      g.onclick = () => lGo(u, info.path ? 'p' : 'seg', s.i); w.append(g);
+      if (P.seg[s.i].fail >= 2) { const a = el('a', 'btn ghost wide', 'أرسل لأستاذي موضع تعثّري'); a.href = waAsk(u, s); a.target = '_blank'; a.style.display = 'block'; a.style.textAlign = 'center'; a.style.marginTop = '.4rem'; w.append(a); }
+    } else { const g = el('button', 'btn ok wide', 'رجوع'); g.onclick = () => lGo(u, 'rev'); w.append(g); }
+  }
+  b.innerHTML = ''; b.append(w); window.scrollTo(0, 0);
+}
+
+/* ---------- اختبار الوحدة الذاتي ---------- */
+function lrDraw(L) {
+  const T = L.selftest, need = Object.assign({}, T.byOutcome), bl = Object.assign({}, T.bloom), sc = {}, ch = [];
+  const pool = shufL(L.items.slice());
+  Object.keys(need).forEach(o => {
+    let k = need[o];
+    while (k > 0) {
+      const order = Object.keys(bl).sort((x, y) => bl[y] - bl[x]);
+      let c = null;
+      for (const lv of order) { if (bl[lv] <= 0) continue; c = pool.find(it => String(it.o) === String(o) && ch.indexOf(it) < 0 && it.lvl === lv && (sc[it.s] || 0) < 3); if (c) break; }
+      if (!c) c = pool.find(it => String(it.o) === String(o) && ch.indexOf(it) < 0 && (sc[it.s] || 0) < 3);
+      if (!c) c = pool.find(it => String(it.o) === String(o) && ch.indexOf(it) < 0);
+      if (!c) break;
+      ch.push(c); bl[c.lvl]--; sc[c.s] = (sc[c.s] || 0) + 1; k--;
+    }
+  });
+  return shufL(ch);
+}
+function lrStartTest(u, L) {
+  const P = lp(u);
+  P.test = { ids: lrDraw(L).map(x => x.id), cur: 0, ans: [], t0: Date.now() };
+  save(); lGo(u, 'test');
+}
+function lrTest(w, u, L) {
+  const P = lp(u), t = P.test;
+  if (!t) { lrHome(w, u, L); return; }
+  if (t.cur >= t.ids.length) { lrEndTest(u, L); lrRes(w, u, L); return; }
+  const it = L.items.find(x => x.id === t.ids[t.cur]);
+  const m = el('div', 'lmeter');
+  m.innerHTML = 'اختبار الوحدة الذاتي · الفقرة ' + (t.cur + 1) + ' من ' + t.ids.length + ' <span class="hint">لا تُعرض الإجابات إلّا بعد انتهاء الاختبار</span>';
+  w.append(m);
+  const bar = el('div', 'lbar'); bar.innerHTML = '<i style="width:' + (t.cur / t.ids.length * 100) + '%"></i>'; w.append(bar);
+  const c = el('div', 'card2');
+  c.append(el('p', 'lq', fmt(it.q)));
+  const ops = el('div', 'lopts');
+  it.op.forEach((x, i) => {
+    const bb = el('button', 'lopt', '<span class="k">' + ['أ', 'ب', 'جـ', 'د'][i] + ' )</span> <span class="v">' + fmt(x) + '</span>');
+    bb.onclick = () => { t.ans[t.cur] = i; t.cur++; save(); if (t.cur >= t.ids.length) { lrEndTest(u, L); lGo(u, 'res'); } else render(); };
+    ops.append(bb);
+  });
+  c.append(ops); w.append(c);
+}
+function lrEndTest(u, L) {
+  const P = lp(u), t = P.test; if (!t) return;
+  const rows = {}; let ok = 0;
+  t.ids.forEach((id, i) => {
+    const it = L.items.find(x => x.id === id); const c = t.ans[i] === it.a; if (c) ok++;
+    rows[it.o] = rows[it.o] || { n: 0, c: 0 }; rows[it.o].n++; if (c) rows[it.o].c++;
+    if (!c) P.out[it.o].mast = false;
+  });
+  const pct = Math.round(100 * ok / Math.max(1, t.ids.length));
+  const band = L.selftest.decision.find(d => pct >= d.min) || L.selftest.decision[L.selftest.decision.length - 1];
+  const mins = Math.round((Date.now() - t.t0) / 60000);
+  P.res = { ok: ok, n: t.ids.length, pct: pct, rows: rows, label: band.label, act: band.act, at: Date.now(), mins: mins };
+  P.test = null; lSync(u); save();
+  logEvent('اختبار ذاتي', u.id, band.label, pct);
+  play(pct >= 85 ? 'win' : 'done');
+}
+function lrRes(w, u, L) {
+  const P = lp(u), r = P.res;
+  if (!r) { lrHome(w, u, L); return; }
+  const cls = r.pct >= 85 ? 'ok' : r.pct >= 70 ? 'warn' : 'bad';
+  w.append(el('div', 'lrhead ' + cls, `<strong>${r.ok} من ${r.n} · ${r.pct}%</strong><span>${esc(r.label)}</span><span class="sm">${r.mins ? 'في ' + r.mins + ' دقيقة' : 'في أقلّ من دقيقة'}</span>`));
+  w.append(el('div', 'box', '<div class="bt">ما تفعله الآن</div><p class="hint" style="margin:0">' + esc(r.act) + '</p>'));
+  w.append(el('h3', 'lsec', 'خريطة النتاجات'));
+  const tw = el('div', 'tw'); const tb = el('table');
+  tb.innerHTML = '<tr><th>النتاج</th><th>صحيح</th><th>النسبة</th><th>القرار</th></tr>' +
+    Object.keys(r.rows).map(o => { const x = r.rows[o], p = Math.round(100 * x.c / x.n);
+      return `<tr><td>نتاج ${o}</td><td>${x.c} من ${x.n}</td><td class="${p >= 80 ? 'g' : p >= 60 ? 'y' : 'r'}">${p}%</td><td>${p >= 60 ? 'مُتقَن' : 'أعد مقاطعه'}</td></tr>`; }).join('');
+  tw.append(tb); w.append(tw);
+  const weak = Object.keys(r.rows).filter(o => r.rows[o].c / r.rows[o].n < 0.6);
+  if (weak.length) {
+    const c = el('div', 'box bad');
+    c.innerHTML = '<div class="bt">قاعدة لا تتجاوزها</div><p class="hint">' + esc(L.selftest.outcomeRule) + '</p>';
+    weak.forEach(o => segsOfOut(L, o).forEach(i => {
+      const g = el('button', 'btn ghost sm', 'أعد المقطع ' + i); g.style.margin = '.2rem';
+      g.onclick = () => lGo(u, 'seg', i); c.append(g);
+    }));
+    w.append(c);
+  }
+  const h = el('button', 'btn wide', 'رجوع إلى مسار الإتقان'); h.onclick = () => lGo(u); w.append(h);
+  w.append(el('p', 'hint', 'سُحبت الفقرات بجدول مواصفات : ' + esc(L.selftest.basis)));
+}
+function backLink(fn, txt) {
+  const a = el('a', 'back lback', '→ ' + (txt || 'رجوع'));
+  a.onclick = fn; return a;
 }
