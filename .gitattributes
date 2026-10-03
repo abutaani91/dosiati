@@ -1,0 +1,20 @@
+# نهايات الأسطر : LF في المستودع وفي مجلّد العمل معًا
+# يمنع تحويل Git التلقائي إلى CRLF على ويندوز ( core.autocrlf )
+* text=auto eol=lf
+
+# ملفّات ثنائية لا تُمسّ
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.mp3 binary
+*.zip binary
+*.pdf binary
+
+# ملفّات نصّية صريحة
+*.html text eol=lf
+*.js   text eol=lf
+*.json text eol=lf
+*.css  text eol=lf
+*.md   text eol=lf
+*.svg  text eol=lf
+*.webmanifest text eol=lf

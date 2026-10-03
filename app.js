@@ -1,5 +1,5 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '18';
+const APP_VER = '19';
 const APP_DATE = '2026/10/03';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
 const $ = s => document.querySelector(s);

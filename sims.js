@@ -581,3 +581,254 @@
   window.SIMS.bohr = bohr;
   window.SIMS.qn = qn;
 })();
+
+/* ===== محاكاة نظرية التطوّر ( أحياء العاشر — الوحدة الأولى ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const sel = (lab, val, opts, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const s = document.createElement('select');
+    opts.forEach(o => { const p = document.createElement('option'); p.value = o[0]; p.textContent = o[1]; if (o[0] == val) p.selected = true; s.append(p); });
+    s.onchange = () => fn(s.value); w.append(s); return w;
+  };
+  const pct = x => Math.round(x * 100);
+
+  /* ---------------- 1 · الانتخاب الطبيعي في جماعة ---------------- */
+  function natsel(host) {
+    host.innerHTML = '';
+    const BG = { light: { n: 'رمل فاتح', c: '#E0CFA8' }, dark: { n: 'صخر داكن', c: '#4A423A' } };
+    const MC = { light: '#F7EFDA', dark: '#2E2822' };
+    const S = { bg: 'light', gen: 0, pLight: 0.5, hist: [], n: 24 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    const mkbar = () => { bar.innerHTML = '';
+      bar.append(sel('البيئة', S.bg, [['light', BG.light.n], ['dark', BG.dark.n]], v => { S.bg = v; reset(); })); };
+    const reset = () => { S.gen = 0; S.pLight = 0.5; S.hist = [{ g: 0, p: 0.5 }]; draw(); };
+
+    /* الأفراد المموّهون أقلّ افتراسًا : نسبة البقاء 0.9 للمموّه و 0.45 لغيره */
+    function step() {
+      const sLight = (S.bg === 'light') ? 0.9 : 0.45;
+      const sDark = (S.bg === 'light') ? 0.45 : 0.9;
+      const a = S.pLight * sLight, b = (1 - S.pLight) * sDark;
+      S.pLight = a / (a + b);
+      S.gen++; S.hist.push({ g: S.gen, p: S.pLight });
+      draw();
+    }
+    function grid() {
+      const W = 330, H = 120, cols = 8, rows = 3, r = 11;
+      const nLight = Math.round(S.n * S.pLight);
+      let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="vsvg">';
+      s += '<rect x="0" y="0" width="' + W + '" height="' + H + '" fill="' + BG[S.bg].c + '"/>';
+      for (let i = 0; i < S.n; i++) {
+        const cx = 26 + (i % cols) * 40, cy = 26 + Math.floor(i / cols) * 36;
+        const light = i < nLight;
+        s += '<circle cx="' + cx + '" cy="' + cy + '" r="' + r + '" fill="' + (light ? MC.light : MC.dark) +
+             '" stroke="#00205B" stroke-width="1.2"/>';
+      }
+      s += '</svg>';
+      return s;
+    }
+    function chart() {
+      const W = 330, H = 110, L = 28, B = 88;
+      let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="vsvg">';
+      s += '<line x1="' + L + '" y1="14" x2="' + L + '" y2="' + B + '" stroke="#9AA7B8"/>';
+      s += '<line x1="' + L + '" y1="' + B + '" x2="' + (W - 8) + '" y2="' + B + '" stroke="#9AA7B8"/>';
+      s += '<text x="4" y="18" font-size="9" fill="#5b6b80" direction="ltr">100%</text>';
+      s += '<text x="12" y="' + (B + 3) + '" font-size="9" fill="#5b6b80" direction="ltr">0</text>';
+      const maxG = Math.max(8, S.hist.length - 1);
+      const X = g => L + (g / maxG) * (W - L - 14);
+      const Y = p => B - p * (B - 14);
+      let d = '';
+      S.hist.forEach((h, i) => { d += (i ? 'L' : 'M') + X(h.g).toFixed(1) + ' ' + Y(h.p).toFixed(1) + ' '; });
+      s += '<path d="' + d + '" fill="none" stroke="#1C7C54" stroke-width="2.5"/>';
+      S.hist.forEach(h => { s += '<circle cx="' + X(h.g).toFixed(1) + '" cy="' + Y(h.p).toFixed(1) + '" r="2.5" fill="#1C7C54"/>'; });
+      s += '<text x="' + (W - 70) + '" y="' + (H - 2) + '" font-size="9" fill="#5b6b80">الأجيال ←</text>';
+      return s + '</svg>';
+    }
+    function draw() {
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'اضغط « جيل تالٍ » وراقب شيئين معًا : لا يتغيّر لون فرد واحد ، وتتغيّر نسبة اللونين في الجماعة.'));
+      body.append(el('div', 'vwrap', grid()));
+      const row = el('div', 'srow');
+      row.append(btn('جيل تالٍ ⟵', 'go', step));
+      row.append(btn('عشرة أجيال', '', () => { for (let i = 0; i < 10; i++) step(); }));
+      row.append(btn('إعادة', 'gh', reset));
+      body.append(row);
+      body.append(el('p', 'shint', 'نسبة اللون الفاتح في الجماعة عبر الأجيال :'));
+      body.append(el('div', 'vwrap', chart()));
+      const res = el('div', 'sres');
+      res.append(el('div', 'sl', 'الجيل : <b class="ltr">' + S.gen + '</b> · البيئة : ' + BG[S.bg].n));
+      res.append(el('div', 'sl', 'الفاتح <b class="ltr">' + pct(S.pLight) + '%</b> · الداكن <b class="ltr">' + pct(1 - S.pLight) + '%</b>'));
+      const win = (S.bg === 'light') ? 'الفاتح' : 'الداكن';
+      res.append(el('div', 'sl ok', 'المموّه في هذه البيئة هو <b>' + win + '</b> ، فهو أخفى على المفترس فيبقى ويتكاثر أكثر.'));
+      res.append(el('div', 'sl note', 'لم يتحوّل فرد واحد من لون إلى لون . الذي تغيّر <b>نسبة الصفة في الجماعة</b> — وهذا بالضبط معنى أنّ التطوّر يحدث في الجماعة لا في الفرد.'));
+      body.append(res);
+    }
+    mkbar(); reset();
+  }
+
+  /* ---------------- 2 · التشريح المقارن : الأطراف الأمامية ---------------- */
+  function homology(host) {
+    host.innerHTML = '';
+    /* [عضد , عظمان , رسغ , أصابع] أطوال نسبية */
+    const SP = {
+      bat: { n: 'الخفّاش', f: 'الطيران', L: [22, 26, 8, 86] },
+      dol: { n: 'الدُّلفين', f: 'السباحة', L: [26, 22, 14, 40] },
+      cat: { n: 'القطّ', f: 'المشي', L: [46, 44, 12, 20] }
+    };
+    const BN = [['عضد', '#00205B'], ['عظمان', '#1C7C54'], ['رسغ', '#B07A12'], ['أصابع', '#B3261E']];
+    const S = { show: true };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+
+    function draw() {
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'كلّ شريط طرف أمامي ، وكلّ لون عظم . قارن الترتيب أولًا ثمّ الأطوال.'));
+      const box = el('div', 'homo');
+      Object.keys(SP).forEach(k => {
+        const sp = SP[k];
+        const w = el('div', 'hrow');
+        w.append(el('div', 'hlab', '<b>' + sp.n + '</b><i>' + sp.f + '</i>'));
+        const bars = el('div', 'hbar');
+        const tot = sp.L.reduce((a, b) => a + b, 0);
+        sp.L.forEach((len, i) => {
+          const seg = el('span', 'hseg');
+          seg.style.flex = len + ' 0 0';
+          seg.style.background = S.show ? BN[i][1] : '#B9C3D0';
+          seg.title = BN[i][0];
+          bars.append(seg);
+        });
+        w.append(bars);
+        box.append(w);
+      });
+      body.append(box);
+      const lg = el('div', 'srow');
+      BN.forEach(b => lg.append(el('span', 'shint', '<span class="hkey" style="background:' + b[1] + '"></span> ' + b[0])));
+      body.append(lg);
+      const row = el('div', 'srow');
+      row.append(btn(S.show ? 'أخفِ ألوان العظام' : 'أظهر ألوان العظام', '', () => { S.show = !S.show; draw(); }));
+      body.append(row);
+      const res = el('div', 'sres');
+      res.append(el('div', 'sl', 'التركيب : <b>متشابه</b> — أربعة أقسام بالترتيب نفسه في الأنواع الثلاثة.'));
+      res.append(el('div', 'sl', 'الوظيفة : <b>مختلفة</b> — طيران وسباحة ومشي.'));
+      res.append(el('div', 'sl ok', 'الاختلاف الظاهر في <b>أطوال العظام ونسبها</b> لا في عددها ولا ترتيبها.'));
+      res.append(el('div', 'sl note', 'الدلالة كما في الكتاب : وجود أصل واحد لمجموعة من الثدييات . ولاحظ أنّ هذا <b>دليل</b> على التطوّر لا <b>آلية</b> له.'));
+      body.append(res);
+    }
+    draw();
+  }
+
+  /* ---------------- 3 · البيولوجيا الجزيئية : مقارنة التسلسل ---------------- */
+  function molseq(host) {
+    host.innerHTML = '';
+    const REF = 'ATGCCTGACTTAGCAGGTCA';
+    const SP = {
+      a: { n: 'النوع أ', d: [7] },
+      b: { n: 'النوع ب', d: [2, 7, 11, 14, 18] },
+      c: { n: 'النوع جـ', d: [0, 2, 4, 5, 7, 9, 11, 13, 14, 16, 18, 19] }
+    };
+    const SW = { A: 'T', T: 'A', G: 'C', C: 'G' };
+    const S = { sp: 'a' };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    const mkbar = () => { bar.innerHTML = '';
+      bar.append(sel('قارن الإنسان بـ', S.sp, Object.keys(SP).map(k => [k, SP[k].n]), v => { S.sp = v; draw(); })); };
+
+    const seqOf = k => REF.split('').map((c, i) => SP[k].d.includes(i) ? SW[c] : c);
+    function row(label, arr, diff) {
+      const r = el('div', 'orow');
+      r.append(el('b', 'olab', label));
+      arr.forEach((c, i) => {
+        const b = el('span', 'obox', c);
+        b.style.width = '1.35rem'; b.style.fontSize = '.75rem';
+        if (diff && diff.includes(i)) { b.style.background = '#FCEAE8'; b.style.borderColor = '#efc4c0'; b.style.color = '#B3261E'; }
+        r.append(b);
+      });
+      return r;
+    }
+    function draw() {
+      const k = S.sp, d = SP[k].d, n = d.length;
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'عشرون قاعدة من تسلسل واحد . المربّعات الحمراء مواضع الاختلاف عن الإنسان.'));
+      const box = el('div'); box.style.overflowX = 'auto';
+      box.append(row('الإنسان', REF.split('')), row(SP[k].n, seqOf(k), d));
+      body.append(box);
+      const res = el('div', 'sres');
+      res.append(el('div', 'sl', 'عدد مواضع الاختلاف : <b class="ltr">' + n + '</b> من <b class="ltr">20</b>'));
+      res.append(el('div', 'sl', 'نسبة التشابه : <b class="ltr">' + pct((20 - n) / 20) + '%</b>'));
+      const ord = Object.keys(SP).sort((x, y) => SP[x].d.length - SP[y].d.length);
+      res.append(el('div', 'sl ok', 'الترتيب من الأقرب قرابةً إلى الأبعد : <b>' + ord.map(x => SP[x].n).join(' ← ') + '</b>'));
+      res.append(el('div', 'sl note', 'القاعدة : كلّما زاد التشابه زادت القرابة وقلّت المدّة منذ الانفصال . فانتبه إلى المطلوب — <b>اختلافات</b> أم <b>تشابه</b> — فالحكم ينقلب بينهما.'));
+      body.append(res);
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 4 · الانعزال والتدفّق الجيني ---------------- */
+  function popflow(host) {
+    host.innerHTML = '';
+    const S = { mode: 'iso', t: 0 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    const mkbar = () => { bar.innerHTML = '';
+      bar.append(sel('الحالة', S.mode, [['iso', 'حاجز بين المجتمعين ( انعزال )'], ['flow', 'انتقال أفراد ( تدفّق جيني )']],
+        v => { S.mode = v; S.t = 0; draw(); })); };
+
+    /* نسبة صفة معيّنة في المجتمعين */
+    const stateAt = t => {
+      if (S.mode === 'iso') return [Math.min(0.95, 0.70 + 0.05 * t), Math.max(0.05, 0.30 - 0.05 * t)];
+      const m = Math.min(1, t / 5);
+      return [0.70 - 0.20 * m, 0.30 + 0.20 * m];
+    };
+    function draw() {
+      const [p1, p2] = stateAt(S.t);
+      const W = 340, H = 150;
+      let s = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="vsvg">';
+      const pop = (x, p, name) => {
+        let g = '<ellipse cx="' + x + '" cy="62" rx="62" ry="46" fill="#EAF4F1" stroke="#1C7C54" stroke-width="2"/>';
+        for (let i = 0; i < 12; i++) {
+          const a = (i / 12) * Math.PI * 2, cx = x + Math.cos(a) * (i % 2 ? 24 : 42), cy = 62 + Math.sin(a) * (i % 2 ? 18 : 30);
+          g += '<circle cx="' + cx.toFixed(1) + '" cy="' + cy.toFixed(1) + '" r="6" fill="' + (i < Math.round(12 * p) ? '#00205B' : '#D8DEE7') + '"/>';
+        }
+        g += '<text x="' + x + '" y="124" font-size="10" fill="#00205B" text-anchor="middle">' + name + '</text>';
+        g += '<text x="' + x + '" y="138" font-size="10" fill="#5b6b80" text-anchor="middle" direction="ltr">' + pct(p) + '%</text>';
+        return g;
+      };
+      s += pop(76, p1, 'المجتمع الأول') + pop(264, p2, 'المجتمع الثاني');
+      if (S.mode === 'iso') {
+        s += '<rect x="166" y="14" width="8" height="96" rx="3" fill="#7a5407"/>';
+        s += '<text x="170" y="128" font-size="10" fill="#7a5407" text-anchor="middle">حاجز</text>';
+      } else {
+        s += '<defs><marker id="pf" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#B07A12"/></marker></defs>';
+        s += '<line x1="146" y1="48" x2="196" y2="48" stroke="#B07A12" stroke-width="3" marker-end="url(#pf)"/>';
+        s += '<line x1="196" y1="78" x2="146" y2="78" stroke="#B07A12" stroke-width="3" marker-end="url(#pf)"/>';
+        s += '<text x="170" y="128" font-size="10" fill="#B07A12" text-anchor="middle">هجرة</text>';
+      }
+      s += '</svg>';
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'الدوائر الزرقاء حاملو الصفة . اضغط « جيل تالٍ » وراقب هل يتقارب المجتمعان أم يتباعدان.'));
+      body.append(el('div', 'vwrap', s));
+      const row = el('div', 'srow');
+      row.append(btn('جيل تالٍ ⟵', 'go', () => { S.t++; draw(); }));
+      row.append(btn('إعادة', 'gh', () => { S.t = 0; draw(); }));
+      body.append(row);
+      const res = el('div', 'sres');
+      res.append(el('div', 'sl', 'الجيل : <b class="ltr">' + S.t + '</b> · الفرق بين المجتمعين : <b class="ltr">' + pct(Math.abs(p1 - p2)) + '%</b>'));
+      if (S.mode === 'iso') {
+        res.append(el('div', 'sl ok', '<b>الانعزال</b> : الحاجز <b>يمنع</b> تبادل المادة الوراثية ، فيسير كلّ مجتمع وحده ويزداد الفرق بينهما.'));
+        res.append(el('div', 'sl note', 'والحاجز ليس مكانيًّا دائمًا : قد يكون موسم تكاثر مختلفًا ( فصلي ) أو سلوك تزاوج مختلفًا ( سلوكي ) والمجتمعان في المكان نفسه.'));
+      } else {
+        res.append(el('div', 'sl ok', '<b>التدفّق الجيني</b> : الهجرة <b>تنقل</b> الجينات بين المجتمعين ، فيقلّ الفرق بينهما ويزداد التنوّع في كلٍّ منهما.'));
+        res.append(el('div', 'sl note', 'جرّب الحالتين وقارن منحنى الفرق : الانعزال يُباعد ، والتدفّق يُقارب . هذا هو الفرق الذي يُسأل عنه أكثر من غيره.'));
+      }
+      body.append(res);
+    }
+    mkbar(); draw();
+  }
+
+  window.SIMS.natsel = natsel;
+  window.SIMS.homology = homology;
+  window.SIMS.molseq = molseq;
+  window.SIMS.popflow = popflow;
+})();
