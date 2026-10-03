@@ -258,3 +258,119 @@
 
   window.SIMS = { punnett, dna: h => dna(h, 'pair'), dnacopy: h => dna(h, 'copy'), division };
 })();
+
+/* ===== محاكاة المُتَّجِهات ( فيزياء العاشر — الوحدة الأولى ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const R2 = x => Math.round(x * 10) / 10;
+  const TRIG = { 0: [0, 1], 30: [0.5, 0.87], 37: [0.6, 0.8], 45: [0.71, 0.71], 53: [0.8, 0.6], 60: [0.87, 0.5], 90: [1, 0] };
+  const sinD = a => (TRIG[a] ? TRIG[a][0] : Math.sin(a * Math.PI / 180));
+  const cosD = a => (TRIG[a] ? TRIG[a][1] : Math.cos(a * Math.PI / 180));
+  const sld = (lab, val, min, max, step, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const i = document.createElement('input'); i.type = 'range'; i.min = min; i.max = max; i.step = step; i.value = val;
+    const v = el('b', 'nv', String(val));
+    i.oninput = () => { v.textContent = i.value; fn(+i.value); };
+    w.append(i, v); return w;
+  };
+  const W = 340, H = 250, OX = 60, OY = 195;
+  const svgHead = () => `<svg viewBox="0 0 ${W} ${H}" class="vsvg"><defs>
+    <marker id="ah" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#00205B"/></marker>
+    <marker id="ab" markerWidth="9" markerHeight="7" refX="8" refY="3.5" orient="auto"><polygon points="0 0, 9 3.5, 0 7" fill="#1C7C54"/></marker>
+    <marker id="ar" markerWidth="10" markerHeight="8" refX="9" refY="4" orient="auto"><polygon points="0 0, 10 4, 0 8" fill="#B3261E"/></marker></defs>`;
+  const grid = () => { let g = '';
+    for (let x = 0; x <= W; x += 20) g += `<line x1="${x}" y1="0" x2="${x}" y2="${H}" stroke="#EDF1F6"/>`;
+    for (let y = 0; y <= H; y += 20) g += `<line x1="0" y1="${y}" x2="${W}" y2="${y}" stroke="#EDF1F6"/>`;
+    g += `<line x1="0" y1="${OY}" x2="${W}" y2="${OY}" stroke="#9AA7B8"/><line x1="${OX}" y1="0" x2="${OX}" y2="${H}" stroke="#9AA7B8"/>`;
+    return g; };
+  const arrow = (x1, y1, x2, y2, col, mk, wdt) =>
+    `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="${col}" stroke-width="${wdt || 3}" marker-end="url(#${mk})"/>`;
+
+  function vecadd(host) {
+    host.innerHTML = '';
+    const S = { a: 30, aa: 0, b: 40, ba: 90, comp: false };
+    const bar = el('div', 'srow'), bar2 = el('div', 'srow'), body = el('div');
+    host.append(bar, bar2, body);
+    const re = () => draw();
+    bar.append(sld('مقدار A', S.a, 5, 60, 5, v => { S.a = v; re(); }), sld('زاوية A', S.aa, 0, 180, 15, v => { S.aa = v; re(); }));
+    bar2.append(sld('مقدار B', S.b, 5, 60, 5, v => { S.b = v; re(); }), sld('زاوية B', S.ba, 0, 180, 15, v => { S.ba = v; re(); }));
+
+    function draw() {
+      const k = 2.2;
+      const ax = S.a * cosD(S.aa), ay = S.a * sinD(S.aa);
+      const bx = S.b * cosD(S.ba), by = S.b * sinD(S.ba);
+      const rx = ax + bx, ry = ay + by;
+      const Rm = Math.sqrt(rx * rx + ry * ry);
+      const al = Math.atan2(ry, rx) * 180 / Math.PI;
+      const P = (x, y) => [OX + x * k, OY - y * k];
+      const [axp, ayp] = P(ax, ay), [bxp, byp] = P(rx, ry);
+      let s = svgHead() + grid();
+      s += arrow(OX, OY, axp, ayp, '#00205B', 'ah');
+      s += arrow(axp, ayp, bxp, byp, '#1C7C54', 'ab');
+      s += arrow(OX, OY, bxp, byp, '#B3261E', 'ar', 4);
+      if (S.comp) {
+        const [rxp, ] = P(rx, 0);
+        s += `<line x1="${OX}" y1="${OY}" x2="${rxp}" y2="${OY}" stroke="#B07A12" stroke-width="2" stroke-dasharray="4 3"/>`;
+        s += `<line x1="${rxp}" y1="${OY}" x2="${bxp}" y2="${byp}" stroke="#B07A12" stroke-width="2" stroke-dasharray="4 3"/>`;
+      }
+      s += `<text x="${(OX + axp) / 2}" y="${(OY + ayp) / 2 - 6}" font-size="13" fill="#00205B">A</text>`;
+      s += `<text x="${(axp + bxp) / 2 + 4}" y="${(ayp + byp) / 2}" font-size="13" fill="#1C7C54">B</text>`;
+      s += `<text x="${(OX + bxp) / 2 - 12}" y="${(OY + byp) / 2 + 4}" font-size="14" fill="#B3261E" font-weight="bold">R</text>`;
+      s += '</svg>';
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'ذيل B عند رأس A ، والمحصلة R من ذيل A إلى رأس B . حرّك المنزلقات وراقب المحصلة.'));
+      body.append(el('div', 'vwrap', s));
+      const row = el('div', 'srow');
+      row.append(btn(S.comp ? 'أخفِ المُركّبات' : 'أظهر مُركّبات المحصلة', '', () => { S.comp = !S.comp; draw(); }));
+      row.append(btn('متعامدان', 'gh', () => { S.aa = 0; S.ba = 90; host.innerHTML = ''; vecadd(host); }));
+      row.append(btn('في اتجاه واحد', 'gh', () => { S.aa = 0; S.ba = 0; host.innerHTML = ''; vecadd(host); }));
+      body.append(row);
+      const res = el('div', 'sres');
+      res.append(el('div', 'sl', 'المُركّبات : <b class="ltr">Rx = ' + R2(rx) + '</b> &nbsp; <b class="ltr">Ry = ' + R2(ry) + '</b>'));
+      res.append(el('div', 'sl', 'مقدار المحصلة : <b class="ltr">R = √( ' + R2(rx) + '² + ' + R2(ry) + '² ) = ' + R2(Rm) + '</b>'));
+      res.append(el('div', 'sl', 'اتجاهها : <b class="ltr">α ≈ ' + R2(al) + '°</b> من محور السينات الموجب'));
+      const lo = Math.abs(S.a - S.b), hi = S.a + S.b;
+      res.append(el('div', 'sl note', 'تحقّق بقاعدة الحدّين : المحصلة لا تخرج عن المدى من <b class="ltr">' + lo + '</b> إلى <b class="ltr">' + hi + '</b> — وقيمتها الآن <b class="ltr">' + R2(Rm) + '</b> .'));
+      body.append(res);
+    }
+    draw();
+  }
+
+  function veccomp(host) {
+    host.innerHTML = '';
+    const S = { m: 100, a: 37 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sld('مقدار المُتَّجِه', S.m, 10, 120, 10, v => { S.m = v; draw(); }),
+      sld('الزاوية مع الأفقي', S.a, 0, 90, 1, v => { S.a = v; draw(); }));
+    function draw() {
+      const k = 1.3, ax = S.m * cosD(S.a), ay = S.m * sinD(S.a);
+      const P = (x, y) => [OX + x * k, OY - y * k];
+      const [xp, yp] = P(ax, ay), [xx, ] = P(ax, 0);
+      let s = svgHead() + grid();
+      s += `<line x1="${OX}" y1="${OY}" x2="${xx}" y2="${OY}" stroke="#B07A12" stroke-width="3" marker-end="url(#ah)"/>`;
+      s += `<line x1="${xx}" y1="${OY}" x2="${xp}" y2="${yp}" stroke="#1C7C54" stroke-width="3" marker-end="url(#ab)"/>`;
+      s += `<line x1="${xp}" y1="${yp}" x2="${OX}" y2="${OY}" stroke="#eee" stroke-width="0"/>`;
+      s += arrow(OX, OY, xp, yp, '#B3261E', 'ar', 4);
+      s += `<text x="${(OX + xx) / 2}" y="${OY + 16}" font-size="12" fill="#B07A12">Ax</text>`;
+      s += `<text x="${xx + 6}" y="${(OY + yp) / 2}" font-size="12" fill="#1C7C54">Ay</text>`;
+      s += `<text x="${(OX + xp) / 2 - 16}" y="${(OY + yp) / 2 - 4}" font-size="14" fill="#B3261E" font-weight="bold">A</text>`;
+      s += '</svg>';
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'المُتَّجِه الأحمر يُكافئ المُركّبتين معًا : الأفقية بالذهبي والرأسية بالأخضر.'));
+      body.append(el('div', 'vwrap', s));
+      const res = el('div', 'sres');
+      res.append(el('div', 'sl', '<b class="ltr">Ax = A cos θ = ' + S.m + ' × ' + R2(cosD(S.a)) + ' = ' + R2(ax) + '</b>'));
+      res.append(el('div', 'sl', '<b class="ltr">Ay = A sin θ = ' + S.m + ' × ' + R2(sinD(S.a)) + ' = ' + R2(ay) + '</b>'));
+      res.append(el('div', 'sl ok', 'التحقّق بفيثاغورس : <b class="ltr">√( ' + R2(ax) + '² + ' + R2(ay) + '² ) = ' + R2(Math.sqrt(ax * ax + ay * ay)) + '</b> — وهو المقدار الأصلي.'));
+      const big = S.a < 45 ? 'الأفقية أكبر' : S.a > 45 ? 'الرأسية أكبر' : 'المُركّبتان متساويتان';
+      res.append(el('div', 'sl note', 'الزاوية ' + S.a + '° ، و' + big + ' . وكلّ مُركّبة أصغر من المُتَّجِه نفسه دائمًا — فإن خرجت أكبر منه فالحلّ خطأ.'));
+      body.append(res);
+    }
+    draw();
+  }
+
+  window.SIMS.vecadd = vecadd;
+  window.SIMS.veccomp = veccomp;
+})();
