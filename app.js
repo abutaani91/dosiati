@@ -1,4 +1,6 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
+const APP_VER = '14';
+const APP_DATE = '2026/10/03';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
 const $ = s => document.querySelector(s);
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
@@ -194,6 +196,7 @@ function legacyRead(v) {
   if (t.length < 9 || t.length > 12) return null;
   const row = (SET.roster || []).find(r => r.h === hash(t));
   if (!row) return null;
+  if (row.out) return { out: true };
   const g = SET.grades[row.g];
   if (!g || !g.on) return null;
   return { code: t, sid: String(row.h).slice(0, 12), legacy: true, year: +SET.year, term: SET.term,
@@ -205,6 +208,7 @@ async function readCodeAsync(v) {
     const h = await codeHash(t);
     const row = (SET.roster || []).find(r => r.h === h);
     if (row) {
+      if (row.out) return { out: true };
       const g = SET.grades[row.g];
       if (!g || !g.on) return null;
       return { code: t, sid: h.slice(0, 12), year: +SET.year, term: SET.term,
@@ -247,7 +251,7 @@ function pinOf(r) {
   return (r.h === hash(old)) ? old : '';
 }
 function rosterOf(g) {
-  return (SET.roster || []).filter(r => r.g === g).map(r => {
+  return (SET.roster || []).filter(r => r.g === g && !r.out).map(r => {
     const pin = pinOf(r);
     return { no: r.n, sec: r.s || '', code: String(r.h).slice(0, 12), pin,
              name: (pin ? decName(r.e, pin) : '') || ('طالب رقم ' + r.n) };
@@ -549,6 +553,7 @@ function loginView() {
     let u = null;
     try { u = await readCodeAsync(v); } catch (e) { u = null; }
     b.disabled = false; msg.className = 'err';
+    if (u && u.out) { msg.textContent = 'هذا الرمز موقوف . راجع معلّمك.'; i.select(); return; }
     if (!u) { msg.textContent = 'رمز غير صحيح . تحقّق من الحروف والأرقام كما هي على بطاقتك.'; i.select(); return; }
     setUser(u); openStore(); location.hash = '';
     logEvent('login'); S.screenLogin = false; stopNasheed(); play('ok');
@@ -562,7 +567,7 @@ function loginView() {
   tb.onclick = () => { S.loginTeacher = !teacherMode; render(); };
   g.append(tb);
   w.append(g);
-  w.append(el('p', 'foot', 'يعمل بدون إنترنت بعد أوّل فتح'));
+  w.append(el('p', 'foot', 'يعمل بدون إنترنت بعد أوّل فتح · الإصدار ' + APP_VER));
   setTimeout(() => i.focus(), 50);
   return w;
 }
@@ -794,6 +799,13 @@ function adminView() {
     const b4 = sec('رمز المعلّم', 'اتركه فارغًا للإبقاء على الرمز الحالي . يُحفظ مشفّرًا تشفيرًا بسيطًا ، وهو حماية تنظيمية لا أمنية.');
     const pi = el('input'); pi.type = 'text'; pi.placeholder = 'رمز جديد'; pi.className = 'num';
     const pb = el('button', 'btn ghost', 'تغيير الرمز');
+    function rmStudent(r) {
+      if (!confirm('حذف « ' + r.name + ' » نهائيًّا من القائمة ؟\nيُمسح اسمه ورمزه ولا يمكن التراجع . إن كنت تريد الاحتفاظ بسجلّه فاستعمل « نقل » بدل الحذف.')) return;
+      if (!confirm('تأكيد أخير : حذف « ' + r.name + ' » ؟')) return;
+      D.roster = (D.roster || []).filter(x => x.h !== r.h);
+      const v = vaultGet(); delete v[r.h]; vaultPut(v);
+      flash('حُذف الطالب . اضغط « حفظ التغييرات » ثمّ انشر ملفّ الإعدادات.'); render();
+    }
     pb.onclick = () => {
       const v = pi.value.trim();
       if (!v) return flash('اكتب الرمز الجديد أولًا.');
@@ -1171,17 +1183,43 @@ function adminView() {
 
     const cur = (D.roster || []).filter(r => r.g === gs.value).map(r => {
       const pin = pinOf(r);
-      return { no: r.n, s: r.s, pin, safe: !!vaultOf(r.h), name: (pin ? decName(r.e, pin) : '') || ('طالب رقم ' + r.n) };
+      return { h: r.h, out: !!r.out, no: r.n, s: r.s, pin, safe: !!vaultOf(r.h), name: (pin ? decName(r.e, pin) : '') || ('طالب رقم ' + r.n) };
     }).sort((a, c) => (+a.no) - (+c.no));
     const nOld = cur.filter(r => !r.safe).length;
     const tw = el('div', 'tw codes');
     const t = el('table');
-    t.innerHTML = '<tr><th>#</th><th>اسم الطالب</th><th>الشعبة</th><th>رمز الدخول</th><th>النوع</th></tr>' +
-      cur.map(r => `<tr><td>${esc(r.no)}</td><td>${esc(r.name)}</td><td>${esc(r.s)}</td><td>${esc(r.pin ? (r.safe ? fmtCode(r.pin) : r.pin) : '— غير متوفّر على هذا الجهاز —')}</td><td>${r.safe ? 'آمن' : 'قديم'}</td></tr>`).join('');
+    const hd = el('tr', '', '<th>#</th><th>اسم الطالب</th><th>الشعبة</th><th>رمز الدخول</th><th>النوع</th><th>الحالة</th><th>إجراء</th>');
+    t.append(hd);
+    cur.forEach(r => {
+      const tr = el('tr');
+      if (r.out) tr.className = 'gone';
+      tr.innerHTML = `<td>${esc(r.no)}</td><td>${esc(r.name)}</td><td>${esc(r.s)}</td>` +
+        `<td>${esc(r.pin ? (r.safe ? fmtCode(r.pin) : r.pin) : '— غير متوفّر على هذا الجهاز —')}</td>` +
+        `<td>${r.safe ? 'آمن' : 'قديم'}</td><td>${r.out ? 'منقول' : 'على رأس عمله'}</td>`;
+      const td = el('td'); td.className = 'act';
+      if (r.out) {
+        const bk = el('button', 'mini', 'إرجاع');
+        bk.onclick = () => { const row = (D.roster || []).find(x => x.h === r.h); if (row) { delete row.out; delete row.outAt; } render(); };
+        const dl = el('button', 'mini danger', 'حذف');
+        dl.onclick = () => rmStudent(r);
+        td.append(bk, dl);
+      } else {
+        const mv = el('button', 'mini', 'نقل');
+        mv.onclick = () => {
+          if (!confirm('تعليم « ' + r.name + ' » منقولًا ؟\nيتوقّف رمزه عن العمل ، ويبقى سجلّه محفوظًا ، ويمكنك إرجاعه في أيّ وقت.')) return;
+          const row = (D.roster || []).find(x => x.h === r.h);
+          if (row) { row.out = 1; row.outAt = new Date().toISOString().slice(0, 10); }
+          flash('نُقل الطالب . اضغط « حفظ التغييرات » ثمّ انشر ملفّ الإعدادات.'); render();
+        };
+        td.append(mv);
+      }
+      tr.append(td); t.append(tr);
+    });
     tw.append(t); b.append(tw);
-    b.append(el('p', 'hint', 'عدد الطلبة في هذا الصف : ' + cur.length));
+    const nOut = cur.filter(r => r.out).length;
+    b.append(el('p', 'hint', 'على رأس عمله : ' + (cur.length - nOut) + ' · منقولون : ' + nOut + ' · المجموع : ' + cur.length));
     pb.onclick = () => {
-      const cards = cur.filter(r => r.pin).map(r => '<div class="cd"><div class="cn">' + esc(r.name) + '</div>' +
+      const cards = cur.filter(r => r.pin && !r.out).map(r => '<div class="cd"><div class="cn">' + esc(r.name) + '</div>' +
         '<div class="cg">' + esc(GRADES[gs.value]) + (r.s ? ' / ' + esc(r.s) : '') + ' · رقم ' + esc(r.no) + '</div>' +
         '<div class="cc">' + esc(r.safe ? fmtCode(r.pin) : r.pin) + '</div>' +
         '<div class="cf">' + esc((D.site && D.site.url) || 'صفحة التعلّم الذاتي') + '</div></div>').join('');
@@ -1233,6 +1271,11 @@ function adminView() {
   }
 
   function filePage() {
+    const vb = sec('إصدار التطبيق');
+    const nIn = (D.roster || []).filter(r => !r.out).length, nOutAll = (D.roster || []).filter(r => r.out).length;
+    vb.append(el('div', 'box mint', '<div class="bt">الإصدار ' + APP_VER + ' · ' + APP_DATE + '</div>' +
+      '<p style="margin:0;font-size:.88rem">عدد الوحدات : ' + S.units.length + ' · الطلبة : ' + nIn + ' على رأس عملهم و' + nOutAll + ' منقولون.<br>' +
+      'رقم الإصدار يظهر أيضًا أسفل شاشة الدخول . فإن رأيتَ على جهاز طالب رقمًا أقدم فنسخته من الكاش قديمة : يُغلق الصفحة ويفتحها ثانية مع إنترنت.</p>'));
     const b = sec('نشر الإعدادات على الموقع', 'ما تحفظه هنا يسري على جهازك فقط . ليصل للطلبة : نزّل settings.json وارفعه إلى مجلّد الموقع بجانب index.html — واستبدل القديم به. لا حاجة لرفع رقم الكاش في sw.js لأجل الإعدادات ، فملفّها يُقرأ من الشبكة أوّلًا ويصل لأجهزة الطلبة ( حاسوب وهاتف ) عند أوّل فتح مع إنترنت. رقم الكاش يُرفع فقط عند تغيير app.js أو index.html أو data.json.');
     const r = el('div', 'btns');
     const dl2 = el('button', 'btn', 'تنزيل settings.json');
