@@ -1,6 +1,6 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '19';
-const APP_DATE = '2026/10/03';
+const APP_VER = '24';
+const APP_DATE = '2026/10/10';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
 const $ = s => document.querySelector(s);
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
@@ -461,6 +461,7 @@ async function boot() {
   await loadSettings();
   await loadExtras();
   await loadLearn();
+  await loadFigs();
   let data = window.__DATA__;
   if (!data) { const r = await fetch('data.json'); data = await r.json(); }
   S.units = data;
@@ -2270,6 +2271,115 @@ async function loadLearn() {
   try { const r = await fetch('learn.json', { cache: 'no-cache' }); if (r.ok) LRN = await r.json(); } catch (e) { LRN = {}; }
 }
 const lrnOf = id => LRN[id] || null;
+
+/* ================= أشكال الكتاب ================= */
+let FIGS = {};
+async function loadFigs() {
+  if (window.__FIGS__) { FIGS = window.__FIGS__; return; }
+  try { const r = await fetch('figs.json'); if (r.ok) FIGS = await r.json(); } catch (e) { FIGS = {}; }
+}
+const figsOf = id => FIGS[id] || { t: '', les: [], items: [] };
+const figFind = (id, f) => figsOf(id).items.find(x => x.f === f) || null;
+const figCap = x => (x.k ? 'الشكل (' + x.k + ') · ' : '') + 'ص ' + x.p + ' · ' + x.t;
+
+/* صورة الشكل داخل مقطع الإتقان ، وتُستبدل بسطر نصّي إن لم يُسنَد شكل */
+function figBlock(u, s) {
+  const list = (s.figs || []).map(f => figFind(u.id, f)).filter(Boolean);
+  if (!list.length) return s.fig ? el('div', 'lfig', '🖼️ ' + fmt(s.fig)) : null;
+  /* أربعة أشكال فأكثر تُعرض مصغَّرة في شبكة ، لئلّا يطول المقطع */
+  const many = list.length >= 4;
+  const d = el('div', many ? 'figgrid' : 'figs' + (list.length > 1 ? ' multi' : ''));
+  list.forEach(x => {
+    const fg = el('figure', many ? 'figt' + (x.a ? ' act' : '') : 'figc');
+    const im = el('img');
+    im.src = 'fig/' + x.f; im.alt = x.d || x.t; im.loading = 'lazy'; im.decoding = 'async';
+    /* إن تعذّر تحميل الصورة يبقى وصف الشكل نصًّا بدل فراغ */
+    im.onerror = () => { const t = el('div', 'lfig', '🖼️ ' + fmt(figCap(x))); fg.replaceWith(t); };
+    fg.append(im, el('figcaption', '', many
+      ? fmt((x.k ? '(' + x.k + ') ' : '') + x.t) + '<span>ص ' + x.p + (x.a ? ' · أنشطة' : '') + '</span>'
+      : fmt(figCap(x))));
+    fg.onclick = () => figZoom(x);
+    d.append(fg);
+  });
+  return d;
+}
+
+/* تكبير الشكل */
+function figZoom(x) {
+  const ov = el('div', 'figov');
+  const bx = el('div', 'figbx');
+  const im = el('img'); im.src = 'fig/' + x.f; im.alt = x.d || x.t;
+  const cl = el('button', 'figx', '✕');
+  cl.setAttribute('aria-label', 'إغلاق');
+  bx.append(cl, im, el('div', 'figmeta', '<b>' + esc(figCap(x)) + '</b>' + (x.d ? '<p>' + esc(x.d) + '</p>' : '') + (x.a ? '<span class="sm">من كتاب الأنشطة</span>' : '')));
+  ov.append(bx);
+  const close = () => { ov.remove(); document.removeEventListener('keydown', kd); };
+  function kd(e) { if (e.key === 'Escape') close(); }
+  cl.onclick = close;
+  ov.onclick = e => { if (e.target === ov) close(); };
+  document.addEventListener('keydown', kd);
+  document.body.append(ov);
+}
+
+/* تنزيل أشكال الوحدة إلى ذاكرة التطبيق لتعمل دون إنترنت */
+function figDl(F) {
+  const d = el('div', 'box mint');
+  d.append(el('div', 'bt', 'للاستخدام دون إنترنت'));
+  d.append(el('p', 'hint', 'أشكال هذه الوحدة ' + F.items.length + ' شكلًا ، حجمها نحو ' + Math.round(F.items.length * 18) +
+    ' كيلوبايت . أيّ شكل تفتحه يُحفظ تلقائيًّا ، وهذا الزرّ ينزّلها كلّها مرّة واحدة فتظهر بعدها وأنت دون إنترنت.'));
+  const b = el('button', 'btn', 'تنزيل أشكال الوحدة');
+  b.onclick = async () => {
+    b.disabled = true;
+    let n = 0;
+    const q = F.items.slice();
+    const one = async () => {
+      while (q.length) {
+        const x = q.pop();
+        try { await fetch('fig/' + x.f, { cache: 'force-cache' }); } catch (e) {}
+        n++; b.textContent = 'جارٍ التنزيل … ' + n + ' / ' + F.items.length;
+      }
+    };
+    await Promise.all([one(), one(), one(), one(), one(), one()]);
+    b.textContent = 'تمّ تنزيل ' + n + ' شكلًا';
+    flash('أشكال الوحدة متاحة الآن دون إنترنت.');
+  };
+  d.append(b);
+  return d;
+}
+
+/* معرض أشكال الوحدة مرتّبًا بحسب الدرس */
+function lrFigs(w, u, L) {
+  const F = figsOf(u.id);
+  w.append(backLink(() => lGo(u)));
+  const h = el('div', 'lrhead');
+  h.innerHTML = '<strong>أشكال الكتاب</strong><span>' + F.items.length + ' شكلًا · ' + esc(F.t || u.meta.title || '') + '</span>' +
+    '<span class="sm">هذه أشكال كتابك نفسه ، مرتّبة بحسب الدرس ثمّ الصفحة . انقر أيّ شكل لتكبيره وقراءة وصفه.</span>';
+  w.append(h);
+  if (!F.items.length) { w.append(el('p', 'hint', 'لم تُجهَّز أشكال هذه الوحدة بعد.')); return; }
+  w.append(figDl(F));
+  /* كتاب الطالب أوّلًا ثمّ كتاب الأنشطة ، لأنّ ترقيم صفحات الكتابين مستقلّ */
+  [0, 1].forEach(act => {
+    const part = F.items.filter(x => (x.a ? 1 : 0) === act);
+    if (!part.length) return;
+    if (act) w.append(el('div', 'figsep', 'أشكال كتاب الأنشطة'));
+    const byL = {};
+    part.forEach(x => { (byL[x.l] = byL[x.l] || []).push(x); });
+    Object.keys(byL).sort((a, b) => byL[a][0].p - byL[b][0].p).forEach(k => {
+      w.append(el('h3', 'lsec', fmt(F.les[k] || 'عامّ')));
+      const g = el('div', 'figgrid');
+      byL[k].forEach(x => {
+        const c = el('figure', 'figt' + (x.a ? ' act' : ''));
+        const im = el('img'); im.src = 'fig/' + x.f; im.alt = x.d || x.t; im.loading = 'lazy'; im.decoding = 'async';
+        im.onerror = () => { c.classList.add('miss'); im.replaceWith(el('div', 'figmiss', 'الصورة غير متاحة')); };
+        c.append(im, el('figcaption', '', fmt((x.k ? '(' + x.k + ') ' : '') + x.t) + '<span>ص ' + x.p + (x.a ? ' · أنشطة' : '') + '</span>'));
+        c.onclick = () => figZoom(x);
+        g.append(c);
+      });
+      w.append(g);
+    });
+  });
+}
+
 const ftxtP = t => String(t || '').split('\n').map(x => x.trim()).filter(Boolean).map(x => '<p>' + fmt(x) + '</p>').join('');
 const segOf = (L, i) => L.segments.find(s => s.i === +i);
 const segsOfOut = (L, o) => L.segments.filter(s => +s.o === +o).map(s => s.i);
@@ -2317,6 +2427,7 @@ function stLrn(b, u) {
   else if (a[0] === 'seg') lrSeg(w, u, L, a[1], false);
   else if (a[0] === 'p' && a[1]) lrSeg(w, u, L, a[1], true);
   else if (a[0] === 'p') lrPath(w, u, L);
+  else if (a[0] === 'figs') lrFigs(w, u, L);
   else if (a[0] === 'rev') lrReview(w, u, L);
   else if (a[0] === 'test') lrTest(w, u, L);
   else if (a[0] === 'res') lrRes(w, u, L);
@@ -2348,6 +2459,8 @@ function lrHome(w, u, L) {
   mk('أُحضّر لحصّة قادمة', 'النتاجات والشرح والمحاكاة قبل الحصّة', 'بلا شرط إتقان', 'nogate', () => lGo(u, 'les', 'prep'));
   mk('أُراجع', 'فقرات على النتاجات التي لم تُتقنها فقط', 'يُغلق بالإتقان', 'gate', () => lGo(u, 'rev'));
   mk('أتعلّم الوحدة وحدي من الصفر', done ? ('وصلتَ إلى المقطع ' + (cur || L.segments.length) + ' من ' + L.segments.length) : (L.segments.length + ' مقاطع متتابعة ، لا يُفتح مقطع إلّا بإتقان ما قبله'), 'مسار مُقفل', 'gate', () => lGo(u, 'p'));
+  const nf = figsOf(u.id).items.length;
+  if (nf) mk('أرجع إلى أشكال الكتاب', nf + ' شكلًا من كتابك مرتّبة بحسب الدرس والصفحة', 'للمراجعة', 'nogate', () => lGo(u, 'figs'));
   w.append(g);
 
   const tc = el('div', 'box mint');
@@ -2439,7 +2552,7 @@ function lrSeg(w, u, L, i, path) {
 
   w.append(el('h3', 'lsec', 'الشرح'));
   w.append(el('div', 'lsum', ftxtP(s.teach)));
-  if (s.fig) w.append(el('div', 'lfig', '🖼️ ' + fmt(s.fig)));
+  const fb = figBlock(u, s); if (fb) w.append(fb);
 
   if (s.sim && window.SIMS && SIMS[s.sim]) {
     w.append(el('h3', 'lsec', 'محاكاة تفاعلية'));

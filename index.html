@@ -321,6 +321,29 @@ body.dark .hint,body.dark .card .meta,body.dark .uhead2 span{color:#9FB2CC}
 .lrn .lsum{background:var(--gold);border:1px solid #f0e2bd;border-radius:12px;padding:.8rem;font-size:.95rem}
 .lrn .lsum p{margin:.35rem 0}
 .lrn .lfig{background:var(--mint);border:1px dashed #9fc4ba;border-radius:12px;padding:1rem .8rem;text-align:center;color:#2b6b5c;font-size:.86rem;margin:.7rem 0}
+/* ===== أشكال الكتاب ===== */
+.figs{margin:.8rem 0;display:grid;gap:.6rem}
+.figs.multi{grid-template-columns:1fr 1fr}
+@media (max-width:520px){.figs.multi{grid-template-columns:1fr}}
+.figc{margin:0;background:#fff;border:1px solid var(--line);border-radius:12px;padding:.5rem;cursor:zoom-in;overflow:hidden}
+.figc img{display:block;width:100%;height:auto;max-height:24rem;object-fit:contain;border-radius:8px;background:#f6f6f4}
+.figsep{margin:1.4rem 0 .2rem;padding:.55rem .8rem;background:#FFFCF4;border:1px solid #e8dcc0;border-radius:10px;font-size:.84rem;color:#7a6534;font-weight:700}
+.figc figcaption{font-size:.8rem;color:#5b6b66;text-align:center;padding:.45rem .3rem .15rem;line-height:1.55}
+.figmiss{height:6.6rem;display:flex;align-items:center;justify-content:center;font-size:.72rem;color:#9aa7a1;background:#f6f6f4;border-radius:7px}
+.figgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(8.5rem,1fr));gap:.55rem;margin:.5rem 0 1rem}
+.figt{margin:0;background:#fff;border:1px solid var(--line);border-radius:10px;padding:.35rem;cursor:zoom-in;overflow:hidden}
+.figt.act{border-color:#e0cba0;background:#FFFCF4}
+.figt img{display:block;width:100%;height:6.6rem;object-fit:contain;background:#f6f6f4;border-radius:7px}
+.figt figcaption{font-size:.72rem;color:#44544f;padding:.3rem .2rem 0;line-height:1.5;display:block}
+.figt figcaption span{display:block;font-size:.66rem;color:#8a978f;margin-top:.15rem}
+
+.figov{position:fixed;inset:0;background:rgba(18,28,25,.88);z-index:9000;display:flex;align-items:center;justify-content:center;padding:1rem;overflow:auto}
+.figbx{position:relative;background:#fff;border-radius:14px;padding:.6rem;max-width:min(94vw,40rem);width:100%}
+.figbx img{display:block;width:100%;height:auto;max-height:70vh;object-fit:contain;border-radius:9px;background:#f6f6f4}
+.figmeta{padding:.6rem .4rem .2rem;font-size:.86rem;line-height:1.75;color:#33443e}
+.figmeta b{display:block;color:#1f3b33;margin-bottom:.25rem}
+.figmeta p{margin:0;color:#56655f;font-size:.82rem}
+.figx{position:absolute;inset-inline-end:.45rem;inset-block-start:.45rem;z-index:2;background:rgba(255,255,255,.94);border:1px solid var(--line);border-radius:50%;width:2rem;height:2rem;font-size:1rem;line-height:1;cursor:pointer}
 .lrn .lwarn{background:#FFF4DC;border:1px solid #f0dcb0;border-inline-start:5px solid #E3B457;border-radius:12px;padding:.7rem .85rem;margin:.8rem 0;font-size:.92rem}
 .lrn .lthread{display:grid;gap:.6rem;margin:.9rem 0}
 .lrn .lthread>div{border-radius:12px;padding:.75rem .85rem;font-size:.9rem}
@@ -375,12 +398,265 @@ body.dark .lrn .lthread .th2{background:#16302A}
 .hbar{flex:1;display:flex;height:1.25rem;border-radius:7px;overflow:hidden;background:#F3F6FA}
 .hseg{display:block;border-inline-end:2px solid #fff}
 .hkey{display:inline-block;width:.8rem;height:.8rem;border-radius:3px;vertical-align:-1px}
+/* اشتقاق الوحدات */
+.ustep{margin:.6rem 0}
+.ul{background:#fafbfd;border:1px solid var(--line);border-radius:10px;padding:.5rem .7rem;margin:.4rem 0}
+.ul b{display:block;font-size:.8rem;color:#5b6b80;margin-bottom:.2rem}
+.ul .ltr{font-size:1rem;color:var(--navy)}
+.ul i{font-style:normal;font-size:.8rem;color:#5b6b80;margin-inline-start:.4rem}
+.ul.ok{background:#EAF4F1;border-color:#9ED0BE}
+/* البادئات */
+.ptab{margin:.6rem 0}
+.prow{display:flex;justify-content:space-between;align-items:center;gap:.6rem;border:1px solid var(--line);border-radius:10px;padding:.45rem .7rem;margin:.35rem 0;background:#fafbfd}
+.prow b{font-size:.82rem;color:#5b6b80;white-space:nowrap}
+.prow .ltr{font-size:1rem;color:var(--navy)}
+.prow.ok{background:#EAF4F1;border-color:#9ED0BE}
+/* الأرقام المعنوية */
+.sgrow{display:flex;gap:.25rem;justify-content:center;flex-wrap:wrap;margin:.7rem 0;direction:ltr}
+.sgb{width:2rem;height:2.4rem;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1.1rem;border:2px solid var(--line);background:#fff;color:#8894a6}
+.sgb.on{background:#EAF4F1;border-color:#1C7C54;color:#14603f;font-weight:700}
+.sgb.off{background:#F3F6FA;border-style:dashed;color:#9aa7b8}
+.sgb.dot{width:1rem;border:0;background:transparent;color:var(--navy)}
+.sglist{margin:.4rem 0}
+.sgl{font-size:.8rem;color:#8894a6;padding:.2rem 0}
+.sgl.on{color:#14603f}
+/* رمز النظير */
+.isoc{text-align:center;margin:.6rem 0}
+.isyms{display:inline-flex;align-items:center;gap:.15rem;direction:ltr;font-family:"Times New Roman",serif}
+.isyms .inum{display:flex;flex-direction:column;align-items:flex-end;line-height:1.1}
+.isyms .ia,.isyms .iz{display:block;font-size:.95rem;color:#5b6b80}
+.isyms .ie{font-size:2.1rem;color:var(--navy);margin-inline-start:.1rem}
+.isyms .ie sup{font-size:.9rem}
+.inm{font-size:.86rem;color:#5b6b80;margin-top:.2rem}
+.igrid{display:flex;gap:.5rem;flex-wrap:wrap;justify-content:center;margin:.7rem 0}
+.icell{flex:1 1 6rem;border:2px solid var(--line);border-radius:12px;padding:.5rem;text-align:center;background:#fff}
+.icell b{display:block;font-size:1.5rem;line-height:1.1}
+.icell span{display:block;font-size:.8rem;color:#5b6b80}
+.icell i{display:block;font-style:normal;font-size:.75rem;color:#9aa7b8;margin-top:.15rem}
+/* لوحة الاتجاهات */
+.ptb{margin:.6rem 0;direction:rtl;overflow-x:auto}
+.ptr{display:flex;gap:.25rem;justify-content:center;margin:.25rem 0;min-width:max-content}
+.pth{flex:0 0 2.1rem;width:2.1rem;height:1.6rem;display:flex;align-items:center;justify-content:center;font-size:.78rem;color:#5b6b80;box-sizing:border-box}
+.ptc{flex:0 0 2.1rem;width:2.1rem;height:2.1rem;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:.82rem;font-weight:700;direction:ltr;border:1px solid var(--line);box-sizing:border-box}
+.ptc.ptnone{background:transparent;border:0;color:transparent}
+/* تصميم التجربة */
+.evq{margin:.6rem 0}
+.evr{border:1px solid var(--line);border-inline-start:4px solid var(--line);border-radius:10px;padding:.5rem .7rem;margin:.4rem 0;background:#fafbfd}
+.evr b{display:block;font-size:.85rem;color:#5b6b80}
+.evr i{display:inline-block;font-style:normal;font-size:.76rem;color:#8894a6;margin-top:.2rem}
+.evr span{display:block;font-size:.95rem;color:var(--navy);margin-top:.1rem}
+.evr .evq2{font-size:1.3rem;color:#c3ccd8}
+.evr.on{background:#fff}
+.evtwo{display:flex;gap:.5rem;flex-wrap:wrap;margin:.6rem 0}
+.evc{flex:1 1 9rem;border:2px solid var(--line);border-radius:12px;padding:.55rem .7rem;background:#fff}
+.evc b{display:block;font-size:.88rem;margin-bottom:.2rem}
+.evc span{font-size:.85rem;color:#40506a;line-height:1.6}
+/* محاور الرسم */
+.axrow{display:flex;gap:.5rem;flex-wrap:wrap;margin:.5rem 0}
+.axb{flex:1 1 9rem;border:1px dashed var(--line);border-radius:10px;padding:.4rem .6rem;background:#fafbfd}
+.axb i{display:block;font-style:normal;font-size:.74rem;color:#8894a6}
+.axb b{font-size:.9rem;color:var(--navy)}
+/* مقارنة المجاهر */
+.mcwrap{overflow-x:auto;margin:.4rem 0}
+.mctab{min-width:max-content;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mcr{display:flex}
+.mcr.hd{background:#F3F6FA}
+.mcr.hd .mcc{font-weight:700;color:var(--navy)}
+.mcc{flex:0 0 7.4rem;padding:.4rem .5rem;font-size:.78rem;color:#40506a;border-inline-end:1px solid var(--line);border-top:1px solid var(--line);line-height:1.5}
+.mcr:first-child .mcc{border-top:0}
+.mcc:last-child{border-inline-end:0}
 /* وضع التجربة */
 .prevbar{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;background:#FFF4DC;border:1px solid #E6CE93;border-radius:12px;padding:.6rem .8rem;margin:0 0 .9rem}
 .prevbar b{color:#7a5407;font-size:.95rem;white-space:nowrap}
 .prevbar .pt{flex:1 1 14rem;font-size:.84rem;color:#7a5407;line-height:1.6}
 .prevbar .mini{background:#fff;border:1px solid #E6CE93;color:#7a5407}
 body.prevmode #bar{box-shadow:inset 0 -3px 0 #E6AB2E}
+/* الشريط العلوي على الشاشات الضيّقة : لا تمرير أفقي */
+#bar .brand{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#bar #who{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:430px){
+ #bar{gap:.3rem;padding:.5rem .6rem}
+ #bar .brand{font-size:.95rem}
+ #bar #who{font-size:.74rem;margin-inline-end:.2rem;max-width:7.5rem}
+ #bar button{padding:.3rem .45rem;font-size:.78rem}
+}
+/* اختبار صفات المعدن */
+.mnrow{display:flex;align-items:center;gap:.6rem;border:1px solid var(--line);border-radius:10px;padding:.45rem .7rem;margin:.35rem 0;background:#fff}
+.mnlab{flex:1}
+.mnlab b{display:block;font-size:.92rem;color:var(--navy)}
+.mnlab i{display:block;font-style:normal;font-size:.76rem;color:#8894a6;margin-top:.1rem}
+.mnchk{flex:0 0 1.7rem;height:1.7rem;line-height:1.7rem;text-align:center;border-radius:50%;background:#F3F6FA;color:#8894a6;font-size:.95rem}
+.mnrow.mnyes{border-color:#9ccfae;background:#F4FBF6}
+.mnrow.mnyes .mnchk{background:#2F6B3A;color:#fff}
+.mnrow.mnnot{border-color:#e6b4b0;background:#FDF6F5}
+.mnrow.mnnot .mnchk{background:#B3261E;color:#fff}
+.mnverd{border:2px solid #e6b4b0;background:#FDF6F5;border-radius:12px;padding:.55rem .75rem;margin-top:.6rem;font-size:.9rem;color:#40506a;line-height:1.7}
+.mnverd b{color:#B3261E;font-size:1rem}
+.mnverd.mnok{border-color:#9ccfae;background:#F4FBF6}
+.mnverd.mnok b{color:#14603f}
+/* التناظر والأنظمة البلورية */
+.cywrap{display:flex;justify-content:center;margin:.5rem 0}
+.cyinfo{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:.4rem 0}
+.cyrow{display:flex;gap:.5rem;border-top:1px solid var(--line);padding:.4rem .7rem;font-size:.86rem}
+.cyrow:first-child{border-top:0}
+.cyk{flex:0 0 11rem;color:#5b6b80}
+.cyv{flex:1;color:var(--navy)}
+@media (max-width:430px){
+ .cyrow{flex-direction:column;gap:.1rem}
+ .cyk{flex:none;font-size:.76rem}
+ .cyv{font-size:.88rem;line-height:1.65}
+}
+/* مقياس موس */
+.mhscale{display:flex;flex-wrap:wrap;gap:.3rem;margin:.5rem 0}
+.mhstep{flex:1 1 4.4rem;border:1px solid var(--line);border-radius:9px;padding:.3rem .25rem;text-align:center;background:#fafbfd}
+.mhnum{display:block;font-size:.95rem;color:var(--navy);font-weight:700}
+.mhname{display:block;font-size:.7rem;color:#8894a6;margin-top:.1rem}
+.mhstep.mhon{border-color:var(--navy);background:#E8EEF6}
+.mhverd{border:1px solid var(--line);border-inline-start:4px solid var(--navy);border-radius:10px;padding:.5rem .7rem;margin:.5rem 0;font-size:.9rem;color:#40506a;line-height:1.7;background:#fff}
+.mhrefs{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
+.mhlog{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin:.4rem 0}
+.mhlogr{border-top:1px solid var(--line);padding:.4rem .7rem;font-size:.84rem;color:#14603f;background:#F4FBF6}
+.mhlogr:first-child{border-top:0}
+.mhlogr.mhcut{color:#7a5407;background:#FFF9EE}
+.mhlogr.mheq{color:#1F3A5F;background:#E8EEF6}
+.mhrange{border:2px solid var(--navy);border-radius:10px;padding:.5rem .7rem;font-size:.92rem;color:var(--navy);background:#E8EEF6;margin:.4rem 0}
+/* تصنيف المجموعات المعدنية */
+.mgf{display:flex;align-items:center;gap:.8rem;flex-wrap:wrap;border:1px solid var(--line);border-radius:12px;padding:.55rem .8rem;background:#fafbfd;margin:.4rem 0}
+.mgf b{font-size:1rem;color:var(--navy)}
+.mgfa{font-size:1.25rem;color:#1F3A5F;letter-spacing:.02em}
+.mgbtns{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
+.mgbtns .mgright{background:#2F6B3A;border-color:#2F6B3A;color:#fff}
+.mgbtns .mgwrong{background:#B3261E;border-color:#B3261E;color:#fff}
+.mgfb{border:2px solid #e6b4b0;background:#FDF6F5;border-radius:12px;padding:.55rem .75rem;margin:.4rem 0;font-size:.88rem;color:#40506a;line-height:1.75}
+.mgfb b{color:#B3261E}
+.mgfb.mgok{border-color:#9ccfae;background:#F4FBF6}
+.mgfb.mgok b{color:#14603f}
+.mgwrap{overflow-x:auto;margin:.4rem 0}
+.mgtab{min-width:max-content;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.mgtr{display:flex}
+.mgtr.mghd{background:#F3F6FA}
+.mgtr.mghd .mgtc{font-weight:700;color:var(--navy)}
+.mgtc{flex:0 0 6.2rem;padding:.4rem .5rem;font-size:.78rem;color:#40506a;border-inline-end:1px solid var(--line);border-top:1px solid var(--line);line-height:1.5}
+.mgtc:nth-child(2){flex:0 0 5.6rem}
+.mgtc:nth-child(3){flex:1 1 8.4rem}
+.mgtr:first-child .mgtc{border-top:0}
+.mgtc:last-child{border-inline-end:0}
+/* دورة الصخور */
+.rcnow{border:2px solid var(--navy);border-radius:12px;padding:.55rem .8rem;background:#E8EEF6;margin:.4rem 0}
+.rcnow b{display:block;font-size:1rem;color:var(--navy)}
+.rcnow span{display:block;font-size:.84rem;color:#40506a;margin-top:.15rem;line-height:1.6}
+.rcops{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
+.rcpath{border:1px solid var(--line);border-radius:10px;padding:.5rem .7rem;margin:.5rem 0;background:#fafbfd}
+.rcpath>b{display:block;font-size:.84rem;color:#5b6b80;margin-bottom:.3rem}
+.rcstep{font-size:.84rem;color:#40506a;padding:.22rem 0;line-height:1.7}
+.rcstep i{display:inline-grid;place-items:center;width:1.2rem;height:1.2rem;border-radius:50%;background:#E8EEF6;color:var(--navy);font-style:normal;font-size:.7rem;margin-inline-end:.35rem}
+.rcar{color:#8894a6}
+.rcnote{font-size:.82rem;color:#7a5407;background:#FFF9EE;border-radius:8px;padding:.35rem .55rem;margin-top:.4rem;line-height:1.7}
+/* نسيج ناري / حبيبات / معالم */
+.txwrap{display:flex;justify-content:center;margin:.5rem 0}
+/* شريط السيليكا */
+.siband{display:flex;gap:2px;border-radius:9px;overflow:hidden;margin:.4rem 0}
+.siseg{position:relative;min-height:2.4rem;display:grid;place-items:center;opacity:.45}
+.siseg.sion{opacity:1;outline:2px solid var(--navy);outline-offset:-2px}
+.sinum{font-size:.7rem;color:#fff;text-shadow:0 1px 2px #0006;direction:ltr}
+.siseg:last-child .sinum{color:#40506a;text-shadow:none}
+/* معالم الصخور الرسوبية */
+.smcards{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
+.smc{flex:1 1 8rem;background:#fff;border:1px solid var(--line);color:#5b6b80;border-radius:10px;padding:.45rem .5rem;font:inherit;font-size:.82rem;cursor:pointer;line-height:1.4}
+.smc.smon{background:var(--navy);border-color:var(--navy);color:#fff}
+/* الجدول الدوري المصغّر */
+.ptgwrap{overflow-x:auto;margin:.5rem 0}
+.ptg{min-width:max-content;display:flex;flex-direction:column;gap:3px}
+.ptgr{display:flex;gap:3px;align-items:stretch}
+.ptgl{flex:0 0 1.1rem;display:grid;place-items:center;font-size:.72rem;color:#8894a6}
+.ptgh{flex:0 0 2.6rem;text-align:center;font-size:.7rem;color:#5b6b80;padding:.15rem 0}
+.ptgc{flex:0 0 2.6rem;min-height:2.5rem;border:1px solid var(--line);border-radius:7px;background:#fff;font:inherit;cursor:pointer;padding:.15rem;display:grid;place-items:center;line-height:1.15}
+.ptgc i{display:block;font-style:normal;font-size:.6rem;color:#8894a6;direction:ltr}
+.ptgc b{display:block;font-size:.86rem;color:var(--navy);direction:ltr}
+.ptgc.ptgon{outline:2px solid var(--navy);background:var(--navy)}
+.ptgc.ptgon i,.ptgc.ptgon b{color:#fff}
+.ptgc.ptgempty{border-style:dashed;opacity:.35;cursor:default;background:#fafbfd}
+.ptgap{margin-inline-start:.5rem}
+@media (max-width:430px){
+ .ptg{gap:2px}
+ .ptgr{gap:2px}
+ .ptgl{flex:0 0 .85rem;font-size:.64rem}
+ .ptgh{flex:0 0 2.05rem;font-size:.62rem}
+ .ptgc{flex:0 0 2.05rem;min-height:2.15rem;border-radius:6px;padding:.1rem}
+ .ptgc i{font-size:.54rem}
+ .ptgc b{font-size:.76rem}
+ .ptgap{margin-inline-start:.28rem}
+}
+@media (max-width:345px){
+ .ptgl{flex:0 0 .75rem}
+ .ptgh{flex:0 0 1.72rem;font-size:.58rem}
+ .ptgc{flex:0 0 1.72rem;min-height:1.95rem}
+ .ptgc b{font-size:.68rem}
+ .ptgap{margin-inline-start:.2rem}
+}
+/* الحركة والقوى */
+.dpw{display:flex;justify-content:center;margin:.5rem 0}
+.acv{border:2px solid var(--line);border-radius:12px;padding:.55rem .75rem;margin:.5rem 0;background:#fafbfd}
+.acv b{display:block;font-size:1rem;color:var(--navy);margin-bottom:.15rem}
+.acv span{display:block;font-size:.86rem;color:#40506a;line-height:1.7}
+.acv.acok{border-color:#9ccfae;background:#F4FBF6}
+.acv.acok b{color:#14603f}
+.acv.acwarn{border-color:#E6CE93;background:#FFF9EE}
+.acv.acwarn b{color:#7a5407}
+.mgtr.acon{background:#E8EEF6}
+.mgtr.acon .mgtc{color:var(--navy);font-weight:700}
+.kgax{display:flex;justify-content:space-between;font-size:.74rem;color:#8894a6;margin:.3rem .2rem -.2rem}
+.kgax i{font-style:normal}
+.eqgrid{display:flex;flex-wrap:wrap;gap:.4rem;margin:.5rem 0}
+.eqv{flex:1 1 8.4rem;background:#fff;border:1px solid var(--line);color:#5b6b80;border-radius:10px;padding:.4rem .5rem;font:inherit;font-size:.82rem;cursor:pointer;text-align:start;line-height:1.4}
+.eqv i{display:block;font-style:normal;font-size:.7rem;color:#8894a6;margin-top:.1rem}
+.eqv.eqon{border-color:#9ccfae;background:#F4FBF6;color:#14603f}
+.eqv.eqon i{color:#2F6B3A}
+.eqv.eqwant{border-color:var(--navy);background:var(--navy);color:#fff}
+.eqv.eqwant i{color:#ffffffbb}
+.eqpick{border:2px solid #9ccfae;background:#F4FBF6;border-radius:12px;padding:.5rem .75rem;margin:.4rem 0;font-size:.9rem;color:#14603f}
+.eqpick span{display:inline-block;font-size:1rem;color:var(--navy)}
+.eqpick i{display:block;font-style:normal;font-size:.8rem;color:#40506a;margin-top:.25rem;line-height:1.65}
+.eqnone{border:2px solid #E6CE93;background:#FFF9EE;border-radius:12px;padding:.5rem .75rem;margin:.4rem 0}
+.eqnone b{display:block;color:#7a5407;font-size:.95rem}
+.eqnone span{display:block;font-size:.84rem;color:#7a5407;line-height:1.7;margin-top:.2rem}
+.gvb{border:1px solid var(--line);border-radius:10px;padding:.45rem .6rem;margin:.4rem 0;background:#fafbfd}
+.gvr{display:flex;align-items:center;gap:.5rem;padding:.2rem 0;font-size:.82rem}
+.gvr.gvon{font-weight:700}
+.gvl{flex:0 0 4.2rem;color:#5b6b80}
+.gvr.gvon .gvl{color:var(--navy)}
+.gvt{flex:1;height:.62rem;background:#E8EEF6;border-radius:999px;overflow:hidden}
+.gvt i{display:block;height:100%;background:#7E97B6;border-radius:999px}
+.gvr.gvon .gvt i{background:var(--navy)}
+.gvv{flex:0 0 2.6rem;text-align:end;color:#40506a;direction:ltr;font-size:.78rem}
+.eqtab .mgtc:nth-child(1){flex:0 0 3.6rem}
+.eqtab .mgtc:nth-child(2){flex:0 0 9.4rem}
+.eqtab .mgtc:nth-child(3){flex:0 0 7rem}
+/* التوزيع الإلكتروني */
+.aufb{display:flex;gap:2px;border-radius:9px;overflow:hidden;margin:.5rem 0;min-height:2.5rem}
+.aufs{display:grid;place-items:center;background:#E8EEF6;padding:.2rem .1rem;min-width:1.9rem;line-height:1.2}
+.aufs i{display:block;font-style:normal;font-size:.64rem;color:#5b6b80;direction:ltr}
+.aufs b{display:block;font-size:.84rem;color:var(--navy);direction:ltr}
+.aufs.auflast{background:var(--navy)}
+.aufs.auflast i{color:#ffffffaa}
+.aufs.auflast b{color:#fff}
+.aufres{border:2px solid var(--navy);background:#E8EEF6;border-radius:10px;padding:.5rem .7rem;margin:.4rem 0;text-align:center;font-size:1rem;color:var(--navy);overflow-x:auto}
+/* قاعدة هوند */
+.hdbox{display:flex;justify-content:center;gap:.3rem;margin:.6rem 0}
+.hdf{display:flex;width:2.1rem;height:2.1rem;border:1.6px solid var(--navy);border-radius:5px;background:#fff;overflow:hidden}
+.hdf u{flex:1;display:grid;place-items:center;text-decoration:none;font-size:1.05rem;color:var(--navy);line-height:1}
+.hdlab{text-align:center;font-size:.84rem;color:#5b6b80;margin:.2rem 0 .4rem}
+/* حجوم الأيونات */
+.isbox{border:1px solid var(--line);border-radius:10px;padding:.5rem .6rem;margin:.4rem 0;background:#fafbfd}
+.isr{display:flex;align-items:center;gap:.5rem;padding:.25rem 0}
+.isl{flex:0 0 3.1rem;font-size:.9rem;color:var(--navy);direction:ltr;text-align:center}
+.isc{flex:0 0 5rem;display:flex;align-items:center;justify-content:center}
+.isc i{display:block;border-radius:50%;border:1px solid #5b6b80}
+.isv{flex:1;font-size:.78rem;color:#5b6b80}
+
+
+
+
 </style>
 </head>
 <body>

@@ -27,6 +27,6 @@ console.log(gv === gc ? '✓ الإصدار ' + gv + ' · التاريخ ' + dat
 /* التحقّق : كلّ ملفات الموقع الأساسية مذكورة في قائمة التخزين */
 const FILES = (fs.readFileSync('sw.js', 'utf8').match(/const FILES = \[([^\]]*)\]/) || [, ''])[1]
   .split(',').map(x => x.trim().replace(/^'|'$/g, '')).filter(Boolean);
-const need = ['index.html', 'app.js', 'data.json', 'extras.json', 'learn.json', 'sims.js', 'logo.png', 'manifest.webmanifest', 'icon.svg'];
+const need = ['index.html', 'app.js', 'data.json', 'extras.json', 'learn.json', 'figs.json', 'sims.js', 'logo.png', 'manifest.webmanifest', 'icon.svg'];
 const miss = need.filter(f => !FILES.includes(f)).concat(FILES.filter(f => f !== './' && !fs.existsSync(f)).map(f => f + ' ( غير موجود )'));
 console.log(miss.length ? '✗ قائمة التخزين : ' + miss.join(' · ') : '✓ قائمة التخزين كاملة (' + FILES.length + ' ملفًا)');
