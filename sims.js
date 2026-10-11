@@ -4281,3 +4281,1439 @@
   window.SIMS.saltpick = h => salt(h, 'pick');
   window.SIMS.saltprep = saltprep;
 })();
+/* ===== محاكاة الخليّة وعمليّاتها الحيويّة ( أحياء التاسع — الوحدة الثانية ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const L = s => '<span class="ltr">' + s + '</span>';
+  const sel = (lab, val, opts, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const s = document.createElement('select');
+    opts.forEach(o => { const p = document.createElement('option'); p.value = o[0]; p.textContent = o[1]; if (String(o[0]) === String(val)) p.selected = true; s.append(p); });
+    s.onchange = () => fn(s.value); w.append(s); return w;
+  };
+  const sld = (lab, val, lo, hi, step, fn) => {
+    const w = el('label', 'sf'); const sp = el('span', '', lab); w.append(sp);
+    const r = document.createElement('input'); r.type = 'range'; r.min = lo; r.max = hi; r.step = step; r.value = val;
+    r.oninput = () => fn(+r.value, sp); w.append(r); return w;
+  };
+  const info = () => { const b = el('div', 'cyinfo'); b.row = (k, v) => b.append(el('div', 'cyrow', '<span class="cyk">' + k + '</span><span class="cyv">' + v + '</span>')); return b; };
+  const verdict = (cls, b, s) => el('div', 'acv' + (cls ? ' ' + cls : ''), '<b>' + b + '</b><span>' + s + '</span>');
+  const seg = (opts, val, fn) => {
+    const w = el('div', 'ceseg');
+    opts.forEach(o => { const b = el('button', 'ceb' + (String(o[0]) === String(val) ? ' ceon' : ''), o[1]); b.onclick = () => fn(o[0]); w.append(b); });
+    return w;
+  };
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.append(e); return e; };
+  const svgBox = (w, h) => sv('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'cesvg', preserveAspectRatio: 'xMidYMid meet' });
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+
+  /* ======================= 1 · بدائية أم حقيقية ======================= */
+  const KINDS = {
+    bac: { n: 'بكتيريا', p: 1 }, arc: { n: 'أثريات', p: 1 }, liv: { n: 'خليّة كبد', p: 0 },
+    leaf: { n: 'خليّة ورقة نبات', p: 0 }, fun: { n: 'خليّة فطر', p: 0 }, ame: { n: 'أميبا ( طلائعيات )', p: 0 }
+  };
+  function drawKind(svg, pro) {
+    svg.innerHTML = '';
+    if (pro) {
+      sv('rect', { x: 50, y: 45, width: 220, height: 110, rx: 55, fill: '#EAF4EC', stroke: '#2E7D4F', 'stroke-width': 3 }, svg);
+      sv('path', { d: 'M110 100 q12 -22 24 0 t24 0 t24 0 t24 0 q-10 18 -30 6 t-40 4 t-26 -10', fill: 'none', stroke: '#B03A2E', 'stroke-width': 2.5 }, svg);
+      [[80, 75], [95, 130], [230, 80], [215, 128], [250, 105], [170, 70], [150, 135]].forEach(p => sv('circle', { cx: p[0], cy: p[1], r: 3, fill: '#5b6b80' }, svg));
+      sv('path', { d: 'M270 100 q20 -10 35 5 q12 12 10 25', fill: 'none', stroke: '#2E7D4F', 'stroke-width': 2 }, svg);
+    } else {
+      sv('ellipse', { cx: 160, cy: 100, rx: 140, ry: 85, fill: '#EEF3FA', stroke: '#1F3A5F', 'stroke-width': 3 }, svg);
+      sv('circle', { cx: 130, cy: 95, r: 36, fill: '#E3E8F3', stroke: '#1F3A5F', 'stroke-width': 3 }, svg);
+      sv('circle', { cx: 130, cy: 95, r: 31, fill: 'none', stroke: '#1F3A5F', 'stroke-width': 1.2, 'stroke-dasharray': '4 3' }, svg);
+      sv('path', { d: 'M110 95 q8 -14 16 0 t16 0 t12 -4', fill: 'none', stroke: '#B03A2E', 'stroke-width': 2.2 }, svg);
+      [[230, 70], [225, 135]].forEach(p => {
+        sv('ellipse', { cx: p[0], cy: p[1], rx: 24, ry: 12, fill: '#FBE3D2', stroke: '#C0612B', 'stroke-width': 2 }, svg);
+        sv('path', { d: 'M' + (p[0] - 16) + ' ' + p[1] + ' l6 -6 l6 12 l6 -12 l6 12 l6 -6', fill: 'none', stroke: '#C0612B', 'stroke-width': 1.3 }, svg);
+      });
+      sv('path', { d: 'M185 95 q10 -6 20 0 t20 0 M185 105 q10 -6 20 0 t20 0', fill: 'none', stroke: '#6A4C93', 'stroke-width': 2 }, svg);
+      [[60, 100], [80, 140], [270, 100], [180, 160], [200, 45]].forEach(p => sv('circle', { cx: p[0], cy: p[1], r: 3, fill: '#5b6b80' }, svg));
+    }
+  }
+  function cellkind(host) {
+    host.innerHTML = '';
+    const S = { k: 'bac', ans: null };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sel('الخليّة', S.k, Object.keys(KINDS).map(k => [k, KINDS[k].n]), v => { S.k = v; S.ans = null; draw(); }));
+    function draw() {
+      body.innerHTML = '';
+      const K = KINDS[S.k], svg = svgBox(320, 200); drawKind(svg, K.p);
+      body.append(el('div', 'cefig', ''));
+      body.lastChild.append(svg);
+      body.append(el('div', 'shint', 'انظر إلى الرسم : هل المادّة الوراثية ( الخطّ الأحمر ) داخل غلاف ؟ وهل ترى عُضيّات غشائية ؟ ثمّ صنّف.'));
+      const r = el('div', 'srow');
+      r.append(btn('بدائية النواة', S.ans === 1 ? 'go' : '', () => { S.ans = 1; draw(); }), btn('حقيقية النواة', S.ans === 0 ? 'go' : '', () => { S.ans = 0; draw(); }));
+      body.append(r);
+      if (S.ans === null) return;
+      const ok = S.ans === K.p;
+      const t = info();
+      t.row('الغلاف النووي', K.p ? '✗ غير موجود — المادّة الوراثية حرّة في السيتوبلازم' : '✓ موجود — نواة حقيقية');
+      t.row('العُضيّات الغشائية', K.p ? '✗ لا توجد' : '✓ ميتوكندريا وغولجي وشبكة إندوبلازمية …');
+      t.row('الرايبوسومات', '✓ موجودة في النوعين — ليست معيارًا');
+      body.append(verdict(ok ? 'acok' : 'acwarn', (ok ? 'تصنيف صحيح : ' : 'راجع : ') + K.n + (K.p ? ' بدائية النواة' : ' حقيقية النواة'),
+        K.p ? 'المادّة الوراثية <b>غير محاطة بغلاف</b> ولا عُضيّات غشائية ، وهذا شأن البكتيريا والأثريات.' : 'المادّة الوراثية <b>محاطة بغلاف نووي</b> ، وفي الخليّة عُضيّات غشائية ؛ وهذا شأن النبات والحيوان والفطريات والطلائعيات.'), t);
+    }
+    draw();
+  }
+
+  /* ======================= 2 · مستكشف العُضيّات ======================= */
+  const ORG = {
+    mem: { n: 'الغشاء البلازمي', e: 'Plasma Membrane', s: 'طبقة مزدوجة من الدهون المفسفرة ، وبروتينات سطحية ومُندسّة', f: 'يفصل الخليّة عن محيطها ، وينظّم حركة المواد منها وإليها ( نفاذية اختيارية )', w: 'b' },
+    nuc: { n: 'النواة', e: 'Nucleus', s: 'أكبر عُضيّة ، يحيط بها غلاف نووي مزدوج فيه ثقوب', f: 'تحوي المادّة الوراثية ' + L('DNA') + ' المسؤولة عن صفات الكائن', w: 'b' },
+    nucl: { n: 'النويّة', e: 'Nucleolus', s: 'تركيب أصغر داخل النواة', f: 'مكان تصنيع الرايبوسومات', w: 'b' },
+    cyto: { n: 'السيتوبلازم', e: 'Cytoplasm', s: 'سائل هلاميّ حبيبيّ بين النواة والغشاء ، معظمه ماء ؛ وجزؤه السائل بلا عُضيّات هو السيتوسول', f: 'يحوي العُضيّات والإنزيمات والأملاح ، وتجري فيه عمليات حيوية', w: 'b' },
+    ribo: { n: 'الرايبوسومات', e: 'Ribosomes', s: 'وحدتان بنائيتان كبيرة وصغيرة ؛ حرّة أو على الشبكة الخشنة', f: '<b>مصنع البروتين</b> في الخليّة', w: 'b' },
+    rer: { n: 'الشبكة الإندوبلازمية الخشنة', e: 'Rough ER', s: 'أغشية وقنوات على سطحها رايبوسومات', f: 'تضيف الكربوهيدرات إلى البروتينات ، وتنقل البروتين بعد تعديله', w: 'b' },
+    ser: { n: 'الشبكة الإندوبلازمية الملساء', e: 'Smooth ER', s: 'أغشية وقنوات <b>بلا</b> رايبوسومات', f: 'تصنيع الدهون ، وتخزين الكالسيوم ، وإزالة سُمّية بعض المواد', w: 'b' },
+    golgi: { n: 'جهاز غولجي', e: 'Golgi Apparatus', s: 'أكياس غشائية متوازية وحويصلات غولجي', f: 'يعدّل البروتينات والدهون ثمّ يخزّنها أو يطلقها خارج الخليّة', w: 'b' },
+    mito: { n: 'الميتوكندريا', e: 'Mitochondria', s: 'غشاء خارجي وداخلي منثنٍ ( الأعراف ) والحشوة ، وفيها ' + L('DNA') + ' ورايبوسومات', f: 'التنفّس الخلوي وإنتاج ' + L('ATP') + ' — « مصنع الطاقة »', w: 'b' },
+    chl: { n: 'البلاستيدة الخضراء', e: 'Chloroplast', s: 'غشاءان ، وثايلاكويدات مكدّسة ( الغرانا ) في اللحمة', f: 'البناء الضوئي ؛ الكلوروفيل في أغشية الثايلاكويد', w: 'p' },
+    lyso: { n: 'الأجسام الحالّة', e: 'Lysosomes', s: 'حويصلات غشائية من جهاز غولجي فيها إنزيمات هاضمة', f: 'تحليل الخلايا الهرمة والأجسام الغريبة', w: 'a' },
+    perox: { n: 'البيروكسيسوم', e: 'Peroxisome', s: 'عُضيّ صغير محاط بغشاء واحد', f: 'إزالة السُّمّية ( كما في خلايا الكبد )', w: 'b' },
+    cent: { n: 'الجسم المركزي والمُريكزات', e: 'Centrosome', s: 'مُريكزان أسطوانيان', f: 'تكوين الخيوط المغزلية في الانقسام', w: 'a' },
+    vac: { n: 'الفجوة', e: 'Vacuole', s: 'عُضيّ غشائي فيه مواد عضوية وغير عضوية', f: 'في النبات فجوة عصارية كبيرة تحافظ على ضغط الامتلاء ؛ وفي الحيوان فجوات صغيرة عديدة', w: 'b' },
+    csk: { n: 'الهيكل الخلوي', e: 'Cytoskeleton', s: 'ألياف بروتينية : أنيبيبات دقيقة وخيوط وسطية وخيوط دقيقة', f: 'دعم الخليّة والمحافظة على شكلها وتثبيت العُضيّات', w: 'b' },
+    wall: { n: 'الجدار الخلوي', e: 'Cell Wall', s: 'مواد كربوهيدراتية معقّدة كالسليلوز', f: 'الدعامة والحماية وشكل ثابت ؛ مُنفِذ كلّيًّا ولا يتحكّم في المرور', w: 'p' }
+  };
+  const WH = { b: 'النباتية والحيوانية', p: 'النباتية فقط', a: 'الحيوانية ( ويندر في النباتية أو يغيب )' };
+  function drawCell(svg, plant, hi) {
+    svg.innerHTML = '';
+    const G = k => { const g = sv('g', { 'data-k': k, class: hi ? (hi === k ? 'ceon' : 'ceoff') : '' }, svg); return g; };
+    // الجدار والغشاء والسيتوبلازم
+    if (plant) {
+      const w = G('wall'); sv('rect', { x: 8, y: 8, width: 304, height: 204, rx: 10, fill: '#E7F1DE', stroke: '#5C7F3A', 'stroke-width': 7 }, w);
+    }
+    const c = G('cyto');
+    if (plant) sv('rect', { x: 16, y: 16, width: 288, height: 188, rx: 7, fill: '#F6F9EF' }, c);
+    else sv('ellipse', { cx: 160, cy: 110, rx: 150, ry: 100, fill: '#F4F6FB' }, c);
+    const m = G('mem');
+    if (plant) sv('rect', { x: 16, y: 16, width: 288, height: 188, rx: 7, fill: 'none', stroke: '#1F3A5F', 'stroke-width': 2.5 }, m);
+    else sv('ellipse', { cx: 160, cy: 110, rx: 150, ry: 100, fill: 'none', stroke: '#1F3A5F', 'stroke-width': 3 }, m);
+    // الهيكل الخلوي
+    const k = G('csk');
+    (plant ? ['M24 60 L120 30', 'M30 190 L140 205', 'M290 30 L230 70'] : ['M30 110 L90 60', 'M60 175 L150 200', 'M270 50 L300 120', 'M210 200 L280 160']).forEach(d => sv('path', { d, stroke: '#9AA7BA', 'stroke-width': 1.2, fill: 'none', 'stroke-dasharray': '6 3' }, k));
+    // الفجوة
+    const v = G('vac');
+    if (plant) sv('rect', { x: 120, y: 70, width: 130, height: 95, rx: 40, fill: '#D9ECF7', stroke: '#3A7CA5', 'stroke-width': 2 }, v);
+    else [[70, 70, 9], [255, 165, 8], [110, 180, 7]].forEach(p => sv('circle', { cx: p[0], cy: p[1], r: p[2], fill: '#D9ECF7', stroke: '#3A7CA5', 'stroke-width': 1.5 }, v));
+    // النواة والنويّة
+    const NX = plant ? 70 : 115, NY = plant ? 70 : 105;
+    const n = G('nuc');
+    sv('circle', { cx: NX, cy: NY, r: 32, fill: '#E3E8F3', stroke: '#1F3A5F', 'stroke-width': 3 }, n);
+    sv('circle', { cx: NX, cy: NY, r: 27, fill: 'none', stroke: '#1F3A5F', 'stroke-width': 1, 'stroke-dasharray': '3 3' }, n);
+    sv('path', { d: 'M' + (NX - 20) + ' ' + (NY + 8) + ' q6 -10 12 0 t12 0 t10 -6', fill: 'none', stroke: '#B03A2E', 'stroke-width': 1.8 }, n);
+    const nl = G('nucl'); sv('circle', { cx: NX + 8, cy: NY - 8, r: 9, fill: '#8C5E9E' }, nl);
+    // الشبكة الخشنة والملساء
+    const RX = plant ? 105 : 152, RY = plant ? 40 : 75;
+    const r = G('rer');
+    for (let i = 0; i < 3; i++) sv('path', { d: 'M' + RX + ' ' + (RY + i * 14) + ' q8 -7 16 0 t16 0 t16 0', fill: 'none', stroke: '#6A4C93', 'stroke-width': 2.4 }, r);
+    const s = G('ser');
+    const SX = plant ? 40 : 150, SY = plant ? 125 : 140;
+    for (let i = 0; i < 2; i++) sv('path', { d: 'M' + SX + ' ' + (SY + i * 13) + ' q8 -8 16 0 t16 0 t16 0', fill: 'none', stroke: '#A07CC5', 'stroke-width': 4, 'stroke-linecap': 'round' }, s);
+    // الرايبوسومات
+    const rb = G('ribo');
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) sv('circle', { cx: RX + 4 + j * 12, cy: RY - 4 + i * 14, r: 2.3, fill: '#2B2B2B' }, rb);
+    (plant ? [[270, 120], [100, 190], [30, 100]] : [[60, 140], [240, 55], [205, 180], [95, 45]]).forEach(p => sv('circle', { cx: p[0], cy: p[1], r: 2.6, fill: '#2B2B2B' }, rb));
+    // غولجي
+    const GX = plant ? 280 : 235, GY = plant ? 95 : 85;
+    const g = G('golgi');
+    for (let i = 0; i < 4; i++) sv('path', { d: 'M' + (GX - 22 + i * 2) + ' ' + (GY + i * 7) + ' q22 -10 44 0', fill: 'none', stroke: '#C08A1E', 'stroke-width': 3, 'stroke-linecap': 'round' }, g);
+    sv('circle', { cx: GX + 26, cy: GY + 26, r: 4, fill: '#E9C46A', stroke: '#C08A1E' }, g);
+    // الميتوكندريا
+    const mt = G('mito');
+    (plant ? [[60, 170], [255, 190]] : [[75, 160], [215, 160]]).forEach(p => {
+      sv('ellipse', { cx: p[0], cy: p[1], rx: 22, ry: 11, fill: '#FBE3D2', stroke: '#C0612B', 'stroke-width': 2 }, mt);
+      sv('path', { d: 'M' + (p[0] - 15) + ' ' + p[1] + ' l5 -5 l5 10 l5 -10 l5 10 l5 -10 l5 5', fill: 'none', stroke: '#C0612B', 'stroke-width': 1.2 }, mt);
+    });
+    // الأجسام الحالّة والبيروكسيسوم
+    const ly = G('lyso');
+    (plant ? [[290, 165]] : [[260, 130], [185, 45]]).forEach(p => { sv('circle', { cx: p[0], cy: p[1], r: 8, fill: '#F7D6DE', stroke: '#B04A68', 'stroke-width': 1.6 }, ly); sv('circle', { cx: p[0] - 2, cy: p[1] + 1, r: 1.6, fill: '#B04A68' }, ly); sv('circle', { cx: p[0] + 3, cy: p[1] - 2, r: 1.6, fill: '#B04A68' }, ly); });
+    const px = G('perox');
+    sv('circle', { cx: plant ? 30 : 45, cy: plant ? 30 : 105, r: 6, fill: '#E6F2D7', stroke: '#6E8B3D', 'stroke-width': 1.6 }, px);
+    // الجسم المركزي
+    if (!plant) {
+      const ce = G('cent');
+      sv('rect', { x: 270, y: 92, width: 16, height: 6, rx: 2, fill: '#5D7C99' }, ce);
+      sv('rect', { x: 275, y: 100, width: 6, height: 16, rx: 2, fill: '#5D7C99' }, ce);
+    }
+    // البلاستيدات
+    if (plant) {
+      const ch = G('chl');
+      [[175, 35], [160, 190], [270, 50], [40, 210 - 30]].slice(0, 3).forEach(p => {
+        sv('ellipse', { cx: p[0], cy: p[1], rx: 22, ry: 11, fill: '#BFE3B4', stroke: '#2E7D4F', 'stroke-width': 2 }, ch);
+        for (let i = -1; i <= 1; i++) sv('rect', { x: p[0] - 4 + i * 9, y: p[1] - 5, width: 6, height: 10, rx: 1.5, fill: '#2E7D4F' }, ch);
+      });
+    }
+  }
+  const SETA = ['mem', 'nuc', 'nucl', 'cyto', 'ribo', 'rer', 'ser', 'golgi'];
+  const SETB = ['mito', 'chl', 'lyso', 'perox', 'cent', 'vac', 'csk', 'wall'];
+  function cellmap(host, set) {
+    host.innerHTML = '';
+    const S = { plant: set === SETB ? 1 : 0, k: set[0], mode: 'x', q: null, pick: null, path: -1 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function top() {
+      bar.innerHTML = '';
+      bar.append(seg([[0, 'خليّة حيوانية'], [1, 'خليّة نباتية']], S.plant, v => { S.plant = +v; top(); draw(); }));
+      bar.append(seg([['x', 'استكشف'], ['q', 'اختبر نفسك']], S.mode, v => { S.mode = v; S.pick = null; S.q = null; top(); draw(); }));
+    }
+    function newQ() {
+      const pool = set.filter(k => ORG[k].w !== (S.plant ? 'a' : 'p'));
+      S.q = shuffle(pool)[0]; S.pick = null;
+    }
+    function draw() {
+      body.innerHTML = '';
+      const svg = svgBox(320, 220);
+      const avail = k => ORG[k].w !== (S.plant ? 'a' : 'p');
+      if (S.mode === 'x') {
+        drawCell(svg, S.plant, avail(S.k) ? S.k : null);
+        const f = el('div', 'cefig'); f.append(svg); body.append(f);
+        const chips = el('div', 'cechips');
+        set.forEach(k => { const b = el('button', 'cechip' + (S.k === k ? ' ceon' : '') + (avail(k) ? '' : ' cegone'), ORG[k].n); b.onclick = () => { S.k = k; draw(); }; chips.append(b); });
+        body.append(chips);
+        const O = ORG[S.k], t = info();
+        t.row('الاسم', O.n + ' ' + L(O.e));
+        t.row('تركيبه', O.s);
+        t.row('وظيفته', O.f);
+        t.row('يوجد في الخليّة', WH[O.w]);
+        body.append(t);
+        if (!avail(S.k)) body.append(verdict('acwarn', 'غير موجود في هذه الخليّة', O.n + ' يوجد في الخليّة ' + WH[O.w] + ' ؛ بدّل نوع الخليّة لتراه.'));
+        if (set === SETA) {
+          const pr = el('div', 'srow');
+          pr.append(btn('تتبّع بروتينًا مُفرَزًا', 'go', () => runPath(svg, pr)));
+          body.append(pr);
+          body.append(el('div', 'sl note', 'مسار البروتين المُفرَز : رايبوسوم على الشبكة الخشنة ← الشبكة الخشنة ( تعديل ونقل ) ← جهاز غولجي ( تعديل وتعبئة ) ← حويصلة ← الغشاء البلازمي ( إخراج خلوي ).'));
+        }
+      } else {
+        if (!S.q) newQ();
+        drawCell(svg, S.plant, S.pick ? S.pick : null);
+        const f = el('div', 'cefig'); f.append(svg); body.append(f);
+        body.append(verdict('', 'أيّ عُضيّ أو تركيب هذا ؟', ORG[S.q].f));
+        const chips = el('div', 'cechips');
+        set.filter(avail).forEach(k => { const b = el('button', 'cechip' + (S.pick === k ? (k === S.q ? ' ceok' : ' cebad') : ''), ORG[k].n); b.onclick = () => { S.pick = k; draw(); }; chips.append(b); });
+        body.append(chips);
+        if (S.pick) {
+          const ok = S.pick === S.q;
+          body.append(verdict(ok ? 'acok' : 'acwarn', ok ? 'إجابة صحيحة' : 'ليس هذا', ok ? ORG[S.q].n + ' : ' + ORG[S.q].s + '.' : ORG[S.pick].n + ' وظيفته : ' + ORG[S.pick].f + ' . حاول مرّة أخرى.'));
+          if (ok) { const r = el('div', 'srow'); r.append(btn('سؤال آخر', 'go', () => { newQ(); draw(); })); body.append(r); }
+        }
+      }
+    }
+    function runPath(svg, row) {
+      const P = S.plant ? [[110, 36], [150, 55], [258, 100], [290, 125], [304, 150]] : [[158, 71], [195, 95], [214, 92], [262, 112], [300, 140]];
+      const NAMES = ['الرايبوسوم يصنع البروتين', 'الشبكة الخشنة تعدّله وتنقله', 'جهاز غولجي يعدّله ويعبّئه', 'حويصلة تحمله', 'الغشاء البلازمي : يخرج بالإخراج الخلوي'];
+      const dot = sv('circle', { cx: P[0][0], cy: P[0][1], r: 6, fill: '#D62828', stroke: '#fff', 'stroke-width': 2 }, svg);
+      const cap = el('div', 'cestep', NAMES[0]); row.innerHTML = ''; row.append(cap);
+      let i = 0, t0 = null;
+      const step = ts => {
+        if (!svg.isConnected) return;
+        if (t0 === null) t0 = ts;
+        const u = Math.min(1, (ts - t0) / 1100);
+        const a = P[i], b = P[i + 1];
+        dot.setAttribute('cx', a[0] + (b[0] - a[0]) * u); dot.setAttribute('cy', a[1] + (b[1] - a[1]) * u);
+        if (u >= 1) { i++; t0 = ts; cap.innerHTML = NAMES[i]; if (i >= P.length - 1) { setTimeout(() => { if (row.isConnected) { row.innerHTML = ''; row.append(btn('أعد التتبّع', 'go', () => runPath(svg, row))); } dot.remove(); }, 1400); return; } }
+        requestAnimationFrame(step);
+      };
+      requestAnimationFrame(step);
+    }
+    top(); draw();
+  }
+
+  /* ======================= 3 · نباتية أم حيوانية ======================= */
+  const CMP = [
+    ['wall', 'الجدار الخلوي', 'يوجد ، من السليلوز', 'لا يوجد'],
+    ['chl', 'البلاستيدات الخضراء', 'توجد في الأجزاء الخضراء', 'لا توجد'],
+    ['cent', 'المُريكزات', 'لا توجد', 'زوج في الجسم المركزي'],
+    ['vac', 'الفجوات', 'فجوة واحدة كبيرة', 'فجوات صغيرة عديدة'],
+    ['lyso', 'الأجسام الحالّة', 'يندر وجودها', 'في معظم الخلايا'],
+    ['mem', 'الشكل العام', 'محدّد وثابت ( بسبب الجدار )', 'غير ثابت']
+  ];
+  function cellcmp(host) {
+    host.innerHTML = '';
+    const S = { plant: 1, i: 0, guess: null, mys: null };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function top() {
+      bar.innerHTML = '';
+      bar.append(seg([[1, 'خليّة نباتية'], [0, 'خليّة حيوانية'], ['g', 'خمّن الخليّة']], S.mys ? 'g' : S.plant, v => {
+        if (v === 'g') { S.mys = Math.random() < .5 ? 'p' : 'a'; S.guess = null; } else { S.mys = null; S.plant = +v; }
+        top(); draw();
+      }));
+    }
+    function draw() {
+      body.innerHTML = '';
+      const svg = svgBox(320, 220);
+      if (S.mys) {
+        drawCell(svg, S.mys === 'p', null);
+        const f = el('div', 'cefig'); f.append(svg); body.append(f);
+        body.append(el('div', 'shint', 'ابحث عن ثلاثة أدلّة : الجدار ، والبلاستيدات ، والفجوة الكبيرة أو المُريكزات.'));
+        const r = el('div', 'srow');
+        r.append(btn('نباتية', S.guess === 'p' ? 'go' : '', () => { S.guess = 'p'; draw(); }), btn('حيوانية', S.guess === 'a' ? 'go' : '', () => { S.guess = 'a'; draw(); }));
+        body.append(r);
+        if (S.guess) {
+          const ok = S.guess === S.mys;
+          body.append(verdict(ok ? 'acok' : 'acwarn', ok ? 'صحيح' : 'راجع الأدلّة', S.mys === 'p' ? 'في الرسم <b>جدار خلوي</b> سميك و<b>بلاستيدات خضراء</b> و<b>فجوة كبيرة</b> ، والشكل ثابت ← خليّة نباتية.' : 'لا جدار ولا بلاستيدات ، وفيها <b>مُريكزان</b> و<b>أجسام حالّة</b> وفجوات صغيرة ، والشكل غير ثابت ← خليّة حيوانية.'));
+          const n = el('div', 'srow'); n.append(btn('خليّة أخرى', 'go', () => { S.mys = Math.random() < .5 ? 'p' : 'a'; S.guess = null; draw(); })); body.append(n);
+        }
+        return;
+      }
+      const R = CMP[S.i];
+      drawCell(svg, S.plant, R[0] === 'mem' ? null : R[0]);
+      const f = el('div', 'cefig'); f.append(svg); body.append(f);
+      const tb = el('div', 'cetab');
+      tb.append(el('div', 'cetr cehd', '<span>وجه المقارنة</span><span>النباتية</span><span>الحيوانية</span>'));
+      CMP.forEach((x, i) => { const rr = el('div', 'cetr' + (i === S.i ? ' ceon' : ''), '<span>' + x[1] + '</span><span>' + x[2] + '</span><span>' + x[3] + '</span>'); rr.onclick = () => { S.i = i; draw(); }; tb.append(rr); });
+      body.append(tb);
+      body.append(el('div', 'sl note', 'اضغط صفًّا في الجدول ليُبرز العُضيّ في الرسم ، ثمّ بدّل نوع الخليّة لترى الفرق.'));
+    }
+    top(); draw();
+  }
+
+  /* ======================= 4 · النقل عبر الغشاء ======================= */
+  const TR = {
+    simple: { n: 'انتشار بسيط', g: 1, e: 0, p: 0, v: 0, x: 'من التركيز الأعلى إلى الأدنى مباشرة عبر طبقتَي الدهون ، بلا طاقة ولا بروتين ، مثل ' + L('O₂') + ' و ' + L('CO₂') + ' في الحويصلات الهوائية.' },
+    facil: { n: 'انتشار مُسهَّل', g: 1, e: 0, p: 1, v: 0, x: 'مع تدرّج التركيز وبلا طاقة ، لكن عبر <b>بروتين ناقل</b> في الغشاء.' },
+    active: { n: 'نقل نشط', g: 0, e: 1, p: 1, v: 0, x: '<b>عكس</b> تدرّج التركيز ، فيحتاج إلى طاقة ' + L('ATP') + ' وبروتين ناقل.' },
+    osmo: { n: 'خاصية أسموزية', g: 1, e: 0, p: 0, v: 0, x: 'حركة <b>الماء</b> نحو الوسط الأكثر تركيزًا بالمذاب ، وهي نقل سلبي.' },
+    endo: { n: 'إدخال خلوي', g: 2, e: 1, p: 0, v: 1, x: 'ينثني الغشاء حول الجسيم الكبير ثمّ يلتحم طرفاه مكوّنًا حويصلة ؛ بلعمة للصلب وشرب خلوي للسائل ، ويحتاج إلى ' + L('ATP') + '.' },
+    exo: { n: 'إخراج خلوي', g: 2, e: 1, p: 0, v: 1, x: 'تندمج حويصلة فيها الجسيمات مع الغشاء فتُطلقها خارج الخليّة ، ويحتاج إلى ' + L('ATP') + '.' }
+  };
+  function drawTr(svg, k, ts) {
+    svg.innerHTML = '';
+    const T = TR[k];
+    sv('rect', { x: 0, y: 0, width: 320, height: 75, fill: '#F7F9FC' }, svg);
+    sv('rect', { x: 0, y: 105, width: 320, height: 75, fill: '#FFFDF4' }, svg);
+    for (let x = 6; x < 320; x += 12) { sv('circle', { cx: x, cy: 80, r: 4.5, fill: '#E9C46A' }, svg); sv('circle', { cx: x, cy: 100, r: 4.5, fill: '#E9C46A' }, svg); sv('path', { d: 'M' + x + ' 84 v4 M' + x + ' 96 v-4', stroke: '#C08A1E', 'stroke-width': 1.2 }, svg); }
+    const ph = (ts / 1000) % 3 / 3;
+    if (T.p) { sv('rect', { x: 148, y: 72, width: 24, height: 36, rx: 8, fill: '#8FB3DE', stroke: '#1F4E8C', 'stroke-width': 2 }, svg); }
+    if (T.e) { sv('circle', { cx: T.v ? 40 : 200, cy: 150, r: 13, fill: '#FFE08A', stroke: '#C08A1E', 'stroke-width': 2 }, svg); }
+    const rnd = i => { const v = Math.sin(i * 12.9898 + 4.1) * 43758.5453; return v - Math.floor(v); };
+    const out = k === 'active' ? 4 : 12, inn = k === 'active' ? 12 : 4;
+    const col = k === 'osmo' ? '#3A7CA5' : '#D62828';
+    for (let i = 0; i < out; i++) sv('circle', { cx: 15 + rnd(i) * 290, cy: 10 + rnd(i + 50) * 55, r: k === 'osmo' ? 4 : 5, fill: col, opacity: .8 }, svg);
+    for (let i = 0; i < inn; i++) sv('circle', { cx: 15 + rnd(i + 100) * 290, cy: 115 + rnd(i + 150) * 55, r: k === 'osmo' ? 4 : 5, fill: col, opacity: .8 }, svg);
+    if (!T.v) {
+      const x = T.p ? 160 : 95, down = true;
+      const y = down ? 30 + ph * 120 : 150 - ph * 120;
+      sv('circle', { cx: x, cy: y, r: 6, fill: col, stroke: '#fff', 'stroke-width': 2 }, svg);
+      sv('path', { d: down ? 'M' + (x + 22) + ' 40 v100 m-6 -8 l6 8 l6 -8' : 'M' + (x + 22) + ' 140 v-100 m-6 8 l6 -8 l6 8', stroke: '#14603f', 'stroke-width': 2, fill: 'none' }, svg);
+    } else {
+      const inw = k === 'endo', u = ph;
+      const cy = inw ? 30 + u * 120 : 150 - u * 120;
+      const r = 16;
+      sv('circle', { cx: 230, cy: cy, r: r, fill: 'none', stroke: '#E9C46A', 'stroke-width': 4 }, svg);
+      sv('circle', { cx: 230, cy: cy, r: 7, fill: '#6A4C93' }, svg);
+    }
+  }
+  function transport(host) {
+    host.innerHTML = '';
+    const S = { g: null, e: null, p: null };
+    const bar = el('div', ''), body = el('div');
+    host.append(el('div', 'shint', 'أجب عن الأسئلة الثلاثة بالترتيب ، فتُحدَّد طريقة النقل :'), bar, body);
+    let raf = 0;
+    function draw() {
+      bar.innerHTML = '';
+      const Q = (lab, key, opts) => { const w = el('div', 'ceq'); w.append(el('div', 'ceql', lab)); w.append(seg(opts, S[key], v => { S[key] = +v; draw(); })); bar.append(w); };
+      Q('1 · اتّجاه الحركة بالنسبة إلى تدرّج التركيز ؟', 'g', [[1, 'مع التدرّج'], [0, 'عكس التدرّج']]);
+      Q('2 · هل تحتاج إلى طاقة ATP ؟', 'e', [[1, 'نعم'], [0, 'لا']]);
+      Q('3 · هل تحتاج إلى بروتين ناقل ؟', 'p', [[1, 'نعم'], [0, 'لا']]);
+      body.innerHTML = '';
+      cancelAnimationFrame(raf);
+      if (S.g === null || S.e === null || S.p === null) return;
+      let k = null;
+      if (S.g === 1 && S.e === 0) k = S.p ? 'facil' : 'simple';
+      if (S.g === 0 && S.e === 1 && S.p === 1) k = 'active';
+      const svg = svgBox(320, 180), f = el('div', 'cefig');
+      if (!k) {
+        body.append(verdict('acwarn', 'تركيب غير ممكن في هذه الوحدة',
+          S.g === 0 && S.e === 0 ? 'الحركة <b>عكس</b> التدرّج لا تحدث بلا طاقة ؛ فهي تحتاج دائمًا إلى ' + L('ATP') + '.' :
+          S.g === 1 && S.e === 1 ? 'الحركة مع التدرّج لا تحتاج إلى طاقة ؛ الطاقة تُصرف للحركة عكس التدرّج ( أو للحويصلات ).' :
+          'النقل النشط يحتاج إلى بروتين ناقل وطاقة معًا.'));
+        return;
+      }
+      f.append(svg); body.append(f);
+      const lg = el('div', 'celeg', '<span>الأعلى : خارج الخليّة</span><span>الأسفل : داخل الخليّة</span>' + (TR[k].e ? '<span class="cey">● ATP</span>' : '') + (TR[k].p ? '<span class="ceb2">▮ بروتين ناقل</span>' : ''));
+      body.append(lg);
+      body.append(verdict('acok', TR[k].n, TR[k].x));
+      const loop = ts => { if (!svg.isConnected) return; drawTr(svg, k, ts); raf = requestAnimationFrame(loop); };
+      raf = requestAnimationFrame(loop);
+    }
+    draw();
+  }
+  const SCN = [
+    ['ينتقل ' + L('O₂') + ' من الحويصلة الهوائية ( تركيز عالٍ ) إلى الدم ( تركيز منخفض ).', 'simple'],
+    ['يدخل الغلوكوز الخليّة مع تدرّج تركيزه عبر بروتين في الغشاء دون استهلاك طاقة.', 'facil'],
+    ['تضخّ الخليّة أيونات إلى داخلها مع أنّ تركيزها في الداخل أعلى ، وتستهلك ' + L('ATP') + '.', 'active'],
+    ['خليّة دم بيضاء تحيط ببكتيريا بغشائها وتدخلها في حويصلة.', 'endo'],
+    ['خليّة غدّية تُطلق إنزيمات مُعبّأة في حويصلات إلى خارجها.', 'exo'],
+    ['يدخل الماء خليّة البصل الموضوعة في ماء مقطّر.', 'osmo'],
+    ['ينتقل ' + L('CO₂') + ' من الدم إلى الحويصلة الهوائية.', 'simple'],
+    ['تدخل الخليّة قطرات سائلة بانثناء غشائها ( شرب خلوي ).', 'endo']
+  ];
+  function transportb(host) {
+    host.innerHTML = '';
+    const S = { i: 0, pick: null, score: 0, seen: 0, order: shuffle(SCN.map((x, i) => i)) };
+    const body = el('div'); host.append(body);
+    let raf = 0;
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const sc = SCN[S.order[S.i]];
+      body.append(el('div', 'cecount', 'الموقف ' + (S.i + 1) + ' من ' + SCN.length + ' · الصحيح ' + S.score));
+      body.append(verdict('', 'ما طريقة النقل ؟', sc[0]));
+      const chips = el('div', 'cechips');
+      Object.keys(TR).forEach(k => { const b = el('button', 'cechip' + (S.pick === k ? (k === sc[1] ? ' ceok' : ' cebad') : ''), TR[k].n); b.onclick = () => { if (S.pick) return; S.pick = k; if (k === sc[1]) S.score++; draw(); }; chips.append(b); });
+      body.append(chips);
+      if (!S.pick) return;
+      const ok = S.pick === sc[1];
+      const svg = svgBox(320, 180), f = el('div', 'cefig'); f.append(svg); body.append(f);
+      body.append(verdict(ok ? 'acok' : 'acwarn', (ok ? 'صحيح : ' : 'الصحيح : ') + TR[sc[1]].n, TR[sc[1]].x));
+      const loop = ts => { if (!svg.isConnected) return; drawTr(svg, sc[1], ts); raf = requestAnimationFrame(loop); };
+      raf = requestAnimationFrame(loop);
+      const r = el('div', 'srow');
+      if (S.i < SCN.length - 1) r.append(btn('الموقف التالي', 'go', () => { S.i++; S.pick = null; draw(); }));
+      else r.append(el('div', 'sl ok', 'انتهت المواقف : ' + S.score + ' من ' + SCN.length + ' .'), btn('ابدأ من جديد', 'go', () => { S.i = 0; S.pick = null; S.score = 0; S.order = shuffle(S.order); draw(); }));
+      body.append(r);
+    }
+    draw();
+  }
+
+  /* ======================= 5 · أثر تراكيز المحاليل ======================= */
+  function tonicity(host) {
+    host.innerHTML = '';
+    const S = { plant: 0, sol: 'hypo', sh: 1 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    let raf = 0;
+    function top() {
+      bar.innerHTML = '';
+      bar.append(seg([[0, 'خليّة دم حمراء'], [1, 'خليّة نباتية']], S.plant, v => { S.plant = +v; S.sh = 1; top(); draw(); }));
+      bar.append(seg([['hypo', 'منخفض التركيز'], ['iso', 'متساوي التركيز'], ['hyper', 'عالي التركيز']], S.sol, v => { S.sol = v; top(); draw(); }));
+    }
+    function pic(svg, f) {
+      svg.innerHTML = '';
+      const nOut = S.sol === 'hypo' ? 4 : S.sol === 'iso' ? 10 : 22;
+      sv('rect', { x: 0, y: 0, width: 320, height: 200, fill: S.sol === 'hyper' ? '#FFF4DC' : S.sol === 'iso' ? '#F4F8F4' : '#EAF4FB' }, svg);
+      const rnd = i => ((i * 7919 + 104729) % 10007) / 10007;
+      for (let i = 0; i < nOut; i++) { const x = 10 + rnd(i) * 300, y = 10 + rnd(i + 31) * 180; if (Math.hypot(x - 160, y - 100) > 92) sv('circle', { cx: x, cy: y, r: 3.5, fill: '#C0612B' }, svg); }
+      if (!S.plant) {
+        const r = 58 * f;
+        if (f > 1.32) { // انفجار
+          for (let i = 0; i < 9; i++) { const a = i * 0.7; sv('path', { d: 'M' + (160 + Math.cos(a) * 40) + ' ' + (100 + Math.sin(a) * 40) + ' l' + Math.cos(a) * 30 + ' ' + Math.sin(a) * 30, stroke: '#C1121F', 'stroke-width': 4, 'stroke-linecap': 'round' }, svg); }
+          for (let i = 0; i < 10; i++) sv('circle', { cx: 160 + Math.cos(i) * (60 + i * 4), cy: 100 + Math.sin(i) * (50 + i * 3), r: 3, fill: '#E5383B' }, svg);
+          return 'burst';
+        }
+        const sq = f < 1 ? 'M' : '';
+        if (f < 1) {
+          const pts = []; for (let i = 0; i < 24; i++) { const a = i / 24 * Math.PI * 2, rr = r * (1 + 0.12 * Math.sin(i * 3)); pts.push((160 + Math.cos(a) * rr * 1.25) + ' ' + (100 + Math.sin(a) * rr)); }
+          sv('path', { d: 'M' + pts.join(' L') + ' Z', fill: '#E5383B', stroke: '#9D0208', 'stroke-width': 2.5 }, svg);
+        } else {
+          sv('ellipse', { cx: 160, cy: 100, rx: r * 1.25, ry: r, fill: '#E5383B', stroke: '#9D0208', 'stroke-width': 2.5 }, svg);
+          if (f < 1.05) sv('ellipse', { cx: 160, cy: 100, rx: r * .55, ry: r * .4, fill: '#C1121F', opacity: .5 }, svg);
+        }
+      } else {
+        sv('rect', { x: 70, y: 30, width: 180, height: 140, rx: 8, fill: 'none', stroke: '#5C7F3A', 'stroke-width': 8 }, svg);
+        const shrink = Math.min(1, f);
+        const w = 172 * (shrink < 1 ? 0.55 + 0.45 * shrink : 1), h = 132 * (shrink < 1 ? 0.6 + 0.4 * shrink : 1);
+        sv('rect', { x: 160 - w / 2, y: 100 - h / 2, width: w, height: h, rx: shrink < 1 ? 30 : 6, fill: '#BFE3B4', stroke: '#1F3A5F', 'stroke-width': f > 1 ? 3.5 : 2 }, svg);
+        const vw = w * (f >= 1 ? .7 * Math.min(f, 1.15) : .45 * shrink), vh = h * (f >= 1 ? .62 * Math.min(f, 1.15) : .4 * shrink);
+        sv('rect', { x: 160 - vw / 2, y: 100 - vh / 2, width: vw, height: vh, rx: 20, fill: '#D9ECF7', stroke: '#3A7CA5', 'stroke-width': 2 }, svg);
+      }
+      return 'ok';
+    }
+    function arrows(svg, ts) {
+      if (S.sol === 'iso') {
+        const u = (ts / 900) % 1;
+        sv('path', { d: 'M' + (20 + u * 20) + ' 100 h28 m-6 -6 l6 6 l-6 6', stroke: '#3A7CA5', 'stroke-width': 3, fill: 'none' }, svg);
+        sv('path', { d: 'M' + (300 - u * 20) + ' 100 h-28 m6 -6 l-6 6 l6 6', stroke: '#3A7CA5', 'stroke-width': 3, fill: 'none' }, svg);
+        sv('path', { d: 'M' + (68 - u * 20) + ' 120 h-28 m6 -6 l-6 6 l6 6', stroke: '#3A7CA5', 'stroke-width': 3, fill: 'none' }, svg);
+        sv('path', { d: 'M' + (252 + u * 20) + ' 120 h28 m-6 -6 l6 6 l-6 6', stroke: '#3A7CA5', 'stroke-width': 3, fill: 'none' }, svg);
+        return;
+      }
+      const inw = S.sol === 'hypo', u = (ts / 900) % 1;
+      [[20, 100, 1], [300, 100, -1], [160, 12, 0]].forEach(p => {
+        if (p[2] === 0) { const y = inw ? 6 + u * 18 : 30 - u * 18; sv('path', { d: inw ? 'M160 ' + y + ' v14 m-6 -6 l6 6 l6 -6' : 'M160 ' + (y + 14) + ' v-14 m-6 6 l6 -6 l6 6', stroke: '#3A7CA5', 'stroke-width': 3, fill: 'none' }, svg); return; }
+        const d = p[2] * (inw ? 1 : -1), x = p[0] + (inw ? u * 20 * p[2] : 20 * p[2] - u * 20 * p[2]);
+        sv('path', { d: 'M' + x + ' ' + p[1] + ' h' + 28 * d + ' m' + (-6 * d) + ' -6 l' + 6 * d + ' 6 l' + (-6 * d) + ' 6', stroke: '#3A7CA5', 'stroke-width': 3, fill: 'none' }, svg);
+      });
+    }
+    const TXT = {
+      hypo: ['المحلول منخفض التركيز : تركيز المذاب خارج الخليّة <b>أقلّ</b> ← يدخل الماء.', 'تنتفخ ثمّ <b>تنفجر</b> وتنطلق محتوياتها.', 'تنتفخ الفجوة والسيتوبلازم ويضغط الغشاء على الجدار <b>من دون انفجار</b> ؛ الجدار يحميها.'],
+      iso: ['المحلول متساوي التركيز : حركة الماء متساوية في الاتّجاهين.', 'لا يتغيّر حجمها ولا شكلها.', 'لا يتغيّر حجمها ولا شكلها.'],
+      hyper: ['المحلول عالي التركيز : تركيز المذاب خارج الخليّة <b>أكبر</b> ← يخرج الماء.', '<b>تنكمش</b> الخليّة.', 'تتقلّص الفجوة وينكمش السيتوبلازم ثمّ <b>ينفصل الغشاء عن الجدار</b> ، وقد تموت الخليّة.']
+    };
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const svg = svgBox(320, 200), f = el('div', 'cefig'); f.append(svg); body.append(f);
+      body.append(el('div', 'celeg', '<span class="cer">● جزيئات المذاب</span><span class="ceblu">→ اتّجاه حركة الماء</span>'));
+      const T = TXT[S.sol];
+      const res = el('div'); body.append(res);
+      const target = S.sol === 'hypo' ? (S.plant ? 1.12 : 1.4) : S.sol === 'iso' ? 1 : 0.62;
+      let st = null; const from = S.sh;
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        if (st === null) st = ts;
+        const u = Math.min(1, (ts - st) / 2200);
+        S.sh = from + (target - from) * u;
+        const r = pic(svg, S.sh);
+        if (r !== 'burst') arrows(svg, ts);
+        if (u >= 1 && !res.firstChild) res.append(verdict(S.sol === 'iso' ? 'acok' : 'acwarn', (S.plant ? 'الخليّة النباتية : ' : 'خليّة الدم الحمراء : ') + (S.sol === 'iso' ? 'لا تغيّر' : S.sol === 'hypo' ? (S.plant ? 'انتفاخ بلا انفجار' : 'انفجار') : (S.plant ? 'انفصال الغشاء عن الجدار' : 'انكماش')), T[0] + ' ' + T[S.plant ? 2 : 1]));
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      const r = el('div', 'srow'); r.append(btn('أعد التجربة', 'gh', () => { S.sh = 1; draw(); })); body.append(r);
+      body.append(el('div', 'sl note', 'القاعدة : الماء يتحرّك نحو المكان <b>الأكثر تركيزًا بالمذاب</b> ، والمتحرّك هو الماء لا المذاب.'));
+    }
+    top(); draw();
+  }
+
+  /* ======================= 6 · الأيض : التنفّس والتخمّر ======================= */
+  const PR = {
+    resp: { n: 'التنفّس الخلوي الهوائي', k: 'هدم', o2: 'يحتاج', loc: 'يبدأ في السيتوبلازم ويكتمل في الميتوكندريا', eq: 'C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + Energy (ATP)', ar: 'سكّر الغلوكوز + الأكسجين ← ماء + ثاني أكسيد الكربون + طاقة', who: 'خلايا النباتات والحيوانات' },
+    lact: { n: 'التخمّر اللبني', k: 'هدم', o2: 'لا يحتاج', loc: 'سيتوسول الخليّة', eq: 'C₆H₁₂O₆ → 2C₃H₆O₃ + Energy', ar: 'سكّر الغلوكوز ← حمض اللبن + طاقة', who: 'العضلات عند المجهود الكبير ، وبعض النباتات والبكتيريا' },
+    alc: { n: 'التخمّر الكحولي', k: 'هدم', o2: 'لا يحتاج', loc: 'خلايا الخميرة', eq: 'C₆H₁₂O₆ → CO₂ + كحول إيثيلي + Energy', ar: 'سكّر الغلوكوز ← كحول إيثيلي + ثاني أكسيد الكربون + طاقة', who: 'الخميرة' },
+    photo: { n: 'البناء الضوئي', k: 'بناء', o2: 'يُنتجه', loc: 'البلاستيدة الخضراء', eq: '6H₂O + 6CO₂ → C₆H₁₂O₆ + 6O₂', ar: 'ماء + ثاني أكسيد الكربون ← سكّر الغلوكوز + أكسجين', who: 'خلايا النباتات الخضراء' }
+  };
+  function procCard(k) {
+    const P = PR[k], t = info();
+    t.row('نوع العملية', '<b>' + P.k + '</b>');
+    t.row('المعادلة', '<span class="ceeq">' + P.eq + '</span>');
+    t.row('بالكلمات', P.ar);
+    t.row('مكانها', P.loc);
+    t.row('الأكسجين', P.o2);
+    t.row('أين تحدث ؟', P.who);
+    return t;
+  }
+  function metab(host) {
+    host.innerHTML = '';
+    const S = { org: 'mus', o2: 1, mode: 'sim', ci: 0, cp: null };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function top() {
+      bar.innerHTML = '';
+      bar.append(seg([['sim', 'من أين الطاقة ؟'], ['cls', 'هدم أم بناء ؟']], S.mode, v => { S.mode = v; top(); draw(); }));
+    }
+    const CLS = [['التنفّس الخلوي الهوائي', 'هدم'], ['البناء الضوئي', 'بناء'], ['التخمّر اللبني', 'هدم'], ['تحويل الغلوكوز إلى سليلوز في الجدار الخلوي', 'بناء'], ['التخمّر الكحولي في الخميرة', 'هدم'], ['تخزين النشا في درنة البطاطا', 'بناء']];
+    function draw() {
+      body.innerHTML = '';
+      if (S.mode === 'cls') {
+        const c = CLS[S.ci];
+        body.append(el('div', 'cecount', 'العملية ' + (S.ci + 1) + ' من ' + CLS.length));
+        body.append(verdict('', 'صنّف العملية', c[0]));
+        const r = el('div', 'srow');
+        ['هدم', 'بناء'].forEach(x => r.append(btn(x, S.cp === x ? 'go' : '', () => { S.cp = x; draw(); })));
+        body.append(r);
+        if (S.cp) {
+          const ok = S.cp === c[1];
+          body.append(verdict(ok ? 'acok' : 'acwarn', (ok ? 'صحيح : ' : 'الصحيح : ') + c[1], c[1] === 'هدم' ? 'تتحطّم فيها جزيئات معقّدة إلى بسيطة و<b>تنتج</b> الطاقة.' : 'تُبنى فيها جزيئات معقّدة من بسيطة و<b>تُستهلَك</b> الطاقة.'));
+          const n = el('div', 'srow'); n.append(btn(S.ci < CLS.length - 1 ? 'التالية' : 'من البداية', 'go', () => { S.ci = (S.ci + 1) % CLS.length; S.cp = null; draw(); })); body.append(n);
+        }
+        return;
+      }
+      const r = el('div', 'srow');
+      r.append(sel('الخليّة', S.org, [['mus', 'خليّة عضلية في الإنسان'], ['yst', 'خليّة خميرة'], ['leaf', 'خليّة ورقة نبات']], v => { S.org = v; draw(); }));
+      r.append(sel('الأكسجين', S.o2, [[1, 'متوفّر بكفاية'], [0, 'غير كافٍ']], v => { S.o2 = +v; draw(); }));
+      body.append(r);
+      const k = S.o2 ? 'resp' : (S.org === 'yst' ? 'alc' : 'lact');
+      const svg = svgBox(320, 120), f = el('div', 'cefig'); f.append(svg); body.append(f);
+      sv('rect', { x: 10, y: 35, width: 70, height: 50, rx: 10, fill: '#FFF4DC', stroke: '#C08A1E', 'stroke-width': 2 }, svg);
+      sv('path', { d: 'M85 60 h50 m-8 -7 l8 7 l-8 7', stroke: '#1F3A5F', 'stroke-width': 3, fill: 'none' }, svg);
+      if (k === 'resp') {
+        sv('ellipse', { cx: 185, cy: 60, rx: 48, ry: 26, fill: '#FBE3D2', stroke: '#C0612B', 'stroke-width': 2.5 }, svg);
+        sv('path', { d: 'M150 60 l8 -10 l8 20 l8 -20 l8 20 l8 -20 l8 20 l8 -20 l8 10', fill: 'none', stroke: '#C0612B', 'stroke-width': 1.5 }, svg);
+      } else sv('rect', { x: 140, y: 34, width: 90, height: 52, rx: 14, fill: '#EEF3FA', stroke: '#1F3A5F', 'stroke-width': 2, 'stroke-dasharray': '5 3' }, svg);
+      sv('path', { d: 'M238 60 h40 m-8 -7 l8 7 l-8 7', stroke: '#1F3A5F', 'stroke-width': 3, fill: 'none' }, svg);
+      const big = k === 'resp';
+      for (let i = 0; i < (big ? 6 : 2); i++) sv('circle', { cx: 292 + (i % 2) * 14, cy: 38 + Math.floor(i / 2) * 16, r: 6, fill: '#FFE08A', stroke: '#C08A1E', 'stroke-width': 1.5 }, svg);
+      body.append(el('div', 'celeg', '<span>يسار : الغلوكوز</span><span>الوسط : مكان العملية</span><span class="cey">● طاقة ATP ( أكثر في التنفّس الهوائي )</span>'));
+      body.append(procCard(k));
+      body.append(verdict('acok', PR[k].n, S.o2 ? 'بوجود الأكسجين تُنتج الخليّة معظم طاقتها بالتنفّس الخلوي الهوائي.' :
+        S.org === 'yst' ? 'الخميرة دون أكسجين كافٍ تلجأ إلى <b>التخمّر الكحولي</b> ، ويُنتج ' + L('CO₂') + ' الذي ينفخ العجين أو البالون.' :
+        S.org === 'leaf' ? 'بعض أنواع النباتات تلجأ إلى <b>التخمّر اللبني</b> عند نقص الأكسجين.' :
+        'عند المجهود الكبير لا يكفي الأكسجين ، فتلجأ العضلة إلى <b>التخمّر اللبني</b> ، فيتراكم حمض اللبن ( كما في نهاية الماراثون ).'));
+    }
+    top(); draw();
+  }
+
+  /* ======================= 7 · البناء الضوئي مقابل التنفّس ======================= */
+  function metabp(host) {
+    host.innerHTML = '';
+    const S = { light: 1, row: 0 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    let raf = 0;
+    const ROWS = [
+      ['نوع العملية', 'هدم', 'بناء'],
+      ['الخلايا', 'النباتات والحيوانات', 'النباتات الخضراء'],
+      ['المكان', 'السيتوبلازم ثمّ الميتوكندريا', 'البلاستيدة الخضراء'],
+      ['المواد الداخلة', 'غلوكوز وأكسجين', L('CO₂') + ' وماء'],
+      ['المواد الناتجة', 'ماء و' + L('CO₂'), 'غلوكوز وأكسجين'],
+      ['الطاقة', 'تُنتج ' + L('ATP'), 'تُمتَصّ طاقة ضوئية']
+    ];
+    function top() {
+      bar.innerHTML = '';
+      bar.append(seg([[1, 'نهار ( ضوء )'], [0, 'ليل ( ظلام )']], S.light, v => { S.light = +v; top(); draw(); }));
+    }
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const svg = svgBox(320, 170), f = el('div', 'cefig'); f.append(svg); body.append(f);
+      body.append(el('div', 'celeg', (S.light ? '<span class="ceg">● O₂ يخرج ( بناء ضوئي )</span>' : '') + '<span class="cegr">● CO₂ يخرج ( تنفّس )</span>' + (S.light ? '<span class="cegr2">● CO₂ يدخل ( بناء ضوئي )</span>' : '')));
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 170, fill: S.light ? '#FFFBEA' : '#1E2A44' }, svg);
+        if (S.light) { sv('circle', { cx: 285, cy: 30, r: 18, fill: '#F4C430' }, svg); for (let i = 0; i < 3; i++) sv('path', { d: 'M265 ' + (45 + i * 8) + ' L' + (200 - i * 10) + ' ' + (70 + i * 10), stroke: '#F4C430', 'stroke-width': 2, 'stroke-dasharray': '6 5' }, svg); }
+        else sv('path', { d: 'M290 20 a16 16 0 1 0 10 28 a12 12 0 1 1 -10 -28', fill: '#E9E4C8' }, svg);
+        sv('path', { d: 'M160 165 V95', stroke: '#5C7F3A', 'stroke-width': 5 }, svg);
+        sv('path', { d: 'M160 115 q-55 -10 -70 -45 q45 0 70 45 z', fill: '#4E9F3D' }, svg);
+        sv('path', { d: 'M160 100 q55 -12 72 -48 q-48 2 -72 48 z', fill: '#4E9F3D' }, svg);
+        const u = (ts / 1600) % 1;
+        const dotp = (x, y, c, t) => { sv('circle', { cx: x, cy: y, r: 6, fill: c, stroke: '#fff', 'stroke-width': 1.5 }, svg); };
+        if (S.light) {
+          for (let i = 0; i < 3; i++) { const v = (u + i / 3) % 1; dotp(110 - v * 80, 70 - v * 40, '#2E9E4F'); }
+          for (let i = 0; i < 2; i++) { const v = (u + i / 2) % 1; dotp(30 + v * 70, 150 - v * 60, '#8A8A8A'); }
+          dotp(215 + u * 50, 75 + u * 40, '#C0612B');
+        } else {
+          for (let i = 0; i < 3; i++) { const v = (u + i / 3) % 1; dotp(205 + v * 80, 70 + v * 50, '#C0612B'); }
+        }
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      body.append(verdict(S.light ? 'acok' : 'acwarn', S.light ? 'في الضوء : العمليتان معًا' : 'في الظلام : التنفّس وحده',
+        S.light ? 'النبات يبني الغلوكوز في البلاستيدات <b>ويتنفّس</b> في الميتوكندريا في الوقت نفسه ؛ وفي الضوء الكافي يغلب البناء الضوئي فيخرج من الورقة أكسجين أكثر.' :
+        'لا ضوء فلا بناء ضوئي ، لكنّ <b>التنفّس الخلوي مستمرّ</b> ليلًا ونهارًا ، فيخرج ' + L('CO₂') + ' . النبات يتنفّس دائمًا.'));
+      const eq = el('div', 'cepair');
+      eq.append(el('div', 'cecard', '<div class="cect">التنفّس الخلوي الهوائي</div><div class="ceeq">C₆H₁₂O₆ + 6O₂ → 6CO₂ + 6H₂O + ATP</div>'));
+      eq.append(el('div', 'cecard' + (S.light ? '' : ' ceoffc'), '<div class="cect">البناء الضوئي</div><div class="ceeq">6H₂O + 6CO₂ → C₆H₁₂O₆ + 6O₂</div>'));
+      body.append(eq);
+      const tb = el('div', 'cetab');
+      tb.append(el('div', 'cetr cehd', '<span>وجه المقارنة</span><span>التنفّس الهوائي</span><span>البناء الضوئي</span>'));
+      ROWS.forEach(x => tb.append(el('div', 'cetr', '<span>' + x[0] + '</span><span>' + x[1] + '</span><span>' + x[2] + '</span>')));
+      body.append(tb);
+      body.append(el('div', 'sl note', 'المعادلتان متعاكستان : الداخل في إحداهما هو الناتج من الأخرى.'));
+    }
+    top(); draw();
+  }
+
+  /* ======================= 8 · العامل المُحدّد ======================= */
+  function limfac(host) {
+    host.innerHTML = '';
+    const S = { L: 40, C: 0, T: 25 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    const tf = T => T <= 30 ? Math.max(0, T / 30) : Math.max(0, 1 - (T - 30) / 15);
+    const cap = C => C ? 80 : 40;
+    const rate = (Lx, C, T) => Math.min(Lx * 1.2, cap(C)) * tf(T);
+    bar.append(sld('شدّة الإضاءة : ' + S.L + ' %', S.L, 0, 100, 5, (v, sp) => { S.L = v; sp.textContent = 'شدّة الإضاءة : ' + v + ' %'; draw(); }));
+    bar.append(sel('تركيز CO₂', S.C, [[0, '0.03 % ( الهواء الجوّي )'], [1, '0.1 % ( مرتفع )']], v => { S.C = +v; draw(); }));
+    bar.append(sld('درجة الحرارة : ' + S.T + ' °C', S.T, 0, 45, 1, (v, sp) => { S.T = v; sp.textContent = 'درجة الحرارة : ' + v + ' °C'; draw(); }));
+    function draw() {
+      body.innerHTML = '';
+      const svg = svgBox(320, 200), f = el('div', 'cefig'); f.append(svg); body.append(f);
+      const X = l => 40 + l * 2.6, Y = r => 175 - r * 1.8;
+      sv('path', { d: 'M40 10 V175 H305', stroke: '#1F3A5F', 'stroke-width': 2, fill: 'none' }, svg);
+      [0, 25, 50, 75, 100].forEach(v => { const t = sv('text', { x: X(v), y: 190, 'font-size': 10, 'text-anchor': 'middle', fill: '#5b6b80' }, svg); t.textContent = v; });
+      [0, 40, 80].forEach(v => { const t = sv('text', { x: 34, y: Y(v) + 3, 'font-size': 10, 'text-anchor': 'end', fill: '#5b6b80' }, svg); t.textContent = v; sv('path', { d: 'M40 ' + Y(v) + ' H305', stroke: '#E3E8F0', 'stroke-width': 1 }, svg); });
+      const curve = (C, col, dash) => { let d = ''; for (let l = 0; l <= 100; l += 2) d += (l ? 'L' : 'M') + X(l) + ' ' + Y(rate(l, C, S.T)); sv('path', { d, stroke: col, 'stroke-width': 3, fill: 'none', 'stroke-dasharray': dash || '' }, svg); };
+      curve(1 - S.C, '#B8C2D1', '5 4');
+      curve(S.C, '#2E7D4F');
+      const r = rate(S.L, S.C, S.T);
+      sv('circle', { cx: X(S.L), cy: Y(r), r: 7, fill: '#D62828', stroke: '#fff', 'stroke-width': 2 }, svg);
+      body.append(el('div', 'celeg', '<span>الأفقي : شدّة الإضاءة %</span><span>الرأسي : معدّل البناء الضوئي</span><span class="ceg">— التركيز المختار</span><span class="cegr">- - التركيز الآخر</span>'));
+      const t = info();
+      t.row('معدّل البناء الضوئي', '<b>' + Math.round(r) + '</b> ( وحدة نسبية في هذا النموذج )');
+      let lim, msg, cls = 'acok';
+      const lightLim = S.L * 1.2 < cap(S.C);
+      if (S.T > 30) { lim = 'درجة الحرارة'; cls = 'acwarn'; msg = 'تجاوزت الحرارة الدرجة المُثلى ( 30 °C في هذا النموذج ) ، ف<b>تتلف الإنزيمات</b> وينخفض المعدّل مهما زادت الإضاءة أو ' + L('CO₂') + '.'; }
+      else if (S.T < 20 && !lightLim) { lim = 'درجة الحرارة'; msg = 'الحرارة منخفضة ونشاط الإنزيمات قليل ؛ رفعها نحو الدرجة المُثلى يرفع المعدّل.'; }
+      else if (lightLim) { lim = 'شدّة الإضاءة'; msg = 'النقطة على الجزء <b>الصاعد</b> من المنحنى : زيادة الإضاءة تزيد المعدّل ، فهي العامل المُحدّد الآن.'; }
+      else { lim = S.C ? 'عامل آخر ( كدرجة الحرارة )' : 'تركيز CO₂'; msg = 'النقطة على الجزء <b>الأفقي</b> : زيادة الإضاءة لم تعد ترفع المعدّل ، فهي <b>لم تعد مُحدّدة</b> . ' + (S.C ? 'وحتّى عند التركيز المرتفع يثبت المنحنى ؛ فالمُحدّد الآن عامل آخر.' : 'جرّب رفع تركيز ' + L('CO₂') + ' إلى 0.1 % : يرتفع المنحنى كلّه.'); }
+      t.row('العامل المُحدّد الآن', '<b>' + lim + '</b>');
+      body.append(t, verdict(cls, 'لماذا ؟', msg));
+      body.append(el('div', 'sl note', 'العامل المُحدّد : العامل الذي تسبّب زيادته زيادةً في المعدّل . وحين يثبت المنحنى ينتقل الدور إلى عامل آخر . ( الأرقام في هذا النموذج توضيحية ، لا من الكتاب . )'));
+    }
+    draw();
+  }
+
+  /* ======================= 9 · الانقسام المتساوي والمُنصّف ======================= */
+  const RED = '#D62828', RED2 = '#F28482', BLU = '#1F4E8C', BLU2 = '#7FA7D9';
+  function chrom(svg, x, y, len, c1, c2, dup, ang, cross) {
+    const g = sv('g', { transform: 'translate(' + x + ' ' + y + ') rotate(' + (ang || 0) + ')' }, svg);
+    if (dup) {
+      sv('rect', { x: -7, y: -len / 2, width: 6, height: len, rx: 3, fill: c1 }, g);
+      sv('rect', { x: 1, y: -len / 2, width: 6, height: len, rx: 3, fill: c1 }, g);
+      if (cross) sv('rect', { x: cross > 0 ? 1 : -7, y: len / 2 - len * .35, width: 6, height: len * .35, rx: 3, fill: c2 }, g);
+      sv('circle', { cx: 0, cy: 0, r: 3.5, fill: '#333' }, g);
+    } else {
+      sv('rect', { x: -3, y: -len / 2, width: 6, height: len, rx: 3, fill: c1 }, g);
+      if (cross) sv('rect', { x: -3, y: len / 2 - len * .35, width: 6, height: len * .35, rx: 3, fill: c2 }, g);
+      sv('circle', { cx: 0, cy: 0, r: 2.6, fill: '#333' }, g);
+    }
+    return g;
+  }
+  const cellC = (svg, cx, cy, rx, ry, env, cent) => {
+    sv('ellipse', { cx, cy, rx, ry, fill: '#F4F6FB', stroke: '#1F3A5F', 'stroke-width': 2.5 }, svg);
+    if (env) sv('circle', { cx, cy, r: Math.min(rx, ry) * .55, fill: env === 2 ? 'none' : '#E3E8F3', stroke: '#1F3A5F', 'stroke-width': 1.6, 'stroke-dasharray': env === 2 ? '4 4' : '' }, svg);
+    if (cent) cent.forEach(p => { sv('rect', { x: p[0] - 6, y: p[1] - 2, width: 12, height: 4, fill: '#5D7C99' }, svg); sv('rect', { x: p[0] - 2, y: p[1] - 6, width: 4, height: 12, fill: '#5D7C99' }, svg); });
+  };
+  const spindle = (svg, px1, px2, cy, xs) => { xs.forEach(p => { sv('path', { d: 'M' + px1 + ' ' + cy + ' L' + p[0] + ' ' + p[1], stroke: '#9AA7BA', 'stroke-width': 1 }, svg); sv('path', { d: 'M' + px2 + ' ' + cy + ' L' + p[2] + ' ' + p[1], stroke: '#9AA7BA', 'stroke-width': 1 }, svg); }); };
+  const chromatin = (svg, cx, cy) => { [[RED, -12], [RED2, -4], [BLU, 4], [BLU2, 12]].forEach(c => sv('path', { d: 'M' + (cx - 20) + ' ' + (cy + c[1]) + ' q5 -6 10 0 t10 0 t10 0 t10 0', stroke: c[0], 'stroke-width': 1.6, fill: 'none' }, svg)); };
+  const MIT = [
+    { n: 'المرحلة البينية : G1', x: 'يزداد حجم الخليّة وتتضاعف معظم عُضيّاتها . المادّة الوراثية كروماتين غير مرئيّ الكروموسومات.', c: '4 كروموسومات ( غير مضاعفة )' },
+    { n: 'المرحلة البينية : S', x: 'تبني الخليّة <b>نسخة ثانية</b> من مادّتها الوراثية ؛ فيصبح كلّ كروموسوم كروماتيدين شقيقين.', c: '4 كروموسومات ، كلّ منها كروماتيدان' },
+    { n: 'المرحلة البينية : G2', x: 'تتهيّأ للانقسام : ينقسم الجسم المركزي فيصبح في الخليّة جسمان مركزيان ، والمادّة الوراثية ما زالت كروماتين.', c: '4 كروموسومات مضاعفة' },
+    { n: 'الطور التمهيدي', x: 'تقصر الكروموسومات وتغلظ فتظهر ( كروماتيدان شقيقان تربطهما القطعة المركزية ) ، يتفكّك الغلاف النووي ، تختفي النويّة ، وتبدأ الخيوط المغزلية بالتكوّن.', c: '4 كروموسومات مضاعفة' },
+    { n: 'الطور الاستوائي', x: 'يستقرّ المُريكزان عند القطبين ، وتصطفّ الكروموسومات على <b>خطّ منتصف</b> الخليّة.', c: '4 كروموسومات مضاعفة' },
+    { n: 'الطور الانفصالي', x: 'تتكمّش الخيوط المغزلية ، وتنقسم القطعة المركزية ، و<b>تنفصل الكروماتيدات الشقيقة</b> كلّ إلى قطب.', c: '4 عند كلّ قطب' },
+    { n: 'الطور النهائي', x: 'يتشكّل الغلاف النووي حول كلّ مجموعة ، وتظهر النويّة ، ويقلّ تكثّف الكروموسومات ، وتختفي الخيوط المغزلية.', c: '4 في كلّ نواة' },
+    { n: 'انقسام السيتوبلازم', x: 'يبدأ بتخصّر في الغشاء البلازمي ، ثمّ تنقسم الخليّة إلى <b>خليّتين متطابقتين</b> ، في كلّ منهما العدد الأصلي.', c: 'خليّتان × 4 كروموسومات' }
+  ];
+  const SET4 = [[RED, 40], [RED2, 40], [BLU, 26], [BLU2, 26]];
+  function drawMit(svg, i) {
+    svg.innerHTML = '';
+    const cx = 160, cy = 100;
+    if (i <= 2) {
+      cellC(svg, cx, cy, 140, 85, 1, i === 2 ? [[85, 40], [235, 40]] : [[160, 30]]);
+      if (i === 0) chromatin(svg, cx, cy); else { chromatin(svg, cx, cy - 4); chromatin(svg, cx, cy + 6); }
+      return;
+    }
+    if (i === 3) {
+      cellC(svg, cx, cy, 140, 85, 2, [[60, 100], [260, 100]]);
+      [[130, 80, 20], [185, 75, -25], [140, 125, 60], [190, 120, 10]].forEach((p, k) => chrom(svg, p[0], p[1], SET4[k][1], SET4[k][0], null, 1, p[2]));
+      return;
+    }
+    if (i === 4) {
+      cellC(svg, cx, cy, 140, 85, 0, [[35, 100], [285, 100]]);
+      const ys = [45, 80, 115, 150]; spindle(svg, 35, 285, 100, ys.map(y => [cx - 7, y, cx + 7]));
+      ys.forEach((y, k) => chrom(svg, cx, y, SET4[k][1] * .75, SET4[k][0], null, 1, 0));
+      return;
+    }
+    if (i === 5) {
+      cellC(svg, cx, cy, 145, 80, 0, [[30, 100], [290, 100]]);
+      const ys = [50, 82, 116, 148]; spindle(svg, 30, 290, 100, ys.map(y => [cx - 60, y, cx + 60]));
+      ys.forEach((y, k) => { chrom(svg, cx - 60, y, SET4[k][1] * .8, SET4[k][0], null, 0, 90); chrom(svg, cx + 60, y, SET4[k][1] * .8, SET4[k][0], null, 0, 90); });
+      return;
+    }
+    if (i === 6) {
+      sv('path', { d: 'M20 100 C20 20 150 30 160 60 C170 30 300 20 300 100 C300 180 170 170 160 140 C150 170 20 180 20 100 Z', fill: '#F4F6FB', stroke: '#1F3A5F', 'stroke-width': 2.5 }, svg);
+      [85, 235].forEach(x => { sv('circle', { cx: x, cy: 100, r: 38, fill: '#E3E8F3', stroke: '#1F3A5F', 'stroke-width': 1.6 }, svg); [[-14, RED, 32], [-5, RED2, 32], [5, BLU, 22], [14, BLU2, 22]].forEach(c => chrom(svg, x + c[0], 100, c[2], c[1], null, 0, 0)); });
+      return;
+    }
+    [80, 240].forEach(x => { cellC(svg, x, 100, 72, 70, 1, [[x, 40]]); chromatin(svg, x, 100); });
+  }
+  const MEI = [
+    { n: 'المرحلة البينية', x: 'تتضاعف المادّة الوراثية مرّة واحدة <b>قبل المرحلة الأولى فقط</b> . في الرسم زوجان من الكروموسومات المتماثلة ( الأحمران زوج ، والأزرقان زوج ).', c: '4 كروموسومات مضاعفة ( 2n = 4 )', k: 1 },
+    { n: 'التمهيدي الأوّل', x: 'يتفكّك الغلاف النووي وتختفي النويّة ، وتترتّب <b>المتماثلة أزواجًا</b> ، ويحدث <b>العبور</b> : تبادل أجزاء بين كروماتيدين غير شقيقين ( لاحظ الطرفين المتبادلين ).', c: '4 كروموسومات مضاعفة ، في زوجين', k: 1 },
+    { n: 'الاستوائي الأوّل', x: 'تترتّب <b>أزواج</b> الكروموسومات المتماثلة على خطّ المنتصف : كلّ كروموسوم من الزوج على جهة.', c: 'زوجان على خطّ المنتصف', k: 1 },
+    { n: 'الانفصالي الأوّل', x: 'تنفصل <b>الكروموسومات المتماثلة</b> نحو القطبين ، وتظلّ <b>الكروماتيدات الشقيقة متّصلة</b>.', c: '2 مضاعفة عند كلّ قطب', k: 1 },
+    { n: 'النهائي الأوّل', x: 'تتكوّن نواتان ثمّ ينقسم السيتوبلازم : <b>خليّتان</b> في كلّ منهما <b>نصف العدد</b> ( كروموسوم من كلّ زوج ).', c: 'خليّتان × 2 كروموسوم مضاعف', k: 2 },
+    { n: 'التمهيدي والاستوائي الثاني', x: 'لا تضاعف جديد . يتلاشى الغلاف النووي وتتكوّن الخيوط المغزلية ، ثمّ تصطفّ الكروموسومات ( كلّ منها كروماتيدان ) على خطّ المنتصف في كلّ خليّة.', c: 'خليّتان × 2 مضاعف', k: 2 },
+    { n: 'الانفصالي الثاني', x: 'تنفصل <b>الكروماتيدات الشقيقة</b> ، ويُسمّى كلّ منها كروموسومًا.', c: '2 عند كلّ قطب في كلّ خليّة', k: 2 },
+    { n: 'النهائي الثاني', x: 'يتشكّل غلاف نووي وينقسم السيتوبلازم : <b>أربع خلايا</b> في كلّ منها <b>نصف العدد الأصلي</b> ، و<b>غير متطابقة</b> بسبب العبور.', c: '4 خلايا × 2 كروموسوم ( n = 2 )', k: 4 }
+  ];
+  function drawMei(svg, i) {
+    svg.innerHTML = '';
+    if (i === 0) { cellC(svg, 160, 100, 140, 85, 1, [[85, 40], [235, 40]]); chromatin(svg, 160, 96); chromatin(svg, 160, 106); return; }
+    if (i === 1) {
+      cellC(svg, 160, 100, 140, 85, 2, [[60, 100], [260, 100]]);
+      chrom(svg, 140, 85, 40, RED, RED2, 1, 0, 1); chrom(svg, 156, 85, 40, RED2, RED, 1, 0, -1);
+      chrom(svg, 170, 125, 26, BLU, BLU2, 1, 0, 1); chrom(svg, 186, 125, 26, BLU2, BLU, 1, 0, -1);
+      return;
+    }
+    if (i === 2) {
+      cellC(svg, 160, 100, 140, 85, 0, [[35, 100], [285, 100]]);
+      spindle(svg, 35, 285, 100, [[150, 70, 170], [150, 130, 170]]);
+      chrom(svg, 148, 70, 36, RED, RED2, 1, 0, 1); chrom(svg, 172, 70, 36, RED2, RED, 1, 0, -1);
+      chrom(svg, 148, 130, 24, BLU2, BLU, 1, 0, -1); chrom(svg, 172, 130, 24, BLU, BLU2, 1, 0, 1);
+      return;
+    }
+    if (i === 3) {
+      cellC(svg, 160, 100, 145, 80, 0, [[30, 100], [290, 100]]);
+      spindle(svg, 30, 290, 100, [[90, 70, 230], [90, 130, 230]]);
+      chrom(svg, 90, 70, 36, RED, RED2, 1, 0, 1); chrom(svg, 230, 70, 36, RED2, RED, 1, 0, -1);
+      chrom(svg, 90, 130, 24, BLU2, BLU, 1, 0, -1); chrom(svg, 230, 130, 24, BLU, BLU2, 1, 0, 1);
+      return;
+    }
+    const two = [[80, [RED, RED2, 1], [BLU2, BLU, -1]], [240, [RED2, RED, -1], [BLU, BLU2, 1]]];
+    if (i === 4) {
+      two.forEach(c => { cellC(svg, c[0], 100, 72, 70, 1, [[c[0], 38]]); chrom(svg, c[0] - 14, 100, 36, c[1][0], c[1][1], 1, 0, c[1][2]); chrom(svg, c[0] + 14, 100, 24, c[2][0], c[2][1], 1, 0, c[2][2]); });
+      return;
+    }
+    if (i === 5) {
+      two.forEach(c => { cellC(svg, c[0], 100, 72, 70, 0, [[c[0] - 62, 100], [c[0] + 62, 100]]); spindle(svg, c[0] - 62, c[0] + 62, 100, [[c[0] - 6, 75, c[0] + 6], [c[0] - 6, 125, c[0] + 6]]); chrom(svg, c[0], 75, 30, c[1][0], c[1][1], 1, 0, c[1][2]); chrom(svg, c[0], 125, 20, c[2][0], c[2][1], 1, 0, c[2][2]); });
+      return;
+    }
+    if (i === 6) {
+      two.forEach(c => {
+        cellC(svg, c[0], 100, 74, 70, 0, [[c[0] - 64, 100], [c[0] + 64, 100]]);
+        const A = c[1], B = c[2];
+        chrom(svg, c[0] - 34, 75, 30, A[2] > 0 ? A[0] : A[0], A[1], 0, 90, A[2] > 0 ? 0 : 1); chrom(svg, c[0] + 34, 75, 30, A[0], A[1], 0, 90, A[2] > 0 ? 1 : 0);
+        chrom(svg, c[0] - 34, 125, 20, B[0], B[1], 0, 90, B[2] > 0 ? 0 : 1); chrom(svg, c[0] + 34, 125, 20, B[0], B[1], 0, 90, B[2] > 0 ? 1 : 0);
+      });
+      return;
+    }
+    two.forEach((c, ci) => [0, 1].forEach(s => {
+      const x = (ci ? 200 : 45) + s * 75;
+      cellC(svg, x, 100, 36, 60, 1, null);
+      const A = c[1], B = c[2];
+      const crA = (A[2] > 0) === (s === 1), crB = (B[2] > 0) === (s === 1);
+      chrom(svg, x - 8, 100, 30, A[0], A[1], 0, 0, crA ? 1 : 0);
+      chrom(svg, x + 8, 100, 20, B[0], B[1], 0, 0, crB ? 1 : 0);
+    }));
+  }
+  function divider(host, ST, drawer, title) {
+    host.innerHTML = '';
+    const S = { i: 0 };
+    const body = el('div'); host.append(body);
+    function draw() {
+      body.innerHTML = '';
+      const steps = el('div', 'cesteps');
+      ST.forEach((s, k) => { const b = el('button', 'cedot' + (k === S.i ? ' ceon' : k < S.i ? ' cedone' : ''), String(k + 1)); b.title = s.n; b.onclick = () => { S.i = k; draw(); }; steps.append(b); });
+      body.append(steps);
+      const svg = svgBox(320, 200), f = el('div', 'cefig'); f.append(svg); body.append(f);
+      drawer(svg, S.i);
+      const T = ST[S.i];
+      body.append(verdict('', (S.i + 1) + ' · ' + T.n, T.x));
+      const t = info(); t.row('الكروموسومات', T.c); body.append(t);
+      const r = el('div', 'srow');
+      r.append(btn('→ السابق', 'gh', () => { if (S.i > 0) { S.i--; draw(); } }), btn('التالي ←', 'go', () => { if (S.i < ST.length - 1) { S.i++; draw(); } }));
+      body.append(r);
+      if (S.i === ST.length - 1) body.append(el('div', 'sl note', title));
+    }
+    draw();
+  }
+  const mitosis = h => divider(h, MIT, drawMit, 'النتيجة : خليّتان <b>متطابقتان</b> فيهما العدد الأصلي من الكروموسومات ، ولا عبور . الترتيب : تمهيدي ← استوائي ← انفصالي ← نهائي.');
+  const meiosis = h => divider(h, MEI, drawMei, 'النتيجة : <b>أربع</b> خلايا في كلّ منها <b>نصف</b> العدد ، غير متطابقة بسبب العبور . في الانفصالي الأوّل تنفصل المتماثلة ، وفي الثاني تنفصل الشقيقة.');
+
+  /* ======================= 10 · المساحة إلى الحجم ======================= */
+  function savol(host) {
+    host.innerHTML = '';
+    const S = { a: 1 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sld('طول ضلع المكعّب : ' + S.a + ' cm', S.a, 1, 6, 1, (v, sp) => { S.a = v; sp.textContent = 'طول ضلع المكعّب : ' + v + ' cm'; draw(); }));
+    const fmt = x => (Math.round(x * 100) / 100).toString();
+    function draw() {
+      body.innerHTML = '';
+      const a = S.a, A = 6 * a * a, V = a * a * a, R = A / V;
+      const svg = svgBox(320, 170), f = el('div', 'cefig'); f.append(svg); body.append(f);
+      const u = 16, s = a * u, ox = 160 - s * .7, oy = 150, d = s * .45;
+      sv('path', { d: 'M' + ox + ' ' + oy + ' h' + s + ' v' + (-s) + ' h' + (-s) + ' Z', fill: '#BFE3B4', stroke: '#2E7D4F', 'stroke-width': 2 }, svg);
+      sv('path', { d: 'M' + ox + ' ' + (oy - s) + ' l' + d + ' ' + (-d) + ' h' + s + ' l' + (-d) + ' ' + d + ' Z', fill: '#D7EFCF', stroke: '#2E7D4F', 'stroke-width': 2 }, svg);
+      sv('path', { d: 'M' + (ox + s) + ' ' + oy + ' l' + d + ' ' + (-d) + ' v' + (-s) + ' l' + (-d) + ' ' + d + ' Z', fill: '#A6D49A', stroke: '#2E7D4F', 'stroke-width': 2 }, svg);
+      for (let i = 1; i < a; i++) { sv('path', { d: 'M' + (ox + i * u) + ' ' + oy + ' v' + (-s) + ' M' + ox + ' ' + (oy - i * u) + ' h' + s, stroke: '#2E7D4F', 'stroke-width': .7, opacity: .6 }, svg); }
+      const t = info();
+      t.row('مساحة السطح = ضلع × ضلع × 6', L(a + ' × ' + a + ' × 6 = ' + A + ' cm²'));
+      t.row('الحجم = ضلع × ضلع × ضلع', L(a + ' × ' + a + ' × ' + a + ' = ' + V + ' cm³'));
+      t.row('نسبة المساحة إلى الحجم', '<b>' + L(fmt(R) + ' : 1') + '</b>');
+      body.append(t);
+      const bars = el('div', 'cebars');
+      [1, 2, 3, 4, 5, 6].forEach(k => { const r = 6 / k; const b = el('div', 'cebar' + (k === a ? ' ceon' : ''), '<i style="height:' + (r / 6 * 100) + '%"></i><span>' + k + ' cm</span>'); bars.append(b); });
+      body.append(el('div', 'shint', 'نسبة المساحة إلى الحجم لكلّ طول ضلع :'), bars);
+      body.append(verdict(a <= 1 ? 'acok' : 'acwarn', a === 1 ? 'أكبر نسبة : تبادل مواد سهل' : 'كلّما كبر الحجم قلّت النسبة',
+        'المساحة تكبر بمربّع الضلع ، والحجم بمكعّبه ؛ فالحجم يسبق المساحة . والخليّة الكبيرة غشاؤها <b>صغير نسبةً إلى حجمها</b> ، فيصعب عليها توفير المواد اللازمة ، فتنقسم . ( وفي الكتاب : 6 : 1 ، 3 : 1 ، 2 : 1 لأضلاع 1 و2 و3 cm )'));
+    }
+    draw();
+  }
+
+  window.SIMS.cellkind = cellkind;
+  window.SIMS.cellmap = h => cellmap(h, SETA);
+  window.SIMS.cellmape = h => cellmap(h, SETB);
+  window.SIMS.cellcmp = cellcmp;
+  window.SIMS.transport = transport;
+  window.SIMS.transportb = transportb;
+  window.SIMS.tonicity = tonicity;
+  window.SIMS.metab = metab;
+  window.SIMS.metabp = metabp;
+  window.SIMS.limfac = limfac;
+  window.SIMS.mitosis = mitosis;
+  window.SIMS.meiosis = meiosis;
+  window.SIMS.savol = savol;
+})();
+/* ===== محاكاة المياه ( علوم الأرض والبيئة — التاسع — الوحدة الثانية ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const L = s => '<span class="ltr">' + s + '</span>';
+  const sel = (lab, val, opts, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const s = document.createElement('select');
+    opts.forEach(o => { const p = document.createElement('option'); p.value = o[0]; p.textContent = o[1]; if (String(o[0]) === String(val)) p.selected = true; s.append(p); });
+    s.onchange = () => fn(s.value); w.append(s); return w;
+  };
+  const sld = (lab, val, lo, hi, step, fn) => {
+    const w = el('label', 'sf'); const sp = el('span', '', lab(val)); w.append(sp);
+    const r = document.createElement('input'); r.type = 'range'; r.min = lo; r.max = hi; r.step = step; r.value = val;
+    r.oninput = () => { sp.innerHTML = lab(+r.value); fn(+r.value); }; w.append(r); return w;
+  };
+  const info = () => { const b = el('div', 'cyinfo'); b.row = (k, v) => b.append(el('div', 'cyrow', '<span class="cyk">' + k + '</span><span class="cyv">' + v + '</span>')); return b; };
+  const verdict = (cls, b, s) => el('div', 'acv' + (cls ? ' ' + cls : ''), '<b>' + b + '</b><span>' + s + '</span>');
+  const seg = (opts, val, fn) => {
+    const w = el('div', 'wrseg');
+    opts.forEach(o => { const b = el('button', 'wrb' + (String(o[0]) === String(val) ? ' wron' : ''), o[1]); b.onclick = () => fn(o[0]); w.append(b); });
+    return w;
+  };
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.append(e); return e; };
+  const svgBox = (w, h) => sv('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'wrsvg', preserveAspectRatio: 'xMidYMid meet' });
+  const fig = (body, w, h) => { const s = svgBox(w, h), f = el('div', 'wrfig'); f.append(s); body.append(f); return s; };
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const fmt = x => { const r = Math.round(x * 100) / 100; return String(r); };
+  const num = x => Math.round(x).toLocaleString('en-US');
+  const rnd = i => { const v = Math.sin(i * 12.9898 + 4.1) * 43758.5453; return v - Math.floor(v); };
+  const BLUE = '#3A7CA5', SEA = '#2F6E9E', ICE = '#CFE8F5', GRN = '#4E9F3D', SAND = '#E9D3A1', CLAY = '#B07A57', ROCK = '#8C8C8C';
+
+  /* ======================= 1 · توزيع مياه الأرض ======================= */
+  function wdist(host) {
+    host.innerHTML = '';
+    const S = { tot: 1000, k: 'fresh' };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sld(v => 'لو كانت مياه الأرض كلّها : ' + L(num(v) + ' L'), S.tot, 100, 10000, 100, v => { S.tot = v; draw(); }));
+    const P = {
+      salt: ['مياه مالحة ( بحار ومحيطات )', 97.5, '#2F6E9E', 'all', 'لا تصلح للشرب ولا للريّ دون تحلية.'],
+      fresh: ['مياه عذبة', 2.5, '#7FC8A9', 'all', 'أقلّ من 2.5 % من مياه الأرض ، وهي كلّ ما يمكن أن نشربه.'],
+      ice: ['جليديات في الأقطاب', 68.7, '#CFE8F5', 'fresh', 'أكبر مخزون عذب ، لكن لا يمكن الوصول إليه في الغالب.'],
+      gw: ['مياه جوفية', 30.1, '#8E6C4E', 'fresh', 'في الخزانات الجوفية ، ويعتمد عليها الأردن اعتمادًا رئيسًا.'],
+      sw: ['مياه سطحية سائلة ( جداول وأنهار وبحيرات )', 1.2, '#3A7CA5', 'fresh', 'نحو 1.2 % فقط من المياه العذبة.']
+    };
+    function draw() {
+      body.innerHTML = '';
+      const mk = (keys, title) => {
+        body.append(el('div', 'wrbt', title));
+        const b = el('div', 'wrbar');
+        keys.forEach(k => { const p = P[k]; const c = el('button', 'wrbs' + (S.k === k ? ' wron' : ''), ''); c.style.flex = '0 0 ' + Math.max(p[1], 1.6) + '%'; c.style.background = p[2]; c.title = p[0]; c.onclick = () => { S.k = k; draw(); }; b.append(c); });
+        body.append(b);
+        const lg = el('div', 'wrlg'); keys.forEach(k => lg.append(el('span', '', '<i style="background:' + P[k][2] + '"></i>' + P[k][0] + ' ' + L(P[k][1] + ' %')))); body.append(lg);
+      };
+      mk(['salt', 'fresh'], 'كلّ مياه الأرض');
+      mk(['ice', 'gw', 'sw'], 'المياه العذبة وحدها ( مكبَّرة )');
+      const p = P[S.k], t = info();
+      const share = p[3] === 'all' ? p[1] / 100 : 0.025 * p[1] / 100;
+      t.row('الجزء المختار', '<b>' + p[0] + '</b>');
+      t.row(p[3] === 'all' ? 'نسبته من كلّ مياه الأرض' : 'نسبته من المياه العذبة', L(p[1] + ' %'));
+      t.row('من ' + L(num(S.tot) + ' L'), L(fmt(S.tot * share) + ' L') + ( p[3] === 'fresh' ? ' ( ' + L(num(S.tot) + ' × 2.5 % × ' + p[1] + ' %') + ' )' : ''));
+      t.row('ملاحظة', p[4]);
+      body.append(t);
+      const usable = S.tot * 0.025 * (30.1 + 1.2) / 100;
+      body.append(verdict('acok', 'ما يمكن الوصول إليه فعلًا', 'من ' + L(num(S.tot) + ' L') + ' لا يصل الإنسان بسهولة إلّا إلى نحو ' + L(fmt(usable) + ' L') + ' ( الجوفية والسطحية السائلة ) . والذي يعوّض ما نستهلكه منها هو <b>الهطل المتجدّد</b> ، فمياه الأمطار هي المصدر الرئيس للمياه العذبة.'));
+    }
+    draw();
+  }
+
+  /* ======================= 2 · دورة الماء ======================= */
+  const PROC = {
+    evap: { n: 'التبخّر', x: 'يتبخّر الماء من المسطّحات المائية بفعل حرارة الشمس.', p: 'M95 165 C 95 120 110 90 120 60' },
+    trans: { n: 'النتح', x: 'يخرج بخار الماء من النباتات.', p: 'M225 130 C 220 105 205 80 190 60' },
+    cond: { n: 'التكاثف', x: 'يتكاثف بخار الماء في طبقات الجوّ العليا فتتكوّن الغيوم.', p: 'M125 45 L 175 40' },
+    prec: { n: 'الهطل', x: 'يعود الماء إلى سطح الأرض ثلوجًا أو بَرَدًا أو أمطارًا.', p: 'M240 45 L 255 105' },
+    run: { n: 'الجريان السطحي', x: 'الجزء المتبقّي يتدفّق على سطح الأرض نحو الأنهار والسيول والبحيرات.', p: 'M270 125 C 230 150 180 160 140 168' },
+    inf: { n: 'الارتشاح', x: 'يتسرّب جزء من الماء إلى باطن الأرض ويُخزَّن مياهًا جوفية.', p: 'M265 135 L 262 185' },
+    gw: { n: 'الجريان الجوفي', x: 'تنتقل المياه الجوفية تحت سطح الأرض ، وقد تصل إلى البحار والأنهار.', p: 'M255 195 C 210 200 160 200 120 185' }
+  };
+  function drawCycle(svg, hi, ts) {
+    svg.innerHTML = '';
+    sv('rect', { x: 0, y: 0, width: 320, height: 220, fill: '#EEF6FC' }, svg);
+    sv('circle', { cx: 35, cy: 30, r: 16, fill: '#F4C430' }, svg);
+    sv('path', { d: 'M0 175 L0 220 L320 220 L320 140 C 300 120 280 95 265 100 C 240 110 235 150 200 160 L150 170 Z', fill: '#C9B58A' }, svg);
+    sv('path', { d: 'M0 190 L320 190 L320 220 L0 220 Z', fill: '#A88B63', opacity: .6 }, svg);
+    sv('path', { d: 'M0 165 L150 168 L150 176 L0 176 Z', fill: SEA }, svg);
+    sv('path', { d: 'M226 130 v-25', stroke: '#6B4F2B', 'stroke-width': 4 }, svg);
+    sv('circle', { cx: 226, cy: 100, r: 13, fill: GRN }, svg);
+    [[150, 40], [175, 36], [200, 42], [240, 38]].forEach(c => sv('ellipse', { cx: c[0], cy: c[1], rx: 26, ry: 13, fill: '#fff', stroke: '#B8C6D8' }, svg));
+    Object.keys(PROC).forEach(k => {
+      const on = !hi || hi === k;
+      const p = sv('path', { d: PROC[k].p, fill: 'none', stroke: on ? (hi === k ? '#D62828' : BLUE) : '#B8C6D8', 'stroke-width': hi === k ? 4 : 2.5, 'stroke-dasharray': k === 'gw' || k === 'inf' ? '6 4' : '', 'marker-end': 'url(#wrar' + (hi === k ? 'r' : 'b') + ')' }, svg);
+      if (hi === k) {
+        const len = p.getTotalLength ? p.getTotalLength() : 0;
+        if (len) { const u = ((ts || 0) / 1500) % 1; const pt = p.getPointAtLength(u * len); sv('circle', { cx: pt.x, cy: pt.y, r: 5, fill: '#1F4E8C', stroke: '#fff', 'stroke-width': 1.5 }, svg); }
+      }
+    });
+    const defs = sv('defs', {}, svg);
+    [['b', BLUE], ['r', '#D62828']].forEach(m => { const mk = sv('marker', { id: 'wrar' + m[0], viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto-start-reverse' }, defs); sv('path', { d: 'M0 0 L10 5 L0 10 z', fill: m[1] }, mk); });
+  }
+  function wcycle(host) {
+    host.innerHTML = '';
+    const S = { mode: 'x', k: 'evap', seq: [] };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    let raf = 0;
+    function top() { bar.innerHTML = ''; bar.append(seg([['x', 'استكشف العمليات'], ['q', 'تتبّع قطرة']], S.mode, v => { S.mode = v; S.seq = []; top(); draw(); })); }
+    const NEXT = { start: ['evap', 'trans'], evap: ['cond'], trans: ['cond'], cond: ['prec'], prec: ['run', 'inf'], run: ['evap'], inf: ['gw'], gw: ['evap'] };
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const svg = fig(body, 320, 220);
+      const hi = S.mode === 'x' ? S.k : S.seq[S.seq.length - 1];
+      const loop = ts => { if (!svg.isConnected) return; drawCycle(svg, hi, ts); raf = requestAnimationFrame(loop); };
+      raf = requestAnimationFrame(loop);
+      body.append(el('div', 'wrlg', '<span><i style="background:' + BLUE + '"></i>سهم متّصل : فوق السطح</span><span><i style="background:#8C8C8C"></i>سهم متقطّع : تحت السطح</span>'));
+      if (S.mode === 'x') {
+        const ch = el('div', 'wrchips');
+        Object.keys(PROC).forEach(k => { const b = el('button', 'wrchip' + (S.k === k ? ' wron' : ''), PROC[k].n); b.onclick = () => { S.k = k; draw(); }; ch.append(b); });
+        body.append(ch, verdict('', PROC[S.k].n, PROC[S.k].x));
+        body.append(el('div', 'sl note', 'بعد الهطل يتوزّع الماء : جزء يعود إلى المسطّحات ، وجزء يرتشح ، والجزء المتبقّي يجري جريانًا سطحيًّا.'));
+        return;
+      }
+      const last = S.seq.length ? S.seq[S.seq.length - 1] : 'start';
+      body.append(verdict('', 'قطرة في البحر … ما خطوتها التالية ؟', S.seq.length ? 'الرحلة : ' + S.seq.map(k => PROC[k].n).join(' ← ') : 'ابدأ من البحر أو من ورقة النبات.'));
+      const ch = el('div', 'wrchips');
+      Object.keys(PROC).forEach(k => { const b = el('button', 'wrchip', PROC[k].n); b.onclick = () => {
+        if (NEXT[last].includes(k)) { S.seq.push(k); S.err = null; } else S.err = k;
+        draw(); }; ch.append(b); });
+      body.append(ch);
+      if (S.err) { body.append(verdict('acwarn', PROC[S.err].n + ' لا يأتي الآن', last === 'start' ? 'تبدأ القطرة رحلتها بالتبخّر من البحر أو بالنتح من النبات.' : 'بعد « ' + PROC[last].n + ' » تأتي : ' + NEXT[last].map(k => PROC[k].n).join(' أو ') + '.')); S.err = null; }
+      if (S.seq.length >= 5) body.append(verdict('acok', 'أكملتَ دورة', 'عادت القطرة إلى حيث تبدأ ؛ فالدورة <b>مغلقة</b> : لا يُفقد الماء من الأرض ، بل ينتقل بين غُلُفها.'));
+      const r = el('div', 'srow'); r.append(btn('ابدأ قطرة جديدة', 'gh', () => { S.seq = []; draw(); })); body.append(r);
+    }
+    top(); draw();
+  }
+
+  /* ======================= 3 · مقياس المطر وكثافة الهطل ======================= */
+  function rainrate(host) {
+    host.innerHTML = '';
+    const S = { T: 24, n: 3, ask: 'P' };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    let raf = 0;
+    function top() {
+      bar.innerHTML = '';
+      bar.append(seg([['P', 'احسب الكثافة P'], ['T', 'احسب الكمية T'], ['n', 'احسب المدّة n']], S.ask, v => { S.ask = v; top(); draw(); }));
+    }
+    const NS_ = [[0.5, '30 min'], [1, '1 h'], [2, '2 h'], [3, '3 h'], [4, '4 h'], [5, '5 h'], [6, '6 h'], [8, '8 h'], [12, '12 h']];
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const P = S.T / S.n;
+      const ctr = el('div', 'srow');
+      ctr.append(sld(v => 'كمية الأمطار T : ' + L(v + ' mm'), S.T, 2, 60, 1, v => { S.T = v; draw(); }));
+      ctr.append(sel('مدّة الهطل n', S.n, NS_.map(x => [x[0], x[1]]), v => { S.n = +v; draw(); }));
+      body.append(ctr);
+      const svg = fig(body, 320, 180);
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 180, fill: '#F2F7FC' }, svg);
+        const dens = Math.min(30, Math.round(P * 1.2) + 2), sp = 60 + P * 6;
+        for (let i = 0; i < dens; i++) { const x = 20 + rnd(i) * 160, y = ((ts / 1000) * sp + rnd(i + 9) * 180) % 180; sv('path', { d: 'M' + x + ' ' + y + ' l-2 8', stroke: BLUE, 'stroke-width': 2 }, svg); }
+        sv('path', { d: 'M215 30 h50 l-12 22 h-26 z', fill: '#DDE6F0', stroke: '#1F3A5F', 'stroke-width': 2 }, svg);
+        sv('rect', { x: 228, y: 52, width: 24, height: 118, fill: '#fff', stroke: '#1F3A5F', 'stroke-width': 2 }, svg);
+        const h = Math.min(116, S.T * 116 / 60);
+        sv('rect', { x: 229, y: 169 - h, width: 22, height: h, fill: BLUE, opacity: .8 }, svg);
+        for (let m = 0; m <= 60; m += 10) { const y = 169 - m * 116 / 60; sv('path', { d: 'M252 ' + y + ' h8', stroke: '#1F3A5F', 'stroke-width': 1 }, svg); const t = sv('text', { x: 264, y: y + 3, 'font-size': 9, fill: '#5b6b80' }, svg); t.textContent = m; }
+        const t2 = sv('text', { x: 290, y: 175, 'font-size': 9, fill: '#5b6b80' }, svg); t2.textContent = 'mm';
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      const t = info();
+      if (S.ask === 'P') { t.row('المعطيات', L('T = ' + S.T + ' mm') + ' · ' + L('n = ' + S.n + ' h')); t.row('العلاقة', L('P = T / n')); t.row('التعويض', L('P = ' + S.T + ' / ' + S.n + ' = ' + fmt(P) + ' mm/h')); }
+      if (S.ask === 'T') { t.row('المعطيات', L('P = ' + fmt(P) + ' mm/h') + ' · ' + L('n = ' + S.n + ' h')); t.row('العلاقة', L('T = P × n')); t.row('التعويض', L('T = ' + fmt(P) + ' × ' + S.n + ' = ' + fmt(P * S.n) + ' mm')); }
+      if (S.ask === 'n') { t.row('المعطيات', L('T = ' + S.T + ' mm') + ' · ' + L('P = ' + fmt(P) + ' mm/h')); t.row('العلاقة', L('n = T / P')); t.row('التعويض', L('n = ' + S.T + ' / ' + fmt(P) + ' = ' + fmt(S.n) + ' h')); }
+      body.append(t);
+      const other = 6, Po = S.T / other;
+      body.append(verdict('acok', 'كثافة الهطل ' + L(fmt(P) + ' mm/h'), 'الكمية نفسها ' + L(S.T + ' mm') + ' لو هطلت في ' + L(other + ' h') + ' لكانت الكثافة ' + L(fmt(Po) + ' mm/h') + ' ؛ فالأقصر مدّةً ' + (S.n < other ? '<b>أشدّ</b> هطلًا.' : S.n > other ? 'أشدّ ، والحالية أخفّ.' : 'مساوية للحالية.') + ( S.n === 0.5 ? ' ولاحظ تحويل ' + L('30 min = 0.5 h') + ' قبل القسمة.' : '')));
+    }
+    top(); draw();
+  }
+
+  /* ======================= 4 · الموازنة المائية ======================= */
+  const FL = [
+    ['prec', 'الهطل على البحيرة', 1, 2000], ['rin', 'جريان سطحي إلى البحيرة', 1, 5000], ['gin', 'جريان جوفي إلى البحيرة', 1, 1000],
+    ['evap', 'التبخّر من البحيرة', 0, 4500], ['rout', 'جريان سطحي من البحيرة', 0, 3000], ['gout', 'جريان جوفي من البحيرة', 0, 0]
+  ];
+  function drawLake(svg, V, lvl, ts) {
+    svg.innerHTML = '';
+    sv('rect', { x: 0, y: 0, width: 320, height: 200, fill: '#F2F7FC' }, svg);
+    sv('path', { d: 'M0 120 L60 120 C 90 120 100 175 160 178 C 220 175 230 120 260 120 L320 120 L320 200 L0 200 Z', fill: '#C9B58A' }, svg);
+    const y = 165 - lvl * 40;
+    sv('clipPath', { id: 'wrlk' }, svg).append(sv('path', { d: 'M60 120 C 90 120 100 175 160 178 C 220 175 230 120 260 120 Z' }));
+    sv('rect', { x: 0, y: y, width: 320, height: 200, fill: BLUE, opacity: .75, 'clip-path': 'url(#wrlk)' }, svg);
+    const u = ((ts || 0) / 1400) % 1;
+    const ar = (x1, y1, x2, y2, on, inn) => { if (!on) return; sv('path', { d: 'M' + x1 + ' ' + y1 + ' L' + x2 + ' ' + y2, stroke: inn ? '#2E7D4F' : '#C0612B', 'stroke-width': 3, 'stroke-dasharray': '5 4', 'stroke-dashoffset': -u * 18 }, svg); sv('circle', { cx: x2, cy: y2, r: 4, fill: inn ? '#2E7D4F' : '#C0612B' }, svg); };
+    ar(160, 15, 160, y - 6, V.prec > 0, 1);
+    ar(10, 110, 70, y + 4, V.rin > 0, 1);
+    ar(30, 190, 110, 170, V.gin > 0, 1);
+    ar(120, y - 4, 105, 25, V.evap > 0, 0);
+    ar(255, y + 2, 310, 110, V.rout > 0, 0);
+    ar(210, 172, 290, 192, V.gout > 0, 0);
+  }
+  function wbudget(host) {
+    host.innerHTML = '';
+    const V = {}; FL.forEach(f => V[f[0]] = f[3]);
+    const body = el('div'); host.append(body);
+    let raf = 0, lvl = 0.5;
+    const ctr = el('div', 'wrgrid'); host.prepend(ctr);
+    FL.forEach(f => ctr.append(sld(v => '<span class="' + (f[2] ? 'wrin' : 'wrout') + '">' + (f[2] ? '+ ' : '− ') + f[1] + '</span> : ' + L(num(v) + ' m³'), V[f[0]], 0, 10000, 500, v => { V[f[0]] = v; draw(); })));
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const I = V.prec + V.rin + V.gin, O = V.evap + V.rout + V.gout, C = I - O;
+      const target = Math.max(0.05, Math.min(0.95, 0.5 + C / 20000));
+      const svg = fig(body, 320, 200);
+      body.append(el('div', 'wrlg', '<span><i style="background:#2E7D4F"></i>مدخل ( إلى البحيرة )</span><span><i style="background:#C0612B"></i>مخرج ( من البحيرة )</span>'));
+      const loop = ts => { if (!svg.isConnected) return; lvl += (target - lvl) * 0.05; drawLake(svg, V, lvl, ts); raf = requestAnimationFrame(loop); };
+      raf = requestAnimationFrame(loop);
+      const t = info();
+      t.row('المدخلات I', L(num(V.prec) + ' + ' + num(V.rin) + ' + ' + num(V.gin) + ' = ' + num(I) + ' m³'));
+      t.row('المخرجات O', L(num(V.evap) + ' + ' + num(V.rout) + ' + ' + num(V.gout) + ' = ' + num(O) + ' m³'));
+      t.row('الموازنة ' + L('C = I − O'), '<b>' + L(num(I) + ' − ' + num(O) + ' = ' + (C > 0 ? '+' : '') + num(C) + ' m³') + '</b>');
+      body.append(t);
+      body.append(C > 0 ? verdict('acok', 'موازنة موجبة : يرتفع المنسوب', 'الداخل أكبر من الخارج ، فتزداد كمية المياه المخزّنة في البحيرة.') :
+        C < 0 ? verdict('acwarn', 'موازنة سالبة : ينخفض المنسوب', 'الخارج أكبر من الداخل ، فتنقص كمية المياه المخزّنة . الإشارة السالبة ليست خطأ في الحساب.') :
+        verdict('acok', 'موازنة صفرية : يثبت المنسوب', 'الداخل يساوي الخارج تمامًا.'));
+    }
+    draw();
+  }
+
+  /* ======================= 5 · تصنيف ومسائل ======================= */
+  const CARDS = [
+    ['هطل الأمطار على سطح البحيرة', 1], ['التبخّر من سطح البحيرة', 0], ['جريان سطحي من سيل إلى البحيرة', 1], ['جريان سطحي من البحيرة إلى نهر', 0],
+    ['جريان جوفي من الخزان إلى البحيرة', 1], ['جريان جوفي من البحيرة إلى الطبقات المجاورة', 0], ['ثلوج هطلت على سطح البحيرة', 1], ['ماء يُضخّ من البحيرة للريّ', 0]
+  ];
+  function wbudgetb(host) {
+    host.innerHTML = '';
+    const S = { mode: 'c', i: 0, pick: null, score: 0, order: shuffle(CARDS.map((c, i) => i)), prob: null, ans: '', shown: false };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function top() { bar.innerHTML = ''; bar.append(seg([['c', 'مدخل أم مخرج ؟'], ['p', 'أوجد المجهول']], S.mode, v => { S.mode = v; if (v === 'p') newProb(); top(); draw(); })); }
+    function newProb() {
+      const r = k => 500 * (1 + Math.floor(Math.random() * k));
+      const I = r(16) + 2000, O = r(16) + 2000, C = I - O, type = ['C', 'O', 'I', 'part'][Math.floor(Math.random() * 4)];
+      const prec = Math.min(I - 500, r(6));
+      S.prob = { I, O, C, type, prec }; S.ans = ''; S.shown = false;
+    }
+    function draw() {
+      body.innerHTML = '';
+      if (S.mode === 'c') {
+        const c = CARDS[S.order[S.i]];
+        body.append(el('div', 'wrcount', 'البطاقة ' + (S.i + 1) + ' من ' + CARDS.length + ' · الصحيح ' + S.score));
+        body.append(verdict('', 'صنّف التدفّق', c[0]));
+        const r = el('div', 'srow');
+        [[1, 'مدخل I'], [0, 'مخرج O']].forEach(o => r.append(btn(o[1], S.pick === o[0] ? 'go' : '', () => { if (S.pick !== null) return; S.pick = o[0]; if (o[0] === c[1]) S.score++; draw(); })));
+        body.append(r);
+        if (S.pick !== null) {
+          const ok = S.pick === c[1];
+          body.append(verdict(ok ? 'acok' : 'acwarn', (ok ? 'صحيح : ' : 'الصحيح : ') + (c[1] ? 'مدخل' : 'مخرج'), c[1] ? 'الماء يتّجه <b>إلى</b> البحيرة فيزيد خزينها.' : 'الماء يخرج <b>من</b> البحيرة فينقص خزينها . الاتّجاه هو المعيار لا الاسم.'));
+          const n = el('div', 'srow');
+          if (S.i < CARDS.length - 1) n.append(btn('التالية', 'go', () => { S.i++; S.pick = null; draw(); }));
+          else n.append(el('div', 'sl ok', 'النتيجة : ' + S.score + ' من ' + CARDS.length), btn('من جديد', 'go', () => { S.i = 0; S.pick = null; S.score = 0; S.order = shuffle(S.order); draw(); }));
+          body.append(n);
+        }
+        return;
+      }
+      const p = S.prob, sg = x => (x > 0 ? '+' : '') + num(x);
+      let q, key, steps;
+      if (p.type === 'C') { q = 'مدخلات بحيرة ' + L(num(p.I) + ' m³') + ' ومخرجاتها ' + L(num(p.O) + ' m³') + ' . احسب الموازنة المائية C .'; key = p.C; steps = L('C = I − O = ' + num(p.I) + ' − ' + num(p.O) + ' = ' + sg(p.C) + ' m³'); }
+      if (p.type === 'O') { q = 'مدخلات بحيرة ' + L(num(p.I) + ' m³') + ' وموازنتها ' + L(sg(p.C) + ' m³') + ' . احسب مجموع المخرجات O .'; key = p.O; steps = L('O = I − C = ' + num(p.I) + ' − ( ' + sg(p.C) + ' ) = ' + num(p.O) + ' m³'); }
+      if (p.type === 'I') { q = 'مخرجات بحيرة ' + L(num(p.O) + ' m³') + ' وموازنتها ' + L(sg(p.C) + ' m³') + ' . احسب مجموع المدخلات I .'; key = p.I; steps = L('I = C + O = ' + sg(p.C) + ' + ' + num(p.O) + ' = ' + num(p.I) + ' m³'); }
+      if (p.type === 'part') { q = 'مخرجات بحيرة ' + L(num(p.O) + ' m³') + ' وموازنتها ' + L(sg(p.C) + ' m³') + ' ، ومدخلاتها هطل ' + L(num(p.prec) + ' m³') + ' وجريان سطحي إليها فقط . احسب الجريان السطحي إليها .'; key = p.I - p.prec; steps = L('I = C + O = ' + num(p.I) + ' m³') + ' ، ثمّ ' + L(num(p.I) + ' − ' + num(p.prec) + ' = ' + num(key) + ' m³'); }
+      body.append(verdict('', 'مسألة', q));
+      const r = el('div', 'srow wrans');
+      const inp = document.createElement('input'); inp.type = 'number'; inp.inputMode = 'numeric'; inp.value = S.ans; inp.className = 'wrinp'; inp.placeholder = 'm³';
+      inp.oninput = () => { S.ans = inp.value; };
+      r.append(inp, btn('تحقّق', 'go', () => { S.shown = true; draw(); }), btn('مسألة أخرى', 'gh', () => { newProb(); draw(); }));
+      body.append(r);
+      if (S.shown) {
+        const ok = S.ans !== '' && Math.abs(+S.ans - key) < 0.5;
+        body.append(verdict(ok ? 'acok' : 'acwarn', ok ? 'إجابة صحيحة' : 'الإجابة : ' + L(num(key) + ' m³'), steps + (ok ? '' : ' . راجع الإشارة : ' + L('O = I − C') + ' و ' + L('I = C + O') + '.')));
+      }
+    }
+    top(); draw();
+  }
+
+  /* ======================= 6 · الحوض المائي وخطّ تقسيم المياه ======================= */
+  function basin(host) {
+    host.innerHTML = '';
+    const S = { drops: [] };
+    const body = el('div'); host.append(body);
+    host.prepend(el('div', 'shint', 'اضغط في أيّ مكان على الخريطة لتسقط قطرة مطر ، وتابع إلى أين تجري.'));
+    let raf = 0;
+    const ridgeX = y => 165 + 25 * Math.sin(y / 35);
+    const OUT = { w: [30, 205], e: [295, 205] };
+    function path(x, y) {
+      const side = x < ridgeX(y) ? 'w' : 'e', o = OUT[side];
+      const mid = side === 'w' ? [90, 150] : [235, 155];
+      return { side, pts: [[x, y], [(x + mid[0]) / 2, (y + mid[1]) / 2 + 10], mid, o] };
+    }
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const svg = fig(body, 320, 220);
+      svg.style.cursor = 'crosshair';
+      svg.onclick = ev => {
+        const r = svg.getBoundingClientRect(), x = (ev.clientX - r.left) * 320 / r.width, y = (ev.clientY - r.top) * 220 / r.height;
+        if (y > 200) return;
+        S.drops.push(Object.assign(path(x, y), { t0: performance.now() })); if (S.drops.length > 6) S.drops.shift(); res();
+      };
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 220, fill: '#E6EFD9' }, svg);
+        sv('path', { d: 'M0 0 H' + ridgeX(0) + ' ' + Array.from({ length: 23 }, (_, i) => 'L' + ridgeX(i * 10) + ' ' + i * 10).join(' ') + ' L0 220 Z', fill: '#DCE8C8' }, svg);
+        sv('path', { d: Array.from({ length: 23 }, (_, i) => (i ? 'L' : 'M') + ridgeX(i * 10) + ' ' + i * 10).join(' '), stroke: '#B03A2E', 'stroke-width': 3, 'stroke-dasharray': '8 5', fill: 'none' }, svg);
+        sv('path', { d: 'M70 20 C 80 80 70 120 90 150 C 70 175 45 190 30 205', stroke: BLUE, 'stroke-width': 3, fill: 'none' }, svg);
+        sv('path', { d: 'M130 60 C 110 100 100 130 90 150', stroke: BLUE, 'stroke-width': 2, fill: 'none' }, svg);
+        sv('path', { d: 'M260 20 C 250 80 250 120 235 155 C 255 180 280 195 295 205', stroke: BLUE, 'stroke-width': 3, fill: 'none' }, svg);
+        sv('path', { d: 'M205 70 C 215 110 225 130 235 155', stroke: BLUE, 'stroke-width': 2, fill: 'none' }, svg);
+        Object.values(OUT).forEach(o => sv('circle', { cx: o[0], cy: o[1], r: 9, fill: SEA, stroke: '#fff', 'stroke-width': 2 }, svg));
+        S.drops.forEach(d => {
+          const u = Math.max(0, Math.min(1, (ts - d.t0) / 2200)), seg = u * 3, k = Math.min(2, Math.floor(seg)), f = seg - k;
+          const a = d.pts[k], b = d.pts[k + 1];
+          sv('polyline', { points: d.pts.slice(0, k + 1).concat([[a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f]]).map(p => p.join(',')).join(' '), fill: 'none', stroke: d.side === 'w' ? '#1F4E8C' : '#6A4C93', 'stroke-width': 2, 'stroke-dasharray': '3 3' }, svg);
+          sv('circle', { cx: a[0] + (b[0] - a[0]) * f, cy: a[1] + (b[1] - a[1]) * f, r: 5, fill: d.side === 'w' ? '#1F4E8C' : '#6A4C93', stroke: '#fff', 'stroke-width': 1.5 }, svg);
+        });
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      body.append(el('div', 'wrlg', '<span><i style="background:#B03A2E"></i>خطّ تقسيم المياه ( على المرتفعات )</span><span><i style="background:' + SEA + '"></i>مخرج الحوض</span><span><i style="background:#1F4E8C"></i>الحوض الغربي</span><span><i style="background:#6A4C93"></i>الحوض الشرقي</span>'));
+      const r = el('div'); body.append(r);
+      const res = () => {
+        r.innerHTML = '';
+        if (!S.drops.length) { r.append(verdict('', 'الحوض المائي السطحي', 'مساحة من الأرض تتجمّع مياه أمطارها عند <b>نقطة واحدة منخفضة</b> ( المخرج ) ، ويفصلها عن الحوض المجاور <b>خطّ تقسيم المياه</b>.')); return; }
+        const d = S.drops[S.drops.length - 1], w = S.drops.filter(x => x.side === 'w').length, e = S.drops.length - w;
+        r.append(verdict('acok', 'القطرة في الحوض ' + (d.side === 'w' ? 'الغربي' : 'الشرقي'), 'سقطت ' + (d.side === 'w' ? 'غرب' : 'شرق') + ' خطّ تقسيم المياه ، فجرت نحو مخرج حوضها . قطرات الحوض الغربي : ' + w + ' · الشرقي : ' + e + ' . قطرتان متجاورتان على جانبَي الخطّ تذهبان إلى مخرجين مختلفين.'));
+      };
+      res();
+      const t = info();
+      t.row('عوامل شكل الحوض', 'كمية الأمطار · نوع الصخور · الغطاء النباتي · التراكيب الجيولوجية ( الصدوع والطيّات )');
+      t.row('في الأردن', L('15') + ' حوضًا سطحيًّا ، أكبرها تصريفًا <b>حوض اليرموك</b>');
+      body.append(t);
+      const b = el('div', 'srow'); b.append(btn('امسح القطرات', 'gh', () => { S.drops = []; res(); })); body.append(b);
+    }
+    draw();
+  }
+
+  /* ======================= 7 · الارتشاح والجريان ======================= */
+  const ROCKS = {
+    gravel: { n: 'حصى', k: 0.9, c: '#C2B59B', d: 'مسامات كبيرة ومتّصلة' },
+    sand: { n: 'رمل', k: 0.7, c: SAND, d: 'مسامات متّصلة' },
+    clay: { n: 'طين', k: 0.08, c: CLAY, d: 'مسامات صغيرة غير متّصلة' },
+    granite: { n: 'غرانيت', k: 0.02, c: ROCK, d: 'لا مسامات تقريبًا' }
+  };
+  function infil(host) {
+    host.innerHTML = '';
+    const S = { r: 'sand', P: 10 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sel('الصخر على السطح', S.r, Object.keys(ROCKS).map(k => [k, ROCKS[k].n]), v => { S.r = v; draw(); }));
+    bar.append(sld(v => 'كثافة الهطل : ' + L(v + ' mm/h'), S.P, 2, 40, 1, v => { S.P = v; draw(); }));
+    let raf = 0;
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const R = ROCKS[S.r];
+      const cap = R.k * 20;
+      const inf = Math.min(S.P, cap), run = S.P - inf;
+      const fi = inf / S.P;
+      const svg = fig(body, 320, 200);
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 200, fill: '#F2F7FC' }, svg);
+        sv('path', { d: 'M0 80 L320 110 L320 200 L0 200 Z', fill: R.c }, svg);
+        sv('path', { d: 'M0 150 L320 170 L320 200 L0 200 Z', fill: '#6E6E6E' }, svg);
+        for (let i = 0; i < 40; i++) sv('circle', { cx: 10 + rnd(i) * 300, cy: 100 + rnd(i + 3) * 50 + rnd(i) * 20, r: S.r === 'gravel' ? 5 : S.r === 'sand' ? 2.5 : 1.2, fill: '#00000022' }, svg);
+        const n = Math.round(S.P * 0.8) + 3;
+        for (let i = 0; i < n; i++) {
+          const x = 15 + rnd(i) * 290, ph = ((ts / 1000) * 1.2 + rnd(i + 7)) % 1, ys = 80 + x * 30 / 320;
+          const goesIn = rnd(i + 31) < fi;
+          if (ph < 0.5) sv('path', { d: 'M' + x + ' ' + (ph * 2 * ys - 10) + ' l-2 8', stroke: BLUE, 'stroke-width': 2 }, svg);
+          else if (goesIn) sv('circle', { cx: x, cy: ys + (ph - 0.5) * 2 * (140 - ys + x * 20 / 320), r: 3, fill: '#1F4E8C' }, svg);
+          else sv('circle', { cx: x + (ph - 0.5) * 2 * 90, cy: ys - 3 + (ph - 0.5) * 2 * 9, r: 3, fill: '#C0612B' }, svg);
+        }
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      body.append(el('div', 'wrlg', '<span><i style="background:#1F4E8C"></i>يرتشح إلى باطن الأرض</span><span><i style="background:#C0612B"></i>يجري جريانًا سطحيًّا</span><span><i style="background:#6E6E6E"></i>صخر كتيم في الأسفل</span>'));
+      const bars = el('div', 'wrsplit');
+      bars.append(el('div', 'wrsi', '<i style="width:' + (fi * 100) + '%"></i><span>ارتشاح ' + L(Math.round(fi * 100) + ' %') + '</span>'));
+      bars.append(el('div', 'wrsr', '<i style="width:' + ((1 - fi) * 100) + '%"></i><span>جريان سطحي ' + L(Math.round((1 - fi) * 100) + ' %') + '</span>'));
+      body.append(bars);
+      body.append(verdict(fi > 0.6 ? 'acok' : 'acwarn', R.n + ' : ' + R.d, fi > 0.6 ? 'يرتشح معظم الماء بفعل <b>الجاذبية</b> عبر المسامات ، فيُغذّي الخزان الجوفي ويقلّ الجريان السطحي.' : 'لا يستطيع الصخر تمرير الماء بالسرعة الكافية ، فيبقى معظمه على السطح و<b>يزداد الجريان السطحي</b>' + (S.r === 'clay' ? ' ، مع أنّ في الطين مسامات.' : '.')));
+      body.append(el('div', 'sl note', 'النِّسب في هذا النموذج توضيحية لا من الكتاب . الثابت من الكتاب : الصخور ذات المسامات الكبيرة المتّصلة تسمح بالارتشاح ، وغير المنفذة تزيد الجريان السطحي.'));
+    }
+    draw();
+  }
+
+  /* ======================= 8 · المسامية ======================= */
+  function porosity(host) {
+    host.innerHTML = '';
+    const S = { mix: 0, cem: 0, Vt: 200, Vp: 50 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function top() {
+      bar.innerHTML = '';
+      bar.append(seg([[0, 'حبيبات متجانسة'], [1, 'حبيبات غير متجانسة']], S.mix, v => { S.mix = +v; top(); draw(); }));
+      bar.append(sld(v => 'المواد اللاحمة : ' + L(v + ' %'), S.cem, 0, 100, 10, v => { S.cem = v; draw(); }));
+    }
+    function draw() {
+      body.innerHTML = '';
+      const base = S.mix ? 25 : 40, por = Math.round(base * (1 - S.cem / 100 * 0.85));
+      const svg = fig(body, 320, 170);
+      sv('rect', { x: 0, y: 0, width: 320, height: 170, fill: '#FFFFFF' }, svg);
+      if (S.cem) sv('rect', { x: 0, y: 0, width: 320, height: 170, fill: '#D9A441', opacity: (S.cem / 100) * 0.75 }, svg);
+      else sv('rect', { x: 0, y: 0, width: 320, height: 170, fill: '#D6ECF7' }, svg);
+      for (let r = 0; r < 5; r++) for (let c = 0; c < 10; c++) {
+        const x = 18 + c * 32 + (r % 2) * 16, y = 18 + r * 34;
+        if (x > 315) continue;
+        sv('circle', { cx: x, cy: y, r: 15, fill: SAND, stroke: '#B8955A', 'stroke-width': 1.2 }, svg);
+        if (S.mix) { sv('circle', { cx: x + 16, cy: y + 17, r: 6, fill: '#E2C68E', stroke: '#B8955A' }, svg); sv('circle', { cx: x + 2, cy: y + 18, r: 4, fill: '#E2C68E', stroke: '#B8955A' }, svg); }
+      }
+      body.append(el('div', 'wrlg', '<span><i style="background:#D6ECF7"></i>مسامات فارغة ( يملؤها الماء )</span><span><i style="background:#D9A441"></i>مواد لاحمة</span>'));
+      const t = info();
+      t.row('المسامية التقريبية في هذا النموذج', '<b>' + L(por + ' %') + '</b>');
+      t.row('السبب', (S.mix ? 'الحبيبات الصغيرة تملأ الفراغات بين الكبيرة ← مسامية أقلّ' : 'الحبيبات متجانسة ، فالفراغات بينها كبيرة') + (S.cem ? ' · والمواد اللاحمة تملأ جزءًا من المسامات ← تقلّ المسامية' : ''));
+      body.append(t);
+      body.append(el('div', 'wrbt', 'احسب المسامية لعيّنة'));
+      const c = el('div', 'srow');
+      c.append(sld(v => 'الحجم الكلّي : ' + L(v + ' cm³'), S.Vt, 50, 500, 10, v => { S.Vt = v; if (S.Vp > v) S.Vp = v; calc(); }));
+      c.append(sld(v => 'حجم المسامات : ' + L(v + ' cm³'), S.Vp, 0, 200, 5, v => { S.Vp = Math.min(v, S.Vt); calc(); }));
+      body.append(c);
+      const out = el('div'); body.append(out);
+      function calc() { out.innerHTML = ''; out.append(verdict('acok', 'المسامية = ' + L(fmt(S.Vp / S.Vt * 100) + ' %'), L('( ' + S.Vp + ' ÷ ' + S.Vt + ' ) × 100 % = ' + fmt(S.Vp / S.Vt * 100) + ' %') + ' — حجم المسامات على الحجم الكلّي ، لا العكس.')); }
+      calc();
+      body.append(el('div', 'sl note', 'الأولية تُكتسب أثناء التشكّل ( الرملي والجيري ) ، والثانوية بعده بالتجوية ( البازلت ) أو الإذابة ( الجيري ) . النِّسب في الرسم توضيحية.'));
+    }
+    top(); draw();
+  }
+
+  /* ======================= 9 · تجربة النفاذية ======================= */
+  const SAMP = { gravel: { n: 'حصى', t: 18, c: '#C2B59B', g: 6 }, sand: { n: 'رمل', t: 75, c: SAND, g: 2.6 }, clay: { n: 'طين', t: Infinity, c: CLAY, g: 1 } };
+  function perm(host) {
+    host.innerHTML = '';
+    const S = { s: 'gravel', res: {}, run: null };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(el('div', 'shint', 'قمع مغلّف بقماش فوق دورق : ' + L('100 mL') + ' من العيّنة ، ثمّ ' + L('100 mL') + ' من الماء . الزمن مسرَّع في العرض.'), bar, body);
+    let raf = 0;
+    function top() { bar.innerHTML = ''; bar.append(seg(Object.keys(SAMP).map(k => [k, SAMP[k].n]), S.s, v => { S.s = v; S.run = null; top(); draw(); })); }
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const svg = fig(body, 320, 200), X = SAMP[S.s];
+      const clock = el('div', 'wrclock', ''); body.append(clock);
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        const sim = S.run ? Math.max(0, Math.min((ts - S.run) / 1000 * 15, 150)) : 0;
+        const done = isFinite(X.t) ? Math.min(1, sim / X.t) : Math.min(0.04, sim / 900);
+        svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 200, fill: '#F7F9FC' }, svg);
+        sv('path', { d: 'M110 20 H210 L175 85 V110 H145 V85 Z', fill: '#EEF2F7', stroke: '#1F3A5F', 'stroke-width': 2 }, svg);
+        sv('path', { d: 'M118 40 H202 L178 82 H142 Z', fill: X.c }, svg);
+        for (let i = 0; i < 18; i++) sv('circle', { cx: 130 + rnd(i) * 60, cy: 50 + rnd(i + 5) * 28, r: X.g, fill: '#00000020' }, svg);
+        if (S.run && done < 1) sv('rect', { x: 120, y: 22, width: 80, height: Math.max(0, 18 * (1 - done)), fill: BLUE, opacity: .6 }, svg);
+        sv('path', { d: 'M120 125 H200 V190 H120 Z', fill: 'none', stroke: '#1F3A5F', 'stroke-width': 2 }, svg);
+        const h = 60 * done;
+        sv('rect', { x: 121, y: 189 - h, width: 78, height: h, fill: BLUE, opacity: .75 }, svg);
+        if (S.run && done < 1 && done > 0) for (let i = 0; i < 3; i++) sv('circle', { cx: 160, cy: 112 + ((ts / 250 + i * 6) % 18), r: 2.5, fill: BLUE }, svg);
+        clock.innerHTML = S.run ? 'الزمن : ' + L(Math.round(sim) + ' s') + (done >= 1 ? ' · انتهى التدفّق' : isFinite(X.t) ? '' : ' · بالكاد يمرّ الماء') : '';
+        if (S.run && !S.res[S.s] && (done >= 1 || sim >= 150)) { S.res[S.s] = isFinite(X.t) ? X.t + ' s' : 'لم يمرّ تقريبًا'; table(); }
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      const r = el('div', 'srow'); r.append(btn('اسكب الماء', 'go', () => { S.run = performance.now(); })); body.append(r);
+      const tb = el('div'); body.append(tb);
+      function table() {
+        tb.innerHTML = '';
+        const t = info();
+        Object.keys(SAMP).forEach(k => t.row('زمن مرور الماء — ' + SAMP[k].n, S.res[k] ? L(S.res[k]) : '—'));
+        tb.append(t);
+        if (Object.keys(S.res).length === 3) tb.append(verdict('acok', 'الاستنتاج : النفاذية تزداد بزيادة حجم الحبيبات', 'الحصى أسرع ، ثمّ الرمل ، ثمّ الطين . مسامات الطين موجودة لكنّها <b>صغيرة وغير متّصلة</b> ، فهو غير منفذ ؛ والمسامية وحدها لا تكفي.'));
+        else tb.append(el('div', 'sl note', 'جرّب العيّنات الثلاث لتصل إلى الاستنتاج . الأزمنة في النموذج توضيحية.'));
+      }
+      table();
+    }
+    top(); draw();
+  }
+
+  /* ======================= 10 · نُطُق الخزان والينابيع ======================= */
+  function aquifer(host) {
+    host.innerHTML = '';
+    const S = { wt: 60 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sld(v => 'ارتفاع منسوب المياه الجوفية : ' + L(v + ' %'), S.wt, 10, 100, 5, v => { S.wt = v; draw(); }));
+    const surf = x => 60 + 40 * Math.cos((x - 60) / 55) + (x > 230 ? (x - 230) * 0.55 : 0);
+    const WELLS = [[70, 105], [150, 150], [260, 120]];
+    function draw() {
+      body.innerHTML = '';
+      const svg = fig(body, 320, 220);
+      const base = 185, top = 75;
+      const wtY = x => base - (base - top) * S.wt / 100 + (x - 160) * 0.12;
+      sv('rect', { x: 0, y: 0, width: 320, height: 220, fill: '#EEF6FC' }, svg);
+      let d = 'M0 ' + surf(0); for (let x = 4; x <= 320; x += 4) d += ' L' + x + ' ' + surf(x);
+      sv('path', { d: d + ' L320 ' + base + ' L0 ' + base + ' Z', fill: '#E3D3AE' }, svg);
+      let w = ''; const springs = [];
+      for (let x = 0; x <= 320; x += 4) { const y = Math.max(wtY(x), surf(x)); w += (x ? ' L' : 'M') + x + ' ' + y; if (x > 0 && (wtY(x) < surf(x)) !== (wtY(x - 4) < surf(x - 4))) springs.push(x); }
+      sv('path', { d: w + ' L320 ' + base + ' L0 ' + base + ' Z', fill: '#7FB3D5', opacity: .85 }, svg);
+      sv('path', { d: w, stroke: '#1F4E8C', 'stroke-width': 2.5, fill: 'none', 'stroke-dasharray': '6 4' }, svg);
+      sv('rect', { x: 0, y: base, width: 320, height: 35, fill: '#6E6E6E' }, svg);
+      for (let i = 0; i < 30; i++) sv('circle', { cx: rnd(i) * 320, cy: base + 5 + rnd(i + 2) * 25, r: 1.5, fill: '#555' }, svg);
+      const flooded = [];
+      for (let x = 0; x <= 320; x += 4) if (wtY(x) < surf(x)) flooded.push(x);
+      springs.forEach(x => { sv('circle', { cx: x, cy: surf(x), r: 7, fill: '#1F77B4', stroke: '#fff', 'stroke-width': 2 }, svg); });
+      const wres = WELLS.map((wl, i) => { const x = wl[0], bot = wl[1], s = surf(x); sv('rect', { x: x - 3, y: s - 10, width: 6, height: bot - s + 10, fill: '#fff', stroke: '#333', 'stroke-width': 1.2 }, svg); const wet = bot > wtY(x); if (wet) sv('rect', { x: x - 2, y: Math.max(wtY(x), s), width: 4, height: bot - Math.max(wtY(x), s), fill: '#1F4E8C' }, svg); const t = sv('text', { x: x, y: s - 14, 'font-size': 11, 'text-anchor': 'middle', fill: '#1F3A5F', 'font-weight': 700 }, svg); t.textContent = i + 1; return wet; });
+      body.append(el('div', 'wrlg', '<span><i style="background:#E3D3AE"></i>نطاق التهوية ( هواء وماء قليل )</span><span><i style="background:#7FB3D5"></i>نطاق التشبّع ( ماء يملأ المسامات )</span><span><i style="background:#1F4E8C"></i>منسوب المياه الجوفية</span><span><i style="background:#6E6E6E"></i>صخور كتيمة</span><span><i style="background:#1F77B4"></i>ينبوع</span>'));
+      const t = info();
+      wres.forEach((ok, i) => t.row('البئر ' + (i + 1), ok ? '✓ قاعه تحت المنسوب ( في نطاق التشبّع ) ← يعطي ماءً' : '✗ قاعه فوق المنسوب ( في نطاق التهوية ) ← جافّ'));
+      t.row('الينابيع', springs.length ? springs.length + ' — حيث يتقاطع المنسوب مع سطح الأرض' : 'لا ينابيع : المنسوب لا يلمس سطح الأرض');
+      body.append(t);
+      body.append(verdict(S.wt < 40 ? 'acwarn' : 'acok', S.wt < 40 ? 'المنسوب منخفض' : 'رتّب من الأعلى', S.wt < 40 ? 'انخفض المنسوب فجفّت الآبار الضحلة وتوقّفت الينابيع ؛ وهذا ما يحدث مع الضخّ الجائر.' : 'نطاق التهوية ← المنسوب ( حدّ لا نطاق ) ← نطاق التشبّع ← الصخور الكتيمة التي تمنع تسرّب الماء إلى الأسفل.'));
+    }
+    draw();
+  }
+
+  /* ======================= 11 · أحواض الأردن الجوفية ======================= */
+  const BAS = {
+    az: { n: 'حوض عمّان - الزرقاء', ren: 1, R: 100, rock: 'صخور جيرية' , x: 'متجدّد بفعل الأمطار ، في شمالي الأردن ، ومهدّد بالنضوب بسبب الضخّ الجائر والتلوّث.' },
+    disi: { n: 'حوض الديسة', ren: 0, R: 0, rock: 'صخر رملي', x: 'غير متجدّد ، مشترك مع السعودية ، عمر مياهه أكثر من 10000 سنة ، ويُنقل عبر الناقل المائي منذ 2013 م.' },
+    jafr: { n: 'حوض الجفر', ren: 0, R: 0, rock: '—', x: 'غير متجدّد : تكوّنت مياهه في عصور قديمة ولا تعوّضها الأمطار.' }
+  };
+  function jobasins(host) {
+    host.innerHTML = '';
+    const S = { b: 'az', pump: 140, rain: 100 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function top() {
+      bar.innerHTML = '';
+      bar.append(seg(Object.keys(BAS).map(k => [k, BAS[k].n]), S.b, v => { S.b = v; top(); draw(); }));
+    }
+    function draw() {
+      body.innerHTML = '';
+      const B = BAS[S.b];
+      const c = el('div', 'srow');
+      c.append(sld(v => 'الضخّ السنوي : ' + L(String(v)) + ' وحدة ' + (B.ren ? '( التغذية المعتادة = 100 )' : '( لا تغذية )'), S.pump, 0, 200, 10, v => { S.pump = v; draw(); }));
+      if (B.ren) c.append(sld(v => 'الهطل مقارنةً بالمعتاد : ' + L(v + ' %'), S.rain, 40, 120, 10, v => { S.rain = v; draw(); }));
+      body.append(c);
+      const recharge = B.ren ? S.rain : 0, net = recharge - S.pump;
+      const svg = fig(body, 320, 190);
+      const X = y => 40 + y * 13.5, Y = v => 30 + (100 - v) * 1.3;
+      sv('path', { d: 'M40 10 V160 H310', stroke: '#1F3A5F', 'stroke-width': 2, fill: 'none' }, svg);
+      [0, 5, 10, 15, 20].forEach(y => { const t = sv('text', { x: X(y), y: 176, 'font-size': 10, 'text-anchor': 'middle', fill: '#5b6b80' }, svg); t.textContent = y; });
+      [0, 50, 100].forEach(v => { sv('path', { d: 'M40 ' + Y(v) + ' H310', stroke: '#E3E8F0' }, svg); const t = sv('text', { x: 34, y: Y(v) + 3, 'font-size': 10, 'text-anchor': 'end', fill: '#5b6b80' }, svg); t.textContent = v; });
+      let d = '', v = 100, empty = null;
+      for (let y = 0; y <= 20; y++) { d += (y ? ' L' : 'M') + X(y) + ' ' + Y(Math.max(0, Math.min(100, v))); if (v <= 0 && empty === null) empty = y; v += net * 0.04; }
+      sv('path', { d, stroke: net >= 0 ? '#2E7D4F' : '#C1121F', 'stroke-width': 3, fill: 'none' }, svg);
+      body.append(el('div', 'wrlg', '<span>الأفقي : السنوات</span><span>الرأسي : المخزون ( % من الحالي )</span>'));
+      const t = info();
+      t.row('النوع', B.ren ? '<b>متجدّد</b> — تغذّيه الأمطار' : '<b>غير متجدّد</b> — لا تغذية من الأمطار');
+      t.row('الصخر', B.rock);
+      t.row('التغذية − الضخّ', L(recharge + ' − ' + S.pump + ' = ' + (net > 0 ? '+' : '') + net) + ' وحدة سنويًّا ( موازنة ' + (net > 0 ? 'موجبة' : net < 0 ? 'سالبة' : 'صفرية') + ' )');
+      t.row('عن الحوض', B.x);
+      body.append(t);
+      body.append(net < 0 ? verdict('acwarn', 'المخزون ينقص' + (empty !== null ? ' وقد ينفد خلال نحو ' + empty + ' سنة في هذا النموذج' : ''), B.ren ? 'الضخّ أكبر من التغذية ، فينخفض المنسوب — كما يحدث في الأردن بمعدّل يبلغ ' + L('2 m') + ' . والتغيّر المناخي الذي يُنقص الهطل يزيد الانخفاض.' : 'كلّ ما يُسحب من الحوض غير المتجدّد <b>لا يعود</b> ؛ فهو مخزون قديم يجب إحسان استعماله.') :
+        verdict('acok', 'المخزون ثابت أو يزداد', 'لا يتجاوز الضخّ التغذية ، فيبقى المنسوب ' + (net > 0 ? 'في ارتفاع.' : 'ثابتًا.') + ( B.ren ? '' : ' ( ولا يحدث هذا في حوض غير متجدّد إلّا إذا توقّف الضخّ ).')));
+      body.append(el('div', 'sl note', 'في الأردن 12 حوضًا جوفيًّا . الإستراتيجية الوطنية للمياه 2023 - 2040 : الناقل الوطني ، ومعالجة مياه الصرف الصحي للزراعة ، وتقليل استنزاف المياه الجوفية ، وخفض المفقود المائي 2 % سنويًّا . ( أرقام المنحنى توضيحية . )'));
+    }
+    top(); draw();
+  }
+
+  window.SIMS.wdist = wdist;
+  window.SIMS.wcycle = wcycle;
+  window.SIMS.rainrate = rainrate;
+  window.SIMS.wbudget = wbudget;
+  window.SIMS.wbudgetb = wbudgetb;
+  window.SIMS.basin = basin;
+  window.SIMS.infil = infil;
+  window.SIMS.porosity = porosity;
+  window.SIMS.perm = perm;
+  window.SIMS.aquifer = aquifer;
+  window.SIMS.jobasins = jobasins;
+})();
