@@ -3187,3 +3187,679 @@
   window.SIMS.hund = hund;
   window.SIMS.ionsize = ionsize;
 })();
+
+/* ===== محاكاة القوى والحركة ( فيزياء التاسع — الوحدة الثانية ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const L = s => '<span class="ltr">' + s + '</span>';
+  const sel = (lab, val, opts, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const s = document.createElement('select');
+    opts.forEach(o => { const p = document.createElement('option'); p.value = o[0]; p.textContent = o[1]; if (String(o[0]) === String(val)) p.selected = true; s.append(p); });
+    s.onchange = () => fn(s.value); w.append(s); return w;
+  };
+  const sld = (lab, val, lo, hi, step, fn) => {
+    const w = el('label', 'sf'); const sp = el('span', '', lab);
+    w.append(sp);
+    const r = document.createElement('input');
+    r.type = 'range'; r.min = lo; r.max = hi; r.step = step; r.value = val;
+    r.oninput = () => fn(+r.value, sp);
+    w.append(r); return w;
+  };
+  const r2 = v => Math.round(v * 100) / 100;
+  const nf = v => { const x = r2(v); return (Object.is(x, -0) ? 0 : x).toString().replace('-', '−'); };
+  const svgOpen = (W, H) => '<svg viewBox="0 0 ' + W + ' ' + H + '" width="100%" height="' + H + '" preserveAspectRatio="xMidYMid meet" aria-hidden="true">';
+  /* سهم من (x1,y1) إلى (x2,y2) */
+  const arr = (x1, y1, x2, y2, col, w) => {
+    const dx = x2 - x1, dy = y2 - y1, len = Math.hypot(dx, dy);
+    if (len < 2) return '';
+    const ux = dx / len, uy = dy / len, h = Math.min(8, len * 0.6);
+    const bx = x2 - ux * h, by = y2 - uy * h;
+    return '<line x1="' + x1.toFixed(1) + '" y1="' + y1.toFixed(1) + '" x2="' + bx.toFixed(1) + '" y2="' + by.toFixed(1) + '" stroke="' + col + '" stroke-width="' + (w || 3) + '"/>'
+      + '<polygon points="' + x2.toFixed(1) + ',' + y2.toFixed(1) + ' ' + (bx - uy * 4.5).toFixed(1) + ',' + (by + ux * 4.5).toFixed(1) + ' ' + (bx + uy * 4.5).toFixed(1) + ',' + (by - ux * 4.5).toFixed(1) + '" fill="' + col + '"/>';
+  };
+  const info = () => {
+    const box = el('div', 'cyinfo');
+    box.row = (k, v) => box.append(el('div', 'cyrow', '<span class="cyk">' + k + '</span><span class="cyv">' + v + '</span>'));
+    return box;
+  };
+  const verdict = (cls, b, s) => el('div', 'acv' + (cls ? ' ' + cls : ''), '<b>' + b + '</b><span>' + s + '</span>');
+
+  /* ---------------- 1 · تصنيف القوى ---------------- */
+  const FC = [
+    ['ركل اللاعب الكرة بقدمه', 'c', 'القدم تلامس الكرة ، ولو ابتعدت عنها لما أثّرت.'],
+    ['وزن كتاب موضوع على طاولة', 'd', 'الأرض تجذب الكتاب ولو رُفع عن الطاولة ؛ التلامس مع الطاولة لا يُغيّر نوع الوزن.'],
+    ['القوّة العمودية من الطاولة على الكتاب', 'c', 'تختفي إذا رُفع الكتاب عن سطح الطاولة.'],
+    ['جذب المغناطيس لمسمار من الحديد', 'd', 'يجذبه قبل أن يلمسه.'],
+    ['شدّ الحبل لدلو مربوط به', 'c', 'لو انفصل الحبل عن الدلو لزالت القوّة.'],
+    ['جذب البالون المشحون لقصاصات الورق', 'd', 'قوّة كهربائية تظهر والفجوة موجودة.'],
+    ['احتكاك الأرض بقرص ينزلق عليها', 'c', 'الاحتكاك يحتاج إلى تلامس السطحين.'],
+    ['مقاومة الهواء لحركة المظلّة', 'c', 'جزيئات الهواء تلامس سطح المظلّة ، وتختفي المقاومة في الفراغ.'],
+    ['جذب الأرض للقمر', 'd', 'بينهما فضاء واسع بلا تلامس.'],
+    ['دفع اليد لعربة التسوّق', 'c', 'اليد تلامس مقبض العربة.']
+  ];
+  function fclass(host) {
+    host.innerHTML = '';
+    const S = { ans: {} };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(btn('ابدأ من جديد', 'gh', () => { S.ans = {}; draw(); }));
+    function draw() {
+      body.innerHTML = '';
+      body.append(el('p', 'shint', 'صنّف كلّ قوّة . وقبل أن تضغط ، اسأل : <b>لو ظهرت فجوة صغيرة بين الجسمين ، هل تبقى القوّة ؟</b>'));
+      const wrap = el('div', 'fzcards');
+      FC.forEach((f, i) => {
+        const a = S.ans[i];
+        const c = el('div', 'fzcard' + (a ? (a === f[1] ? ' fzok' : ' fzno') : ''));
+        c.append(el('div', 'fzname', f[0]));
+        const bs = el('div', 'fzbtns');
+        [['c', 'تلامس'], ['d', 'تأثير عن بُعد']].forEach(o => {
+          const b = el('button', 'fzpick' + (a === o[0] ? ' fzon' : ''), o[1]);
+          b.onclick = () => { S.ans[i] = o[0]; draw(); };
+          bs.append(b);
+        });
+        c.append(bs);
+        if (a) c.append(el('div', 'fzwhy', (a === f[1] ? '✔ ' : '✘ الصحيح : <b>' + (f[1] === 'c' ? 'تلامس' : 'تأثير عن بُعد') + '</b> — ') + f[2]));
+        wrap.append(c);
+      });
+      body.append(wrap);
+      const done = Object.keys(S.ans).length, ok = Object.keys(S.ans).filter(i => S.ans[i] === FC[i][1]).length;
+      if (done === FC.length) {
+        body.append(verdict(ok === FC.length ? 'acok' : 'acwarn', ok + ' من ' + FC.length,
+          ok === FC.length ? 'أتقنتَ التصنيف . ولاحظ أنّ قوى التأثير عن بُعد ثلاث فقط : الجاذبية والمغناطيسية والكهربائية.'
+            : 'راجع البطاقات الحمراء . أكثر الخلط في الوزن : الجسم يلامس السطح ، لكنّ وزنه جذب من الأرض لا يحتاج إلى تلامس.'));
+      } else body.append(el('p', 'shint', 'صنّفتَ ' + done + ' من ' + FC.length + ' .'));
+    }
+    draw();
+  }
+
+  /* ---------------- 2 · القوّة المحصّلة والقانون الثاني ---------------- */
+  const NP = {
+    rev: { n: 'ثلاث قوى ( مراجعة الدرس )', R1: 10, R2: 8, Lf: 12, m: 8, max: 30, st: 1, mlo: 1, mhi: 20, mst: 1 },
+    box: { n: 'صندوق : سحب واحتكاك', R1: 60, R2: 0, Lf: 20, m: 10, max: 100, st: 5, mlo: 1, mhi: 20, mst: 1 },
+    car: { n: 'سيارة بسرعة ثابتة', R1: 2000, R2: 0, Lf: 2000, m: 1400, max: 4000, st: 100, mlo: 800, mhi: 2000, mst: 100 },
+    car2: { n: 'زادت قوّة المحرّك', R1: 3000, R2: 0, Lf: 2000, m: 1400, max: 4000, st: 100, mlo: 800, mhi: 2000, mst: 100 }
+  };
+  function netf(host) {
+    host.innerHTML = '';
+    const S = Object.assign({ k: 'rev' }, NP.rev);
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(sel('الموقف', S.k, Object.keys(NP).map(k => [k, NP[k].n]), v => { Object.assign(S, NP[v], { k: v }); mkbar(); draw(); }));
+      const mk = (key, lab) => {
+        const r = el('div', 'srow');
+        r.append(sld(lab + ' : ' + L(S[key] + ' N'), S[key], 0, S.max, S.st, (v, sp) => { S[key] = v; sp.innerHTML = lab + ' : ' + L(v + ' N'); draw(); }));
+        bar.append(r);
+      };
+      mk('R1', 'قوّة نحو اليمين ①');
+      mk('R2', 'قوّة نحو اليمين ②');
+      mk('Lf', 'قوّة نحو اليسار');
+      const r = el('div', 'srow');
+      r.append(sld('الكتلة : ' + L(S.m + ' kg'), S.m, S.mlo, S.mhi, S.mst, (v, sp) => { S.m = v; sp.innerHTML = 'الكتلة : ' + L(v + ' kg'); draw(); }));
+      bar.append(r);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const net = S.R1 + S.R2 - S.Lf, a = net / S.m;
+      const W = 300, H = 128, cx = 150, sc = 105 / S.max;
+      let s = svgOpen(W, H);
+      s += '<line x1="10" y1="70" x2="290" y2="70" stroke="#c3ccd8" stroke-width="1.4"/>';
+      s += '<rect x="' + (cx - 22) + '" y="36" width="44" height="34" rx="4" fill="#E8EEF6" stroke="#1F3A5F" stroke-width="1.5"/>';
+      if (S.R1) s += arr(cx + 22, 46, cx + 22 + S.R1 * sc, 46, '#B3261E', 3);
+      if (S.R2) s += arr(cx + 22, 60, cx + 22 + S.R2 * sc, 60, '#E07B39', 3);
+      if (S.Lf) s += arr(cx - 22, 53, cx - 22 - S.Lf * sc, 53, '#2F6B3A', 3);
+      if (net) s += arr(cx, 104, cx + net * sc, 104, '#1F3A5F', 4);
+      else s += '<circle cx="' + cx + '" cy="104" r="4" fill="#1F3A5F"/>';
+      s += '<text x="' + cx + '" y="124" direction="ltr" text-anchor="middle" font-size="10" fill="#1F3A5F">ΣF = ' + nf(net) + ' N</text>';
+      s += '</svg>';
+      body.append(el('p', 'shint', 'الأسهم فوقُ هي القوى ، والسهم الأزرق تحتُ هو <b>المحصّلة</b> . وطول كلّ سهم يتناسب مع مقدار قوّته.'));
+      body.append(el('div', 'dpw', s));
+      const box = info();
+      box.row('اليمين موجب', L('ΣF = (+' + S.R1 + ') + (+' + S.R2 + ') + (−' + S.Lf + ') = ' + nf(net) + ' N'));
+      box.row('اتجاه المحصّلة', net > 0 ? 'نحو <b>اليمين</b> ( الإشارة موجبة )' : net < 0 ? 'نحو <b>اليسار</b> ( الإشارة سالبة )' : '<b>لا اتجاه</b> — المحصّلة صفر');
+      box.row('التسارع', L('a = ΣF / m = ' + nf(net) + ' / ' + S.m + ' = ' + nf(a) + ' m/s²'));
+      body.append(box);
+      if (!net) body.append(verdict('acok', 'القوى متّزنة — القانون الأول', 'المحصّلة صفر مع أنّ القوى ليست صفرًا . فالجسم إمّا <b>ساكن</b> يبقى ساكنًا ، وإمّا <b>متحرّك</b> يبقى بسرعة ثابتة في خطّ مستقيم.'));
+      else body.append(verdict('', 'يتسارع نحو ' + (net > 0 ? 'اليمين' : 'اليسار') + ' — القانون الثاني', 'المحصّلة لا تساوي صفرًا ، فتتغيّر سرعته كلّ ثانية بمقدار ' + L(nf(Math.abs(a)) + ' m/s') + ' . فإن كان يتحرّك عكس المحصّلة فهو <b>يتباطأ</b>.'));
+      if (S.R1 + S.R2 + S.Lf !== Math.abs(net) && net) body.append(el('div', 'sl note', 'لو جمعتَ المقادير دون إشارات لحصلتَ على ' + L((S.R1 + S.R2 + S.Lf) + ' N') + ' — وهذا أشهر خطأ في المحصّلة.'));
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 3 · القانون الأول : قرص على ثلاثة سطوح ---------------- */
+  const SURF = { smooth: { n: 'أملس', d: 0, c: '#dfe8f3' }, rough: { n: 'خشن', d: 1.5, c: '#c9b79a' }, sand: { n: 'مغطّى بالرمل', d: 4, c: '#d8b56a' } };
+  function inertia(host) {
+    host.innerHTML = '';
+    const S = { k: 'rough', v: 6 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      const cards = el('div', 'fzseg');
+      Object.keys(SURF).forEach(k => {
+        const b = el('button', 'fzsb' + (S.k === k ? ' fzon' : ''), 'سطح ' + SURF[k].n);
+        b.onclick = () => { S.k = k; mkbar(); draw(); };
+        cards.append(b);
+      });
+      bar.append(cards);
+      const r = el('div', 'srow');
+      r.append(sld('سرعة القرص لحظة انفصال اليد : ' + L(S.v + ' m/s'), S.v, 2, 8, 1, (v, sp) => { S.v = v; sp.innerHTML = 'سرعة القرص لحظة انفصال اليد : ' + L(v + ' m/s'); draw(); }));
+      bar.append(r);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const d = SURF[S.k].d, tStop = d ? S.v / d : Infinity, T = 6;
+      const pos = t => d ? (t >= tStop ? S.v * tStop / 2 : S.v * t - d * t * t / 2) : S.v * t;
+      const xmax = Math.max(10, S.v * T), W = 300, H = 120, x0 = 18, sx = (W - 30) / xmax;
+      let lastLab = -99;
+      let s = svgOpen(W, H);
+      s += '<rect x="8" y="70" width="' + (W - 16) + '" height="10" fill="' + SURF[S.k].c + '"/>';
+      for (let t = 0; t <= T; t++) {
+        const x = x0 + pos(t) * sx;
+        s += '<ellipse cx="' + x.toFixed(1) + '" cy="64" rx="7" ry="4" fill="#7E97B6" opacity="' + (0.35 + 0.1 * t) + '" stroke="#1F3A5F" stroke-width=".8"/>';
+        if ((!d || t <= tStop) && x - lastLab >= 18) { s += '<text x="' + x.toFixed(1) + '" y="96" direction="ltr" text-anchor="middle" font-size="8.5" fill="#8894a6">' + t + ' s</text>'; lastLab = x; }
+      }
+      /* القوى على القرص الأخير */
+      const xl = x0 + pos(Math.min(T, tStop)) * sx;
+      s += arr(xl, 58, xl, 30, '#2F6B3A', 2.4) + arr(xl, 70, xl, 108, '#B3261E', 2.4);
+      if (d && tStop > 0) {
+        const xm = x0 + pos(Math.min(tStop, 1)) * sx;
+        s += arr(xm - 8, 64, xm - 30, 64, '#E07B39', 2.4);
+      }
+      s += '</svg>';
+      body.append(el('p', 'shint', 'القرص مرسوم <b>مرّة كلّ ثانية</b> بعد انفصال اليد ، بمقياس واحد للسطوح الثلاثة . الأخضر القوّة العمودية ، والأحمر الوزن ، والبرتقالي الاحتكاك.'));
+      body.append(el('div', 'dpw', s));
+      const box = info();
+      box.row('القوى الرأسية', 'القوّة العمودية ' + L('F<sub>N</sub>') + ' تساوي الوزن ' + L('F<sub>g</sub>') + ' ، فمحصّلتهما <b>صفر</b>');
+      box.row('القوّة الأفقية', d ? 'الاحتكاك وحده ، <b>عكس الحركة</b>' : '<b>لا شيء</b> — المحصّلة الأفقية صفر');
+      box.row('ما يحدث لسرعته', d ? 'تتناقص بمقدار ' + L(d + ' m/s') + ' كلّ ثانية' : 'تبقى ' + L(S.v + ' m/s') + ' ثابتة');
+      box.row('المسافة حتى يتوقّف', d ? L(nf(S.v * S.v / (2 * d)) + ' m') + ' خلال ' + L(nf(tStop) + ' s') : '<b>لا يتوقّف</b> — في ' + L(T + ' s') + ' قطع ' + L(S.v * T + ' m') + ' ويستمرّ');
+      body.append(box);
+      if (!d) body.append(verdict('acok', 'القانون الأول', 'لا قوّة محصّلة ، فيحافظ القرص على حالته : <b>خطّ مستقيم وسرعة ثابتة</b> ، والنقاط متباعدة بالتساوي . لم يتوقّف لأنّه لا شيء يوقفه.'));
+      else body.append(verdict('acwarn', 'يتوقّف — لكن ليس « من تلقاء نفسه »', 'الاحتكاك قوّة محصّلة عكس الحركة ، فتتقارب النقاط حتى يقف . وكلّما زادت خشونة السطح كان التوقّف أسرع — وهذا ما رأيته في التجربة الاستهلالية.'));
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 4 · السرعة الثابتة والتسارع الثابت ( الشكل 5 ) ---------------- */
+  function strobe(host, mode) {
+    host.innerHTML = '';
+    const S = mode === 'a' ? { vi: 10, a: 10 } : { vi: 10, a: 0 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(btn('سرعة ثابتة ( 5 / أ )', 'gh', () => { S.vi = 10; S.a = 0; mkbar(); draw(); }));
+      bar.append(btn('تسارع ثابت ( 5 / ب )', 'gh', () => { S.vi = 10; S.a = 10; mkbar(); draw(); }));
+      bar.append(btn('مكابح', 'gh', () => { S.vi = 30; S.a = -10; mkbar(); draw(); }));
+      const r = el('div', 'srow');
+      r.append(sld('السرعة الابتدائية : ' + L('v<sub>i</sub> = ' + S.vi + ' m/s'), S.vi, 0, 30, 5, (v, sp) => { S.vi = v; sp.innerHTML = 'السرعة الابتدائية : ' + L('v<sub>i</sub> = ' + v + ' m/s'); draw(); }));
+      bar.append(r);
+      const r2_ = el('div', 'srow');
+      r2_.append(sld('التسارع : ' + L('a = ' + nf(S.a) + ' m/s²'), S.a, -10, 10, 1, (v, sp) => { S.a = v; sp.innerHTML = 'التسارع : ' + L('a = ' + nf(v) + ' m/s²'); draw(); }));
+      bar.append(r2_);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const T = 3, ts = S.a < 0 ? S.vi / -S.a : Infinity;
+      const v = t => (t >= ts ? 0 : S.vi + S.a * t);
+      const x = t => { const u = Math.min(t, ts); return S.vi * u + S.a * u * u / 2; };
+      const xs = [0, 1, 2, 3].map(x), vs = [0, 1, 2, 3].map(v);
+      const W = 300, H = 92, span = Math.max(30, ...xs.map(Math.abs)), sx = (W - 60) / span;
+      let s = svgOpen(W, H);
+      s += '<line x1="10" y1="62" x2="' + (W - 10) + '" y2="62" stroke="#c3ccd8" stroke-width="1.2"/>';
+      xs.forEach((p, i) => {
+        const cxp = 22 + Math.max(0, p) * sx;
+        s += '<rect x="' + (cxp - 12).toFixed(1) + '" y="44" width="24" height="12" rx="4" fill="#C0392B" opacity="' + (0.45 + 0.18 * i) + '"/>';
+        s += '<circle cx="' + (cxp - 6).toFixed(1) + '" cy="58" r="3" fill="#333"/><circle cx="' + (cxp + 6).toFixed(1) + '" cy="58" r="3" fill="#333"/>';
+        s += '<text x="' + cxp.toFixed(1) + '" y="36" direction="ltr" text-anchor="middle" font-size="9" fill="#1F3A5F">' + nf(vs[i]) + ' m/s</text>';
+        s += '<text x="' + cxp.toFixed(1) + '" y="78" direction="ltr" text-anchor="middle" font-size="8.5" fill="#8894a6">t=' + i + '</text>';
+      });
+      s += '</svg>';
+      body.append(el('p', 'shint', 'السيارة مرسومة <b>مرّة كلّ ثانية</b> ، وفوق كلّ صورة سرعتها في تلك اللحظة — كما في الشكل ( 5 ).'));
+      body.append(el('div', 'dpw', s));
+      const tb = el('div', 'mgtab fzstab'), hd = el('div', 'mgtr mghd');
+      ['الزمن', 'السرعة', 'الإزاحة في الثانية'].forEach(h => hd.append(el('span', 'mgtc', h)));
+      tb.append(hd);
+      [0, 1, 2, 3].forEach(i => {
+        const tr = el('div', 'mgtr');
+        tr.append(el('span', 'mgtc', L(i + ' s')), el('span', 'mgtc', L(nf(vs[i]) + ' m/s')), el('span', 'mgtc', i ? L(nf(xs[i] - xs[i - 1]) + ' m') : '—'));
+        tb.append(tr);
+      });
+      const w = el('div', 'mgwrap'); w.append(tb); body.append(w);
+      const box = info();
+      const tE = Math.min(T, ts), aa = tE > 0 ? (v(tE) - S.vi) / tE : 0;
+      if (!S.a || !S.vi && S.a < 0) {
+        box.row('السرعة', L('v = Δx / Δt = ' + nf(xs[3]) + ' / 3 = ' + nf(xs[3] / 3) + ' m/s'));
+        body.append(box);
+        body.append(verdict('acok', S.vi ? 'سرعة ثابتة — حركة منتظمة' : 'ساكنة', S.vi ? 'إزاحات <b>متساوية</b> في أزمنة متساوية ، والسرعة لا تتغيّر ، والقوّة المحصّلة <b>صفر</b>.' : 'لا سرعة ولا تسارع ، فلا حركة.'));
+        return;
+      }
+      box.row('التسارع', L('a = (v<sub>f</sub> − v<sub>i</sub>) / Δt = (' + nf(v(tE)) + ' − ' + S.vi + ') / ' + nf(tE) + ' = ' + nf(aa) + ' m/s²') + (tE < T ? ' — حتى لحظة التوقّف' : ''));
+      if (ts < T) box.row('لحظة التوقّف', L('v<sub>f</sub> = v<sub>i</sub> + a Δt = ' + S.vi + ' + (' + nf(S.a) + ' × ' + nf(ts) + ') = 0') + ' — توقّفت عند ' + L(nf(ts) + ' s') + ' ، ثمّ بقيت ساكنة');
+      else box.row('السرعة بعد ' + L('3 s'), L('v<sub>f</sub> = v<sub>i</sub> + a Δt = ' + S.vi + ' + (' + nf(S.a) + ' × 3) = ' + nf(S.vi + S.a * 3) + ' m/s'));
+      body.append(box);
+      if (S.a > 0) body.append(verdict('acok', 'تسارع ثابت — متسارعة', 'السرعة تزيد ' + L(S.a + ' m/s') + ' كلّ ثانية ، والإزاحات في الثواني المتتالية <b>تكبر</b> . إشارتا السرعة والتسارع <b>متشابهتان</b>.'));
+      else body.append(verdict('acwarn', 'تسارع ثابت — متباطئة', 'السرعة تنقص ' + L(-S.a + ' m/s') + ' كلّ ثانية ، والإزاحات <b>تصغر</b> . إشارتا السرعة والتسارع <b>مختلفتان</b>.'));
+      body.append(el('div', 'sl note', 'في الحالتين القوّة المحصّلة <b>لا تساوي صفرًا</b> ، وهي ثابتة لأنّ التسارع ثابت . وفي السرعة الثابتة وحدها تكون صفرًا.'));
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 5 · القانون الثاني : عربتان ( الشكل 6 ) ---------------- */
+  function law2(host) {
+    host.innerHTML = '';
+    const F0 = 10, M0 = 2;
+    const S = { F: 20, m: 2 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(btn('ضاعف القوّة', 'gh', () => { S.F = 20; S.m = 2; mkbar(); draw(); }));
+      bar.append(btn('نصف الكتلة', 'gh', () => { S.F = 10; S.m = 1; mkbar(); draw(); }));
+      bar.append(btn('ضاعفهما معًا', 'gh', () => { S.F = 20; S.m = 4; mkbar(); draw(); }));
+      const a = el('div', 'srow');
+      a.append(sld('القوّة المحصّلة : ' + L(S.F + ' N'), S.F, 5, 40, 5, (v, sp) => { S.F = v; sp.innerHTML = 'القوّة المحصّلة : ' + L(v + ' N'); draw(); }));
+      bar.append(a);
+      const b = el('div', 'srow');
+      b.append(sld('الكتلة : ' + L(S.m + ' kg'), S.m, 1, 8, 1, (v, sp) => { S.m = v; sp.innerHTML = 'الكتلة : ' + L(v + ' kg'); draw(); }));
+      bar.append(b);
+    }
+    function cart(y, F, m, a, col) {
+      const w = 34 + m * 6;
+      let s = '<rect x="20" y="' + y + '" width="' + w + '" height="22" rx="3" fill="' + col + '" stroke="#1F3A5F" stroke-width="1.2"/>';
+      s += '<circle cx="30" cy="' + (y + 26) + '" r="4.5" fill="#fff" stroke="#1F3A5F"/><circle cx="' + (20 + w - 10) + '" cy="' + (y + 26) + '" r="4.5" fill="#fff" stroke="#1F3A5F"/>';
+      s += '<text x="' + (20 + w / 2) + '" y="' + (y + 15) + '" direction="ltr" text-anchor="middle" font-size="9.5" fill="#1F3A5F">' + m + ' kg</text>';
+      s += arr(20 + w, y + 8, 20 + w + F * 2, y + 8, '#B3261E', 2.6);
+      s += arr(20 + w, y + 18, 20 + w + a * 3, y + 18, '#2F6B3A', 2);
+      s += '<text x="' + (24 + w + Math.max(F * 2, a * 3)) + '" y="' + (y + 16) + '" direction="ltr" font-size="9" fill="#5b6b80">a = ' + nf(a) + '</text>';
+      return s;
+    }
+    function draw() {
+      body.innerHTML = '';
+      const a0 = F0 / M0, a = S.F / S.m;
+      let s = svgOpen(300, 112);
+      s += cart(8, F0, M0, a0, '#dfe8f3');
+      s += cart(62, S.F, S.m, a, '#F6E7C1');
+      s += '</svg>';
+      body.append(el('p', 'shint', 'العربة الأولى <b>مرجع ثابت</b> ، والثانية تتحكّم فيها . الأحمر القوّة المحصّلة ، والأخضر التسارع.'));
+      body.append(el('div', 'dpw', s));
+      const box = info();
+      box.row('المرجع', L('a = ' + F0 + ' / ' + M0 + ' = ' + a0 + ' m/s²'));
+      box.row('عربتك', L('a = ΣF / m = ' + S.F + ' / ' + S.m + ' = ' + nf(a) + ' m/s²'));
+      const kF = S.F / F0, kM = S.m / M0, kA = a / a0;
+      box.row('المقارنة', 'القوّة × ' + L(nf(kF)) + ' · الكتلة × ' + L(nf(kM)) + ' ← التسارع × ' + L(nf(kF) + ' ÷ ' + nf(kM) + ' = ' + nf(kA)));
+      body.append(box);
+      let msg;
+      if (kM === 1 && kF !== 1) msg = 'الكتلة ثابتة ، فالتسارع تغيّر <b>بنسبة تغيّر القوّة نفسها</b> — تناسب طردي ( الشكل 6 / أ ).';
+      else if (kF === 1 && kM !== 1) msg = 'القوّة ثابتة ، فالتسارع تغيّر <b>بعكس نسبة تغيّر الكتلة</b> — تناسب عكسي ( الشكل 6 / ب ).';
+      else if (kF === kM) msg = 'تغيّرت القوّة والكتلة بالنسبة نفسها ، <b>فبقي التسارع كما هو</b> : ما زادته القوّة أنقصته الكتلة.';
+      else msg = 'القوّة في البسط تزيد التسارع ، والكتلة في المقام تُنقصه : ' + L('a = F / m');
+      body.append(verdict(kA === 1 ? '' : 'acok', 'التسارع × ' + nf(kA), msg));
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 6 · أزواج الفعل وردّ الفعل ---------------- */
+  const PR = {
+    walk: { n: 'المشي', A: 'القدم', B: 'الأرض', ab: 'تدفع القدمُ الأرضَ', dab: 'w', ba: 'تدفع الأرضُ القدمَ', dba: 'e', ty: 'دفع ( تلامس )', F: 600,
+      x: 'القوّة على <b>القدم</b> نحو الأمام هي التي تُحرّك الماشي . والأرض لا تتحرّك ظاهريًّا لأنّ كتلتها هائلة ، فتسارعها أصغر من أن يُقاس.' },
+    hammer: { n: 'المطرقة والمسمار', A: 'المطرقة', B: 'المسمار', ab: 'تدفع المطرقةُ المسمارَ', dab: 's', ba: 'يدفع المسمارُ المطرقةَ', dba: 'n', ty: 'دفع ( تلامس )', F: 200,
+      x: 'القوّتان متساويتان ، لكنّ الأولى في المسمار فتُدخله في الخشب ، والثانية في المطرقة فتوقفها . لا تُلغي إحداهما الأخرى لأنّهما في <b>جسمين مختلفين</b>.' },
+    fall: { n: 'كرة تسقط', A: 'الأرض', B: 'الكرة', ab: 'تجذب الأرضُ الكرةَ ( الوزن )', dab: 's', ba: 'تجذب الكرةُ الأرضَ', dba: 'n', ty: 'جذب ( تأثير عن بُعد )', F: 5,
+      x: 'الجذب متبادل : الكرة تجذب الأرض إلى الأعلى بقوّة تساوي وزنها . والكرة هي التي تتسارع نحو الأرض لأنّ كتلتها صغيرة جدًّا مقارنةً بكتلة الأرض.' },
+    crash: { n: 'تصادم سيارة وشاحنة', A: 'الشاحنة', B: 'السيارة', ab: 'تدفع الشاحنةُ السيارةَ', dab: 'w', ba: 'تدفع السيارةُ الشاحنةَ', dba: 'e', ty: 'دفع ( تلامس )', F: 20000, crash: true, x: '' },
+    book: { n: 'كتاب على طاولة', book: true }
+  };
+  const DIRS = { e: 'نحو اليمين', w: 'نحو اليسار', n: 'نحو الأعلى', s: 'نحو الأسفل' };
+  const darr = (d, col) => {
+    const P = { e: [6, 14, 40, 14], w: [40, 14, 6, 14], n: [23, 26, 23, 2], s: [23, 2, 23, 26] }[d];
+    return '<svg viewBox="0 0 46 28" width="46" height="28" aria-hidden="true">' + arr(P[0], P[1], P[2], P[3], col, 3) + '</svg>';
+  };
+  function pairs(host) {
+    host.innerHTML = '';
+    const S = { k: 'walk', mc: 1000, mt: 8000 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(sel('الموقف', S.k, Object.keys(PR).map(k => [k, PR[k].n]), v => { S.k = v; mkbar(); draw(); }));
+      if (PR[S.k].crash) {
+        const a = el('div', 'srow');
+        a.append(sld('كتلة السيارة : ' + L(S.mc + ' kg'), S.mc, 600, 2000, 100, (v, sp) => { S.mc = v; sp.innerHTML = 'كتلة السيارة : ' + L(v + ' kg'); draw(); }));
+        bar.append(a);
+        const b = el('div', 'srow');
+        b.append(sld('كتلة الشاحنة : ' + L(S.mt + ' kg'), S.mt, 3000, 15000, 500, (v, sp) => { S.mt = v; sp.innerHTML = 'كتلة الشاحنة : ' + L(v + ' kg'); draw(); }));
+        bar.append(b);
+      }
+    }
+    const fcard = (on, by, txt, d, col, F, tag) => {
+      const c = el('div', 'fzpc');
+      c.innerHTML = '<div class="fzpon">في <b>' + on + '</b></div>' + darr(d, col)
+        + '<div class="fzptx">' + txt + '</div><div class="fzpmeta">' + (F !== null ? L(F + ' N') + ' · ' : '') + DIRS[d] + '</div>' + (tag ? '<div class="fzptag" style="background:' + col + '">' + tag + '</div>' : '');
+      return c;
+    };
+    function draw() {
+      body.innerHTML = '';
+      const P = PR[S.k];
+      if (P.book) {
+        body.append(el('p', 'shint', 'أربع قوى في هذا الموقف . <b>اللون نفسه = زوج فعل وردّ فعل</b>.'));
+        const g = el('div', 'fzpgrid');
+        g.append(fcard('الكتاب', 'الأرض', 'تجذب الأرضُ الكتابَ ( الوزن )', 's', '#B3261E', 15, 'زوج ①'));
+        g.append(fcard('الأرض', 'الكتاب', 'يجذب الكتابُ الأرضَ', 'n', '#B3261E', 15, 'زوج ①'));
+        g.append(fcard('الكتاب', 'الطاولة', 'تدفع الطاولةُ الكتابَ ( القوّة العمودية )', 'n', '#2F6B3A', 15, 'زوج ②'));
+        g.append(fcard('الطاولة', 'الكتاب', 'يدفع الكتابُ الطاولةَ', 's', '#2F6B3A', 15, 'زوج ②'));
+        body.append(g);
+        body.append(verdict('acwarn', 'الوزن والقوّة العمودية ليسا زوجًا', 'كلاهما يؤثّر في <b>الكتاب نفسه</b> ، ومن نوعين مختلفين ( جذب وتلامس ) ، فهما قوّتان <b>متّزنتان</b> ( القانون الأول ) . أمّا ردّ فعل الوزن فهو جذب الكتاب للأرض ، وردّ فعل القوّة العمودية دفع الكتاب للطاولة.'));
+        return;
+      }
+      body.append(el('p', 'shint', 'كلّ بطاقة قوّة واحدة ، ومكتوب أعلاها <b>الجسم الذي تؤثّر فيه</b>.'));
+      const g = el('div', 'fzpgrid');
+      g.append(fcard(P.B, P.A, P.ab, P.dab, '#B3261E', P.F, 'الفعل'));
+      g.append(fcard(P.A, P.B, P.ba, P.dba, '#1F3A5F', P.F, 'ردّ الفعل'));
+      body.append(g);
+      const box = info();
+      box.row('المقدار', 'متساويان : ' + L(P.F + ' N') + ' و ' + L(P.F + ' N'));
+      box.row('الاتجاه', 'متعاكسان : ' + DIRS[P.dab] + ' و ' + DIRS[P.dba]);
+      box.row('النوع', 'واحد : ' + P.ty);
+      box.row('الجسم الذي تؤثّر فيه', '<b>مختلف</b> : ' + P.B + ' و ' + P.A + ' — فلا يُجمعان ولا يُلغي أحدهما الآخر');
+      if (P.crash) {
+        const ac = P.F / S.mc, at = P.F / S.mt;
+        box.row('تسارع السيارة', L('a = ' + P.F + ' / ' + S.mc + ' = ' + nf(ac) + ' m/s²'));
+        box.row('تسارع الشاحنة', L('a = ' + P.F + ' / ' + S.mt + ' = ' + nf(at) + ' m/s²'));
+      }
+      body.append(box);
+      if (P.crash) body.append(verdict('acok', 'القوّتان متساويتان ، والأثر مختلف', 'القانون الثالث يُخبرك أنّ القوّتين متساويتان مهما اختلفت الكتلتان . والقانون الثاني يُخبرك أنّ تسارع السيارة أكبر ' + L(nf(S.mt / S.mc)) + ' مِثْل تسارع الشاحنة ، فتتغيّر سرعتها أكثر ويكون الضرر فيها أكبر.'));
+      else body.append(el('div', 'sl note', P.x));
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 7 · السقوط مع مقاومة الهواء وبدونها ---------------- */
+  const OBJ = { coin: { n: 'قطعة النقود', vt: 30 }, flat: { n: 'الورقة المسطّحة', vt: 1.1 }, ball: { n: 'كرة الورق', vt: 4.5 }, hammer: { n: 'المطرقة', vt: 60 }, feather: { n: 'الريشة', vt: 0.6 } };
+  const FP = { cp: { n: 'قطعة نقود وورقة', a: 'coin', b: 'flat', h: 2 }, bp: { n: 'كرة ورق وورقة مماثلة', a: 'ball', b: 'flat', h: 2 }, hf: { n: 'مطرقة وريشة', a: 'hammer', b: 'feather', h: 1.6 } };
+  function fallRun(vt, g, h, air) {
+    let y = 0, v = 0, i = 0;
+    const dt = 0.001, marks = [0];
+    while (y < h && i < 60000) {
+      const acc = air ? g * (1 - v * v / (vt * vt)) : g;
+      v += acc * dt; y += v * dt; i++;
+      if (i % 100 === 0) marks.push(Math.min(y, h));
+    }
+    return { t: i * dt, v, marks };
+  }
+  function fall(host) {
+    host.innerHTML = '';
+    const S = { k: 'cp', air: 1 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(sel('الجسمان', S.k, Object.keys(FP).map(k => [k, FP[k].n]), v => { S.k = v; draw(); }));
+      const r = el('div', 'srow');
+      r.append(sel('الوسط', S.air, [[1, 'في الهواء'], [0, S.k === 'hf' ? 'دون هواء ( سطح القمر )' : 'دون هواء ( أنبوب مفرّغ )']], v => { S.air = +v; draw(); }));
+      bar.append(r);
+    }
+    function draw() {
+      mkbar();
+      body.innerHTML = '';
+      const P = FP[S.k], A = OBJ[P.a], B = OBJ[P.b];
+      const g = (!S.air && S.k === 'hf') ? 1.62 : 9.8;
+      const ra = fallRun(A.vt, g, P.h, S.air), rb = fallRun(B.vt, g, P.h, S.air);
+      const W = 260, H = 170, top = 12, sy = (H - 24) / P.h;
+      const head = el('div', 'fzfh');
+      head.append(el('span', '', A.n), el('span', '', B.n));
+      body.append(el('p', 'shint', 'موضع كلّ جسم مرسوم <b>كلّ عُشر ثانية</b> : تباعد النقاط يعني سرعة متزايدة ، وتساويه يعني سرعة ثابتة.'));
+      const fw = el('div', 'fzfw');
+      fw.append(head);
+      body.append(fw);
+      let s = svgOpen(W, H);
+      s += '<line x1="20" y1="' + (top + P.h * sy) + '" x2="' + (W - 20) + '" y2="' + (top + P.h * sy) + '" stroke="#8a6f1a" stroke-width="2"/>';
+      [[ra, 65, '#7E97B6'], [rb, 195, '#C9A227']].forEach(([r, x, c]) => {
+        s += '<line x1="' + x + '" y1="' + top + '" x2="' + x + '" y2="' + (top + P.h * sy) + '" stroke="#e3e8ef" stroke-dasharray="3 3"/>';
+        r.marks.forEach(m => { s += '<circle cx="' + x + '" cy="' + (top + m * sy).toFixed(1) + '" r="3.2" fill="' + c + '"/>'; });
+      });
+      s += '</svg>';
+      fw.append(el('div', '', s));
+      const box = info();
+      box.row('زمن وصول ' + A.n, L(nf(ra.t) + ' s'));
+      box.row('زمن وصول ' + B.n, L(nf(rb.t) + ' s'));
+      body.append(box);
+      const same = Math.abs(ra.t - rb.t) < 0.02;
+      if (same) body.append(verdict('acok', 'وصلا معًا', (S.k === 'hf' ? 'هذه تجربة ديفيد سكوت على القمر عام 1971 : ' : '') + 'بغياب مقاومة الهواء لا تؤثّر في الجسمين إلّا الجاذبية ، فيكتسبان <b>التسارع نفسه</b> مهما اختلفت كتلتاهما وشكلاهما.'));
+      else {
+        const first = ra.t < rb.t ? A.n : B.n;
+        const why = S.k === 'bp' ? 'الكتلتان متساويتان فالوزنان متساويان ، لكنّ <b>مساحة</b> الورقة المسطّحة المعرّضة للهواء أكبر ، فمقاومتها أكبر ومحصّلتها إلى الأسفل أصغر.'
+          : 'مقاومة الهواء على ' + first + ' <b>صغيرة مقارنةً بوزنه</b> ، أمّا الجسم الآخر فالمقاومة عليه كبيرة مقارنةً بوزنه فتُبطئه.';
+        body.append(verdict('acwarn', 'الأسبق : ' + first, why));
+        body.append(el('div', 'sl note', 'غيّر الوسط إلى « دون هواء » وأعد المقارنة : الفرق كلّه سببه الهواء.'));
+      }
+    }
+    draw();
+  }
+
+  /* ---------------- 8 · المظلّي ---------------- */
+  function skyRun(tOpen) {
+    const m = 80, g = 10, W = m * g, c1 = W / (50 * 50), c2 = W / (5 * 5);
+    const dt = 0.01, out = [];
+    let v = 0;
+    for (let i = 0; i <= 4000; i++) {
+      const t = i * dt;
+      const k = t < tOpen ? 0 : Math.min(1, (t - tOpen) / 2);
+      const c = c1 + (c2 - c1) * k;
+      const R = c * v * v, a = (W - R) / m;
+      if (i % 10 === 0) out.push({ t: r2(t), v, R, a });
+      v += a * dt;
+    }
+    return { W, pts: out };
+  }
+  function skydive(host) {
+    host.innerHTML = '';
+    const S = { open: 20, t: 5 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(btn('لحظة القفز', 'gh', () => { S.t = 1; mkbar(); draw(); }));
+      bar.append(btn('سرعة ثابتة', 'gh', () => { S.t = S.open - 2; mkbar(); draw(); }));
+      bar.append(btn('فتح المظلّة', 'gh', () => { S.t = S.open + 1; mkbar(); draw(); }));
+      bar.append(btn('قرب الأرض', 'gh', () => { S.t = 40; mkbar(); draw(); }));
+      const a = el('div', 'srow');
+      a.append(sld('الزمن منذ القفز : ' + L(S.t + ' s'), S.t, 0, 40, 1, (v, sp) => { S.t = v; sp.innerHTML = 'الزمن منذ القفز : ' + L(v + ' s'); draw(); }));
+      bar.append(a);
+      const b = el('div', 'srow');
+      b.append(sld('تُفتح المظلّة عند : ' + L(S.open + ' s'), S.open, 12, 30, 1, (v, sp) => { S.open = v; sp.innerHTML = 'تُفتح المظلّة عند : ' + L(v + ' s'); draw(); }));
+      bar.append(b);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const run = skyRun(S.open), P = run.pts, W = run.W;
+      const cur = P[Math.min(P.length - 1, Math.round(S.t * 10))];
+      const GW = 300, GH = 120, gx = t => 28 + t / 40 * (GW - 40), gy = v => GH - 18 - v / 60 * (GH - 30);
+      let s = svgOpen(GW, GH);
+      s += '<line x1="28" y1="' + gy(0) + '" x2="' + (GW - 10) + '" y2="' + gy(0) + '" stroke="#8894a6"/><line x1="28" y1="' + gy(60) + '" x2="28" y2="' + gy(0) + '" stroke="#8894a6"/>';
+      [0, 25, 50].forEach(v => { s += '<text x="24" y="' + (gy(v) + 3) + '" direction="ltr" text-anchor="end" font-size="8" fill="#8894a6">' + v + '</text>'; });
+      [0, 10, 20, 30, 40].forEach(t => { s += '<text x="' + gx(t) + '" y="' + (GH - 5) + '" direction="ltr" text-anchor="middle" font-size="8" fill="#8894a6">' + t + ' s</text>'; });
+      s += '<polyline fill="none" stroke="#1F3A5F" stroke-width="2" points="' + P.filter((p, i) => i % 2 === 0).map(p => gx(p.t).toFixed(1) + ',' + gy(p.v).toFixed(1)).join(' ') + '"/>';
+      s += '<line x1="' + gx(S.open) + '" y1="' + gy(60) + '" x2="' + gx(S.open) + '" y2="' + gy(0) + '" stroke="#C9A227" stroke-dasharray="3 3"/>';
+      s += '<circle cx="' + gx(cur.t) + '" cy="' + gy(cur.v) + '" r="4.5" fill="#B3261E"/>';
+      s += '<text x="34" y="14" direction="ltr" font-size="8.5" fill="#5b6b80">v (m/s)</text>';
+      s += '</svg>';
+      body.append(el('p', 'shint', 'منحنى السرعة مع الزمن ، والنقطة الحمراء اللحظة المختارة ، والخطّ الذهبي لحظة فتح المظلّة.'));
+      body.append(el('div', 'dpw', s));
+      /* سهما القوّتين */
+      const sc = 30 / W, Rl = cur.R * sc, cap = 62;
+      let f = svgOpen(120, 140);
+      f += '<circle cx="60" cy="70" r="9" fill="#1F3A5F"/>';
+      if (cur.t >= S.open) f += '<path d="M30 42 Q60 10 90 42 Z" fill="#E8C268" stroke="#8a6f1a"/><line x1="32" y1="42" x2="58" y2="64" stroke="#8a6f1a"/><line x1="88" y1="42" x2="62" y2="64" stroke="#8a6f1a"/>';
+      f += arr(60, 80, 60, 80 + 30, '#B3261E', 3.5);
+      if (Rl > 1) f += arr(60, 60, 60, 60 - Math.min(cap, Rl), '#2F6B3A', 3.5);
+      f += '</svg>';
+      const fw = el('div', 'fzsky');
+      fw.append(el('div', 'dpw', f));
+      const lg = el('div', 'fzskyl', '<div><i style="background:#B3261E"></i>الوزن ' + L(W + ' N') + ' — ثابت</div><div><i style="background:#2F6B3A"></i>مقاومة الهواء ' + L(Math.round(cur.R) + ' N') + (Rl > cap ? ' ( السهم مقصوص )' : '') + '</div>');
+      fw.append(lg);
+      body.append(fw);
+      const net = W - cur.R;
+      const box = info();
+      box.row('السرعة', L(nf(cur.v) + ' m/s') + ' إلى الأسفل');
+      box.row('المحصّلة', Math.abs(net) < W * 0.02 ? '<b>صفر تقريبًا</b>' : L(Math.round(Math.abs(net)) + ' N') + ' ' + (net > 0 ? 'إلى <b>الأسفل</b>' : 'إلى <b>الأعلى</b>'));
+      body.append(box);
+      let v;
+      if (Math.abs(net) < W * 0.02) v = verdict('acok', cur.t < S.open ? 'المرحلة ( 3 ) : سرعة ثابتة' : 'سرعة ثابتة أقلّ — هبوط آمن', 'مقاومة الهواء تساوي الوزن ، فالمحصّلة صفر ، فيتحرّك بسرعة ثابتة ( القانون الأول ) ' + (cur.t < S.open ? '. القوّتان موجودتان وكبيرتان ، لكنّهما متساويتان.' : '. والسرعة الآن نحو ' + L(Math.round(cur.v) + ' m/s') + ' بعد أن كانت نحو ' + L('50 m/s') + ' .'));
+      else if (net < 0) v = verdict('acwarn', 'يتباطأ وهو ما يزال يهبط', 'المظلّة زادت مساحة السطح فصارت المقاومة أكبر من الوزن ، فالمحصّلة إلى الأعلى ، وهي تُنقص سرعته ولا تجعله يصعد.');
+      else if (cur.a > 7) v = verdict('', 'المرحلة ( 1 ) : بداية السقوط', 'السرعة صغيرة فالمقاومة صغيرة ، والمحصّلة إلى الأسفل كبيرة ، فيتسارع تسارعًا كبيرًا.');
+      else v = verdict('', 'المرحلة ( 2 ) : ما يزال يتسارع ، لكن أقلّ', 'زادت السرعة فزادت المقاومة ، فصغرت المحصّلة وصغر التسارع ، <b>وسرعته ما تزال تزداد</b>.');
+      body.append(v);
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 9 · النابض وحدّ المرونة والميزان النابضي ---------------- */
+  const L0 = 15.2, KS = 1.6, LIM = 6;
+  const BOOK = { 1: 1.6, 2: 3.3, 3: 4.7, 4: 6.4 };
+  const ext = F => (BOOK[F] !== undefined ? BOOK[F] : F <= LIM ? KS * F : KS * F + 0.56 * (F - LIM) * (F - LIM));
+  function spring(host, beyond) {
+    host.innerHTML = '';
+    const S = { F: beyond ? 8 : 2, mx: beyond ? 8 : 2, rel: false };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(btn('أزل القوّة', 'gh', () => { S.rel = true; mkbar(); draw(); }));
+      bar.append(btn('نابض جديد', 'gh', () => { S.F = 0; S.mx = 0; S.rel = false; mkbar(); draw(); }));
+      const a = el('div', 'srow');
+      a.append(sld('القوّة المؤثّرة : ' + L(S.F + ' N'), S.F, 0, 10, 0.5, (v, sp) => { S.F = v; S.rel = false; S.mx = Math.max(S.mx, v); sp.innerHTML = 'القوّة المؤثّرة : ' + L(v + ' N'); draw(); }));
+      bar.append(a);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const perm = S.mx > LIM ? 0.35 * 0.56 * (S.mx - LIM) * (S.mx - LIM) + 0.4 * (S.mx - LIM) : 0;
+      const F = S.rel ? 0 : S.F;
+      const e = S.rel ? perm : Math.max(ext(F), F > 0 ? perm + KS * F : perm);
+      const Lc = L0 + e;
+      /* الرسم : ميزان ومسطرة */
+      const W = 300, H = 200, top = 14, py = 3.8;
+      let s = svgOpen(W, H);
+      s += '<line x1="40" y1="' + top + '" x2="120" y2="' + top + '" stroke="#5b6b80" stroke-width="3"/>';
+      const yEnd = top + Math.min(Lc, 42) * py;
+      const n = 14;
+      let d = 'M80 ' + top;
+      for (let i = 1; i <= n; i++) d += ' L' + (i % 2 ? 70 : 90) + ' ' + (top + (yEnd - top) * i / (n + 1)).toFixed(1);
+      d += ' L80 ' + yEnd.toFixed(1);
+      s += '<path d="' + d + '" fill="none" stroke="' + (S.mx > LIM ? '#B3261E' : '#1F3A5F') + '" stroke-width="1.8"/>';
+      if (F > 0) s += '<rect x="68" y="' + yEnd.toFixed(1) + '" width="24" height="' + (10 + F * 1.4).toFixed(1) + '" fill="#7E97B6" stroke="#1F3A5F"/>';
+      s += '<rect x="112" y="' + top + '" width="16" height="' + (42 * py) + '" fill="#F6E7C1" stroke="#8a6f1a" stroke-width=".8"/>';
+      for (let c = 0; c <= 42; c += 2) {
+        const y = top + c * py;
+        s += '<line x1="112" y1="' + y.toFixed(1) + '" x2="' + (c % 10 ? 118 : 122) + '" y2="' + y.toFixed(1) + '" stroke="#8a6f1a" stroke-width=".7"/>';
+        if (c % 10 === 0) s += '<text x="132" y="' + (y + 3).toFixed(1) + '" direction="ltr" font-size="8" fill="#8a6f1a">' + c + '</text>';
+      }
+      s += '<line x1="88" y1="' + (top + L0 * py).toFixed(1) + '" x2="112" y2="' + (top + L0 * py).toFixed(1) + '" stroke="#2F6B3A" stroke-dasharray="2 2"/>';
+      /* منحنى القوّة – الاستطالة */
+      const gx0 = 170, gy0 = 180, gw = 120, gh = 160, ex = v => gx0 + v / 30 * gw, fy = f => gy0 - f / 10 * gh;
+      s += '<line x1="' + gx0 + '" y1="' + gy0 + '" x2="' + (gx0 + gw) + '" y2="' + gy0 + '" stroke="#8894a6"/><line x1="' + gx0 + '" y1="' + gy0 + '" x2="' + gx0 + '" y2="' + (gy0 - gh) + '" stroke="#8894a6"/>';
+      let pl = '';
+      for (let f = 0; f <= 10.01; f += 0.25) { const xv = f <= LIM ? KS * f : ext(f); if (xv > 30) break; pl += ex(xv).toFixed(1) + ',' + fy(f).toFixed(1) + ' '; }
+      s += '<polyline fill="none" stroke="#c3ccd8" stroke-width="1.6" points="' + pl + '"/>';
+      s += '<circle cx="' + ex(KS * LIM).toFixed(1) + '" cy="' + fy(LIM).toFixed(1) + '" r="3.2" fill="none" stroke="#C9A227" stroke-width="1.6"/>';
+      s += '<text x="' + (ex(KS * LIM) - 6).toFixed(1) + '" y="' + (fy(LIM) - 6).toFixed(1) + '" direction="ltr" text-anchor="end" font-size="9" fill="#8a6f1a">A</text>';
+      [1, 2, 3, 4].forEach(f => { s += '<circle cx="' + ex(BOOK[f]).toFixed(1) + '" cy="' + fy(f).toFixed(1) + '" r="2.4" fill="#2F6B3A"/>'; });
+      if (F > 0 && e <= 30) s += '<circle cx="' + ex(e).toFixed(1) + '" cy="' + fy(F).toFixed(1) + '" r="4" fill="#B3261E"/>';
+      s += '<text x="' + (gx0 + 2) + '" y="' + (gy0 - gh - 3) + '" direction="ltr" font-size="8.5" fill="#5b6b80">F (N)</text>';
+      s += '<text x="' + (gx0 + gw) + '" y="' + (gy0 + 12) + '" direction="ltr" text-anchor="end" font-size="8.5" fill="#5b6b80">Δx (cm)</text>';
+      s += '</svg>';
+      body.append(el('p', 'shint', 'المسطرة بالسنتيمتر والخطّ الأخضر الطول الأصلي ' + L(L0 + ' cm') + ' . وفي المنحنى : النقاط الخضراء جدول الكتاب ، والحمراء قراءتك ، والدائرة الذهبية ' + L('A') + ' حدّ المرونة.'));
+      body.append(el('div', 'dpw', s));
+      const box = info();
+      box.row('طول النابض', L('L = ' + nf(Lc) + ' cm'));
+      box.row('الاستطالة', L('Δx = ' + nf(Lc) + ' − ' + L0 + ' = ' + nf(e) + ' cm'));
+      if (F > 0) box.row('الاستطالة لكلّ نيوتن', L(nf(e / F) + ' cm/N') + (S.mx <= LIM ? ' — ثابتة تقريبًا ( تناسب طردي )' : ' — <b>لم تعد ثابتة</b>'));
+      body.append(box);
+      /* الميزان النابضي */
+      const sb = el('div', 'fzbal');
+      let t = '';
+      for (let i = 0; i <= 10; i++) t += '<span class="fzbt' + (i > LIM ? ' fzbx' : '') + '">' + i + '</span>';
+      sb.innerHTML = '<div class="fzbh">ميزان نابضي بهذا النابض ( مدرّج بالنيوتن حتى حدّ المرونة )</div><div class="fzbs" dir="ltr">' + t + '<i style="left:' + Math.min(100, F * 10) + '%"></i></div>';
+      body.append(sb);
+      if (S.rel && perm > 0.05) body.append(verdict('acwarn', 'تشوّه دائم — النابض تالف', 'أُزيلت القوّة لكنّ النابض <b>لم يعد</b> إلى ' + L(L0 + ' cm') + ' ، وبقيت استطالة ' + L(nf(perm) + ' cm') + ' . تجاوزتَ حدّ المرونة ( ' + L(LIM + ' N') + ' ) ، فلا يصلح النابض لإعادة التجربة ولا لميزان.'));
+      else if (S.rel) body.append(verdict('acok', 'عاد إلى طوله الأصلي', 'لم تتجاوز القوّة حدّ المرونة ، فاستعاد النابض شكله : هذا معنى <b>المرونة</b>.'));
+      else if (F > LIM) body.append(verdict('acwarn', 'تجاوزتَ حدّ المرونة', 'الاستطالة ' + L(nf(e) + ' cm') + ' ، ولو بقي التناسب لكانت ' + L(nf(KS * F) + ' cm') + ' . العلاقة صارت <b>غير خطّية</b> ، والمؤشّر خرج عن التدريج الصالح . اضغط « أزل القوّة » لترى ما بقي.'));
+      else if (F > 0) body.append(verdict('acok', 'ضمن حدّ المرونة', 'ضاعِف القوّة تتضاعف الاستطالة لا الطول . ولهذا جاءت أقسام الميزان <b>متساوية</b>.'));
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 10 · مركز الكتلة والكرسي المائل ---------------- */
+  function com(host) {
+    host.innerHTML = '';
+    const S = { th: 0 };
+    const D = 0.15, Hh = 0.55, crit = Math.atan(D / Hh) * 180 / Math.PI;
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(btn('جلوس صحيح', 'gh', () => { S.th = 0; mkbar(); draw(); }));
+      bar.append(btn('إمالة خفيفة', 'gh', () => { S.th = 8; mkbar(); draw(); }));
+      bar.append(btn('إمالة خطرة', 'gh', () => { S.th = 22; mkbar(); draw(); }));
+      const a = el('div', 'srow');
+      a.append(sld('إمالة الكرسي إلى الخلف : ' + L(S.th + '°'), S.th, 0, 30, 1, (v, sp) => { S.th = v; sp.innerHTML = 'إمالة الكرسي إلى الخلف : ' + L(v + '°'); draw(); }));
+      bar.append(a);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const th = S.th * Math.PI / 180, k = 150;
+      const px = 110, py = 170;
+      /* نقطة الارتكاز : الرجلان الخلفيتان ، والدوران حولها عكس عقارب الساعة ( إلى الخلف ) */
+      const rot = (x, y) => [px + (x * Math.cos(th) - y * Math.sin(th)) * k, py - (x * Math.sin(th) + y * Math.cos(th)) * k];
+      const P = (x, y) => rot(x, y).map(v => v.toFixed(1)).join(',');
+      let s = svgOpen(300, 190);
+      s += '<line x1="10" y1="' + py + '" x2="290" y2="' + py + '" stroke="#8894a6" stroke-width="2"/>';
+      const tipped = S.th > crit;
+      const legs = [[0, 0, 0, 0.42], [0.42, 0, 0.42, 0.42], [0, 0.42, 0.46, 0.42], [0, 0.42, -0.02, 0.85]];
+      legs.forEach(l => { s += '<line x1="' + rot(l[0], l[1])[0].toFixed(1) + '" y1="' + rot(l[0], l[1])[1].toFixed(1) + '" x2="' + rot(l[2], l[3])[0].toFixed(1) + '" y2="' + rot(l[2], l[3])[1].toFixed(1) + '" stroke="#8a6f1a" stroke-width="4" stroke-linecap="round"/>'; });
+      /* الجالس مبسّطًا */
+      s += '<polygon points="' + P(0.03, 0.44) + ' ' + P(0.4, 0.44) + ' ' + P(0.4, 0.52) + ' ' + P(0.05, 0.52) + '" fill="#7E97B6"/>';
+      s += '<polygon points="' + P(0.03, 0.5) + ' ' + P(0.14, 0.5) + ' ' + P(0.12, 0.92) + ' ' + P(0.01, 0.92) + '" fill="#7E97B6"/>';
+      const hd = rot(0.07, 1.0);
+      s += '<circle cx="' + hd[0].toFixed(1) + '" cy="' + hd[1].toFixed(1) + '" r="13" fill="#E8C268"/>';
+      /* القاعدة */
+      const b0 = rot(0, 0), b1 = rot(0.42, 0);
+      if (S.th === 0) s += '<line x1="' + b0[0] + '" y1="' + (py + 4) + '" x2="' + b1[0] + '" y2="' + (py + 4) + '" stroke="#2F6B3A" stroke-width="5"/>';
+      else s += '<circle cx="' + b0[0].toFixed(1) + '" cy="' + (py + 3) + '" r="4" fill="#2F6B3A"/>';
+      /* مركز الكتلة وخطّه الرأسي */
+      const c = rot(D, Hh);
+      s += '<line x1="' + c[0].toFixed(1) + '" y1="' + c[1].toFixed(1) + '" x2="' + c[0].toFixed(1) + '" y2="' + py + '" stroke="' + (tipped ? '#B3261E' : '#1F3A5F') + '" stroke-dasharray="4 3" stroke-width="1.6"/>';
+      s += '<circle cx="' + c[0].toFixed(1) + '" cy="' + c[1].toFixed(1) + '" r="6" fill="#fff" stroke="' + (tipped ? '#B3261E' : '#1F3A5F') + '" stroke-width="2.2"/>';
+      s += '</svg>';
+      body.append(el('p', 'shint', 'الدائرة <b>مركز الكتلة</b> ( الجالس والكرسي معًا ) ، والخطّ المتقطّع يسقط منه رأسيًّا ، والأخضر <b>قاعدة الاتّزان</b>.'));
+      body.append(el('div', 'dpw', s));
+      const xoff = D * Math.cos(th) - Hh * Math.sin(th);
+      const box = info();
+      box.row('قاعدة الاتّزان', S.th === 0 ? 'الأرجل الأربع : المسافة بين الأمامية والخلفية' : 'الرجلان الخلفيتان وحدهما — قاعدة <b>ضيّقة جدًّا</b>');
+      box.row('موقع الخطّ الرأسي من مركز الكتلة', xoff >= 0 ? 'أمام نقطة الارتكاز بـ ' + L(Math.round(xoff * 100) + ' cm') : '<b>خلف</b> نقطة الارتكاز بـ ' + L(Math.round(-xoff * 100) + ' cm'));
+      box.row('زاوية الانقلاب لهذا الجالس', L('≈ ' + Math.round(crit) + '°'));
+      body.append(box);
+      if (tipped) body.append(verdict('acwarn', 'ينقلب الكرسي', 'خرج الخطّ الرأسي من مركز الكتلة <b>عن قاعدة الاتّزان</b> ، فلم يعد شيء يُعيد الكرسي ، فيسقط إلى الخلف.'));
+      else if (S.th > 0) body.append(verdict('', 'مستقرّ — لكن على الحافّة', 'ما يزال الخطّ الرأسي داخل القاعدة فيعود الكرسي إذا تُرك ، لكنّ القاعدة صارت نقطة ، وأيّ ميل زائد يُخرجه منها.'));
+      else body.append(verdict('acok', 'مستقرّ', 'مركز الكتلة فوق قاعدة اتّزان عريضة ، والخطّ الرأسي منه يقع داخلها بهامش واسع.'));
+    }
+    mkbar(); draw();
+  }
+
+  window.SIMS.fclass = fclass;
+  window.SIMS.netf = netf;
+  window.SIMS.inertia = inertia;
+  window.SIMS.strobev = h => strobe(h, 'v');
+  window.SIMS.strobea = h => strobe(h, 'a');
+  window.SIMS.law2 = law2;
+  window.SIMS.pairs = pairs;
+  window.SIMS.fall = fall;
+  window.SIMS.skydive = skydive;
+  window.SIMS.spring = h => spring(h, false);
+  window.SIMS.springx = h => spring(h, true);
+  window.SIMS.com = com;
+})();

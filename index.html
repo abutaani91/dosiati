@@ -597,12 +597,12 @@ body.prevmode #bar{box-shadow:inset 0 -3px 0 #E6AB2E}
 /* الحركة والقوى */
 .dpw{display:flex;justify-content:center;margin:.5rem 0}
 .acv{border:2px solid var(--line);border-radius:12px;padding:.55rem .75rem;margin:.5rem 0;background:#fafbfd}
-.acv b{display:block;font-size:1rem;color:var(--navy);margin-bottom:.15rem}
-.acv span{display:block;font-size:.86rem;color:#40506a;line-height:1.7}
+.acv>b{display:block;font-size:1rem;color:var(--navy);margin-bottom:.15rem}
+.acv>span{display:block;font-size:.86rem;color:#40506a;line-height:1.7}
 .acv.acok{border-color:#9ccfae;background:#F4FBF6}
-.acv.acok b{color:#14603f}
+.acv.acok>b{color:#14603f}
 .acv.acwarn{border-color:#E6CE93;background:#FFF9EE}
-.acv.acwarn b{color:#7a5407}
+.acv.acwarn>b{color:#7a5407}
 .mgtr.acon{background:#E8EEF6}
 .mgtr.acon .mgtc{color:var(--navy);font-weight:700}
 .kgax{display:flex;justify-content:space-between;font-size:.74rem;color:#8894a6;margin:.3rem .2rem -.2rem}
@@ -657,6 +657,36 @@ body.prevmode #bar{box-shadow:inset 0 -3px 0 #E6AB2E}
 
 
 
+/* القوى والحركة ( فيزياء التاسع ) */
+.fzcards{display:flex;flex-direction:column;gap:.45rem;margin:.5rem 0}
+.fzcard{border:1px solid var(--line);border-radius:12px;padding:.5rem .6rem;background:#fafbfd}
+.fzcard.fzok{border-color:#9ccfae;background:#F4FBF6}
+.fzcard.fzno{border-color:#E6B4AE;background:#FDF3F2}
+.fzname{font-size:.92rem;color:var(--navy);margin-bottom:.35rem}
+.fzbtns{display:flex;gap:.4rem}
+.fzpick{flex:1;font:inherit;font-size:.84rem;padding:.35rem .4rem;border:1px solid var(--line);border-radius:9px;background:#fff;color:#5b6b80;cursor:pointer}
+.fzpick.fzon{background:var(--navy);border-color:var(--navy);color:#fff}
+.fzwhy{font-size:.8rem;color:#40506a;margin-top:.35rem;line-height:1.6}
+.fzseg{display:flex;flex-wrap:wrap;gap:.4rem;width:100%}
+.fzsb{flex:1 1 6rem;font:inherit;font-size:.84rem;padding:.4rem;border:1px solid var(--line);border-radius:10px;background:#fff;color:#5b6b80;cursor:pointer}
+.fzsb.fzon{background:var(--navy);border-color:var(--navy);color:#fff}
+.fzpgrid{display:grid;grid-template-columns:1fr 1fr;gap:.45rem;margin:.5rem 0}
+.fzpc{border:1px solid var(--line);border-radius:12px;padding:.45rem .5rem;background:#fafbfd;text-align:center;font-size:.8rem;color:#40506a;line-height:1.5}
+.fzpon{font-size:.82rem;color:#5b6b80}
+.fzptx{color:var(--navy);margin:.15rem 0}
+.fzpmeta{font-size:.76rem;color:#8894a6}
+.fzptag{display:inline-block;color:#fff;border-radius:999px;padding:0 .55rem;font-size:.72rem;margin-top:.25rem}
+.fzfw{max-width:260px;margin:.3rem auto}
+.fzfh{display:grid;grid-template-columns:1fr 1fr;direction:ltr;text-align:center;font-size:.84rem;color:var(--navy)}
+.fzsky{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;justify-content:center}
+.fzskyl{font-size:.82rem;color:#40506a;line-height:1.9}
+.fzskyl i{display:inline-block;width:.7rem;height:.7rem;border-radius:2px;margin-inline-end:.35rem;vertical-align:middle}
+.fzbal{border:1px solid var(--line);border-radius:10px;padding:.45rem .6rem;margin:.5rem 0;background:#fafbfd}
+.fzbh{font-size:.78rem;color:#5b6b80;margin-bottom:.3rem}
+.fzbs{position:relative;display:flex;justify-content:space-between;border-top:2px solid #8a6f1a;padding-top:.2rem}
+.fzbt{font-size:.7rem;color:#8a6f1a;width:1ch;text-align:center}
+.fzbt.fzbx{color:#B3261E;opacity:.55}
+.fzbs i{position:absolute;top:-7px;width:2px;height:12px;background:#B3261E;transform:translateX(-1px)}
 </style>
 </head>
 <body>

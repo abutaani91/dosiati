@@ -2,7 +2,7 @@
 const fs=require('fs');
 const A=require('./figassign.js');
 const F=JSON.parse(fs.readFileSync('web/figs.json','utf8'));
-const cap=x=>(x.k?(/^الجدول/.test(x.k)?x.k.replace(/[()]/g,'')+' · ':'الشكل ('+x.k+') · '):'')+'ص '+x.p+' · '+x.t;
+const cap=x=>(x.k?(/^الجدول/.test(x.k)?x.k.replace(/[()]/g,'')+' · ':'الشكل ('+x.k+') · '):'')+'ص '+x.p+(x.a?' ( كتاب الأنشطة )':'')+' · '+x.t;
 let bad=[],nfig=0,nseg=0,nnone=0;
 Object.keys(A).forEach(u=>{
  const p='content/unit_'+u+'.json';

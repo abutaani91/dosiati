@@ -1,6 +1,6 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '24';
-const APP_DATE = '2026/10/10';
+const APP_VER = '25';
+const APP_DATE = '2026/10/11';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
 const $ = s => document.querySelector(s);
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
@@ -1586,11 +1586,18 @@ function ionicSim() {
 
 /* ---------- 3 ) الشرح والأشكال ---------- */
 function stLearn(b, u) {
-  const figs = (xOf(u.id).figs) || [];
+  const DF = dosFigs(u), FI = figsOf(u.id);
+  if (FI.items.length) b.append(figDl(FI));
   u.chapters.forEach(ch => {
     const sec = el('section', 'chap');
     sec.append(el('h1', 'ch', fmt(ch.title)));
-    ch.nodes.forEach(n => { if (n.t === 'examples') return; const x = nodeEl(n); if (x) sec.append(x); });
+    ch.nodes.forEach(n => {
+      if (n.t === 'examples') return;
+      const i = u.body.indexOf(n);
+      if (DF.b[i]) sec.append(figList(DF.b[i]));
+      const x = nodeEl(n); if (x) sec.append(x);
+      if (DF.n[i]) sec.append(figList(DF.n[i]));
+    });
     const r = el('div', 'btns'); r.append(againBtn(u, ch.title.slice(0, 40))); sec.append(r);
     b.append(sec);
   });
@@ -1600,14 +1607,6 @@ function stLearn(b, u) {
     c.append(el('h2', 'lvl', 'بطاقات المصطلحات'), el('p', 'hint', 'اقلب البطاقة لترى التعريف ، ثم انتقل إلى التالية. طريقة سريعة لتثبيت المصطلحات قبل الاختبار.'));
     c.append(flashCards(kc));
     b.append(c);
-  }
-  if (figs.length) {
-    b.append(el('h2', 'lvl', 'أشكال من الكتاب'));
-    figs.forEach(f => {
-      const d = el('div', 'fig');
-      d.innerHTML = `<img src="${f.d}" alt="" loading="lazy"><div class="cap">${esc(f.c)}</div>`;
-      b.append(d);
-    });
   }
   exitCard(b, u, 'learn');
   nextBtn(b, u, 'learn');
@@ -1666,11 +1665,12 @@ function stEx(b, u) {
 }
 
 /* ---------- 5 ) أسئلة : لا حلّ قبل الإجابة ---------- */
-function lockCard(u, id, qtext, answer, tbl) {
+function lockCard(u, id, qtext, answer, tbl, figs) {
   const p = pathP(u);
   const c = el('div', 'card2');
   c.append(el('p', 'qq', fmt(qtext)));
   if (tbl) c.append(nodeEl({ t: 'table', rows: tbl }));
+  if (figs && figs.length) c.append(figList(figs));
   const saved = p.ans[id];
   const ta = el('textarea'); ta.placeholder = 'اكتب إجابتك هنا …';
   if (saved) { ta.value = saved; ta.disabled = true; }
@@ -1699,9 +1699,10 @@ function stQ(b, u) {
   const q = u.questions;
   b.append(el('p', 'hint', 'لا يظهر زرّ « أظهر الحلّ » إلا بعد تثبيت إجابتك ، وبعد التثبيت لا يمكن تغييرها.'));
   let n = 1;
-  [['المستوى ( أ ) : تذكّر وفهم', q.a], ['المستوى ( ب ) : تطبيق', q.b], ['المستوى ( جـ ) : تحليل واستدلال', q.c]].forEach(([t, arr]) => {
+  const DF = dosFigs(u);
+  [['المستوى ( أ ) : تذكّر وفهم', q.a, 'a'], ['المستوى ( ب ) : تطبيق', q.b, 'b'], ['المستوى ( جـ ) : تحليل واستدلال', q.c, 'c']].forEach(([t, arr, lv]) => {
     b.append(el('h2', 'lvl', esc(t)));
-    (arr || []).forEach(item => { b.append(lockCard(u, 'q' + n, `<b>س ${n} )</b> ` + item.q, item.a, item.tbl)); n++; });
+    (arr || []).forEach((item, k) => { b.append(lockCard(u, 'q' + n, `<b>س ${n} )</b> ` + item.q, item.a, item.tbl, DF.q[lv + k])); n++; });
   });
   exitCard(b, u, 'q');
   nextBtn(b, u, 'q');
@@ -2280,12 +2281,11 @@ async function loadFigs() {
 }
 const figsOf = id => FIGS[id] || { t: '', les: [], items: [] };
 const figFind = (id, f) => figsOf(id).items.find(x => x.f === f) || null;
-const figCap = x => (x.k ? 'الشكل (' + x.k + ') · ' : '') + 'ص ' + x.p + ' · ' + x.t;
+const figCap = x => (x.k ? 'الشكل (' + x.k + ') · ' : '') + 'ص ' + x.p + (x.a ? ' ( كتاب الأنشطة )' : '') + ' · ' + x.t;
 
-/* صورة الشكل داخل مقطع الإتقان ، وتُستبدل بسطر نصّي إن لم يُسنَد شكل */
-function figBlock(u, s) {
-  const list = (s.figs || []).map(f => figFind(u.id, f)).filter(Boolean);
-  if (!list.length) return s.fig ? el('div', 'lfig', '🖼️ ' + fmt(s.fig)) : null;
+/* مجموعة أشكال تُعرض في موضعها من الشرح : 1–3 بحجم كامل ، و4 فأكثر في شبكة مصغّرة */
+function figList(list) {
+  if (!list.length) return null;
   /* أربعة أشكال فأكثر تُعرض مصغَّرة في شبكة ، لئلّا يطول المقطع */
   const many = list.length >= 4;
   const d = el('div', many ? 'figgrid' : 'figs' + (list.length > 1 ? ' multi' : ''));
@@ -2302,6 +2302,39 @@ function figBlock(u, s) {
     d.append(fg);
   });
   return d;
+}
+/* شرح المقطع وأشكاله في موضعها : كلّ شكل بعد السطر الذي يتحدّث عنه ( s.figat من figplace.js ) */
+function teachFigs(u, s) {
+  const lines = String(s.teach || '').split('\n').map(x => x.trim()).filter(Boolean);
+  const list = (s.figs || []).map(f => figFind(u.id, f));
+  const after = {};
+  list.forEach((x, k) => {
+    if (!x) return;
+    const at = s.figat && s.figat[k] !== undefined ? Math.min(+s.figat[k], lines.length - 1) : 0;
+    (after[at] = after[at] || []).push(x);
+  });
+  const d = el('div', 'lsum');
+  lines.forEach((l, i) => {
+    d.append(el('p', '', fmt(l)));
+    if (after[i]) d.append(figList(after[i].sort((a, b) => (a.a || 0) - (b.a || 0) || a.p - b.p)));
+  });
+  if (!list.some(Boolean) && s.fig) d.append(el('div', 'lfig', '🖼️ ' + fmt(s.fig)));
+  return d;
+}
+/* أشكال الدوسية مربوطة بعُقَدها ( items[].at في figs.json ) */
+function dosFigs(u) {
+  if (u._df) return u._df;
+  const m = { n: {}, b: {}, q: {} };
+  figsOf(u.id).items.forEach(x => {
+    if (!x.at) return;
+    const p = String(x.at).split(':');
+    const key = p[0] === 'q' ? p[1] + p[2] : p[1];
+    if (!m[p[0]]) return;
+    (m[p[0]][key] = m[p[0]][key] || []).push(x);
+  });
+  Object.values(m).forEach(g => Object.values(g).forEach(a => a.sort((x, y) => (x.a || 0) - (y.a || 0) || x.p - y.p)));
+  u._df = m;
+  return m;
 }
 
 /* تكبير الشكل */
@@ -2345,39 +2378,6 @@ function figDl(F) {
   };
   d.append(b);
   return d;
-}
-
-/* معرض أشكال الوحدة مرتّبًا بحسب الدرس */
-function lrFigs(w, u, L) {
-  const F = figsOf(u.id);
-  w.append(backLink(() => lGo(u)));
-  const h = el('div', 'lrhead');
-  h.innerHTML = '<strong>أشكال الكتاب</strong><span>' + F.items.length + ' شكلًا · ' + esc(F.t || u.meta.title || '') + '</span>' +
-    '<span class="sm">هذه أشكال كتابك نفسه ، مرتّبة بحسب الدرس ثمّ الصفحة . انقر أيّ شكل لتكبيره وقراءة وصفه.</span>';
-  w.append(h);
-  if (!F.items.length) { w.append(el('p', 'hint', 'لم تُجهَّز أشكال هذه الوحدة بعد.')); return; }
-  w.append(figDl(F));
-  /* كتاب الطالب أوّلًا ثمّ كتاب الأنشطة ، لأنّ ترقيم صفحات الكتابين مستقلّ */
-  [0, 1].forEach(act => {
-    const part = F.items.filter(x => (x.a ? 1 : 0) === act);
-    if (!part.length) return;
-    if (act) w.append(el('div', 'figsep', 'أشكال كتاب الأنشطة'));
-    const byL = {};
-    part.forEach(x => { (byL[x.l] = byL[x.l] || []).push(x); });
-    Object.keys(byL).sort((a, b) => byL[a][0].p - byL[b][0].p).forEach(k => {
-      w.append(el('h3', 'lsec', fmt(F.les[k] || 'عامّ')));
-      const g = el('div', 'figgrid');
-      byL[k].forEach(x => {
-        const c = el('figure', 'figt' + (x.a ? ' act' : ''));
-        const im = el('img'); im.src = 'fig/' + x.f; im.alt = x.d || x.t; im.loading = 'lazy'; im.decoding = 'async';
-        im.onerror = () => { c.classList.add('miss'); im.replaceWith(el('div', 'figmiss', 'الصورة غير متاحة')); };
-        c.append(im, el('figcaption', '', fmt((x.k ? '(' + x.k + ') ' : '') + x.t) + '<span>ص ' + x.p + (x.a ? ' · أنشطة' : '') + '</span>'));
-        c.onclick = () => figZoom(x);
-        g.append(c);
-      });
-      w.append(g);
-    });
-  });
 }
 
 const ftxtP = t => String(t || '').split('\n').map(x => x.trim()).filter(Boolean).map(x => '<p>' + fmt(x) + '</p>').join('');
@@ -2427,7 +2427,6 @@ function stLrn(b, u) {
   else if (a[0] === 'seg') lrSeg(w, u, L, a[1], false);
   else if (a[0] === 'p' && a[1]) lrSeg(w, u, L, a[1], true);
   else if (a[0] === 'p') lrPath(w, u, L);
-  else if (a[0] === 'figs') lrFigs(w, u, L);
   else if (a[0] === 'rev') lrReview(w, u, L);
   else if (a[0] === 'test') lrTest(w, u, L);
   else if (a[0] === 'res') lrRes(w, u, L);
@@ -2459,8 +2458,6 @@ function lrHome(w, u, L) {
   mk('أُحضّر لحصّة قادمة', 'النتاجات والشرح والمحاكاة قبل الحصّة', 'بلا شرط إتقان', 'nogate', () => lGo(u, 'les', 'prep'));
   mk('أُراجع', 'فقرات على النتاجات التي لم تُتقنها فقط', 'يُغلق بالإتقان', 'gate', () => lGo(u, 'rev'));
   mk('أتعلّم الوحدة وحدي من الصفر', done ? ('وصلتَ إلى المقطع ' + (cur || L.segments.length) + ' من ' + L.segments.length) : (L.segments.length + ' مقاطع متتابعة ، لا يُفتح مقطع إلّا بإتقان ما قبله'), 'مسار مُقفل', 'gate', () => lGo(u, 'p'));
-  const nf = figsOf(u.id).items.length;
-  if (nf) mk('أرجع إلى أشكال الكتاب', nf + ' شكلًا من كتابك مرتّبة بحسب الدرس والصفحة', 'للمراجعة', 'nogate', () => lGo(u, 'figs'));
   w.append(g);
 
   const tc = el('div', 'box mint');
@@ -2551,8 +2548,7 @@ function lrSeg(w, u, L, i, path) {
   w.append(hd);
 
   w.append(el('h3', 'lsec', 'الشرح'));
-  w.append(el('div', 'lsum', ftxtP(s.teach)));
-  const fb = figBlock(u, s); if (fb) w.append(fb);
+  w.append(teachFigs(u, s));
 
   if (s.sim && window.SIMS && SIMS[s.sim]) {
     w.append(el('h3', 'lsec', 'محاكاة تفاعلية'));
