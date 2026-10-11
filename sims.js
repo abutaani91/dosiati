@@ -3863,3 +3863,421 @@
   window.SIMS.springx = h => spring(h, true);
   window.SIMS.com = com;
 })();
+
+/* ===== محاكاة الحموض والقواعد والأملاح ( كيمياء التاسع — الوحدة الثانية ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const L = s => '<span class="ltr">' + s + '</span>';
+  const sel = (lab, val, opts, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const s = document.createElement('select');
+    opts.forEach(o => { const p = document.createElement('option'); p.value = o[0]; p.textContent = o[1]; if (String(o[0]) === String(val)) p.selected = true; s.append(p); });
+    s.onchange = () => fn(s.value); w.append(s); return w;
+  };
+  const sld = (lab, val, lo, hi, step, fn) => {
+    const w = el('label', 'sf'); const sp = el('span', '', lab); w.append(sp);
+    const r = document.createElement('input'); r.type = 'range'; r.min = lo; r.max = hi; r.step = step; r.value = val;
+    r.oninput = () => fn(+r.value, sp); w.append(r); return w;
+  };
+  const info = () => { const b = el('div', 'cyinfo'); b.row = (k, v) => b.append(el('div', 'cyrow', '<span class="cyk">' + k + '</span><span class="cyv">' + v + '</span>')); return b; };
+  const verdict = (cls, b, s) => el('div', 'acv' + (cls ? ' ' + cls : ''), '<b>' + b + '</b><span>' + s + '</span>');
+  const SUP = { '0': '⁰', '1': '¹', '2': '²', '3': '³', '+': '⁺', '-': '⁻' };
+  const SUB = { '0': '₀', '1': '₁', '2': '₂', '3': '₃', '4': '₄', '5': '₅', '6': '₆' };
+  const sub = n => String(n).split('').map(c => SUB[c]).join('');
+  const chg = q => (Math.abs(q) > 1 ? SUP[Math.abs(q)] : '') + (q > 0 ? '⁺' : '⁻');
+  const ion = (s, q) => s + chg(q);
+  const coef = n => (n > 1 ? n : '');
+  const sgn = q => (q > 0 ? '+' + q : '−' + Math.abs(q));
+
+  /* ---------------- 1 · التأيّن ---------------- */
+  const SUBS = {
+    HCl: { t: 'a', s: 1, n: 'حمض الهيدروكلوريك', ions: [['H', 1, 1], ['Cl', 1, -1]] },
+    HNO3: { t: 'a', s: 1, f: 'HNO₃', n: 'حمض النيتريك', ions: [['H', 1, 1], ['NO₃', 1, -1]] },
+    H2SO4: { t: 'a', s: 1, f: 'H₂SO₄', n: 'حمض الكبريتيك', ions: [['H', 2, 1], ['SO₄', 1, -2]] },
+    CH3COOH: { t: 'a', s: 0, f: 'CH₃COOH', n: 'حمض الإيثانويك', ions: [['H', 1, 1], ['CH₃COO', 1, -1]] },
+    HF: { t: 'a', s: 0, n: 'حمض الهيدروفلوريك', ions: [['H', 1, 1], ['F', 1, -1]] },
+    NaOH: { t: 'b', s: 1, n: 'هيدروكسيد الصوديوم', ions: [['Na', 1, 1], ['OH', 1, -1]] },
+    KOH: { t: 'b', s: 1, n: 'هيدروكسيد البوتاسيوم', ions: [['K', 1, 1], ['OH', 1, -1]] },
+    CaOH2: { t: 'b', s: 1, f: 'Ca(OH)₂', n: 'هيدروكسيد الكالسيوم', ions: [['Ca', 1, 2], ['OH', 2, -1]] },
+    BaOH2: { t: 'b', s: 1, f: 'Ba(OH)₂', n: 'هيدروكسيد الباريوم', ions: [['Ba', 1, 2], ['OH', 2, -1]] },
+    NH3: { t: 'b', s: 0, f: 'NH₃', n: 'الأمونيا', ions: [['NH₄', 1, 1], ['OH', 1, -1]], water: true },
+    CO2: { t: 'ox', s: 0, f: 'CO₂', n: 'ثاني أكسيد الكربون' },
+    CH4: { t: 'no', f: 'CH₄', n: 'الميثان' }
+  };
+  function ionize(host, def) {
+    host.innerHTML = '';
+    const S = { k: def || 'HCl' };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sel('المادّة', S.k, Object.keys(SUBS).map(k => [k, (SUBS[k].f || k) + ' — ' + SUBS[k].n]), v => { S.k = v; draw(); }));
+    function draw() {
+      body.innerHTML = '';
+      const X = SUBS[S.k], F = X.f || S.k;
+      if (X.t === 'no') {
+        body.append(el('div', 'abeq', L(F + ' + H₂O → لا أيونات')));
+        body.append(verdict('acwarn', 'ليس حمضًا ولا قاعدة', 'في ' + L('CH₄') + ' أربع ذرّات هيدروجين ، لكنّه <b>لا يُنتج أيّ أيونات</b> في الماء ، فلا يُنتج ' + L('H⁺') + ' . المعيار ما تُنتجه المادّة في الماء ، لا ما في صيغتها.'));
+        return;
+      }
+      if (X.t === 'ox') {
+        body.append(el('div', 'abeq', L('CO₂ + H₂O ⇌ H₂CO₃')));
+        body.append(el('div', 'abeq', L('H₂CO₃ ⇌ H⁺ + HCO₃⁻')));
+        body.append(chips([['H', 1, 1], ['HCO₃', 1, -1]]));
+        body.append(verdict('acok', 'محلوله حمضيّ — مع أنّه بلا هيدروجين', L('CO₂') + ' أكسيد حمضيّ : يذوب في الماء مكوّنًا حمض الكربونيك ، وهذا يتأيّن فيُنتج ' + L('H⁺') + ' . والسهمان المتعاكسان لأنّ التأيّن جزئيّ.'));
+        return;
+      }
+      const arrow = X.s ? '→' : '⇌';
+      const rhs = X.ions.map(i => coef(i[1]) + ion(i[0], i[2])).join(' + ');
+      body.append(el('div', 'abeq', L((X.water ? F + ' + H₂O ' : F + ' ') + arrow + ' ' + rhs)));
+      body.append(chips(X.ions));
+      const box = info();
+      box.row('مجموع الشحنات', L(X.ions.map(i => (i[1] > 1 ? i[1] + ' × ' : '') + '(' + sgn(i[2]) + ')').join(' + ') + ' = ' + X.ions.reduce((a, i) => a + i[1] * i[2], 0)) + ' ✔');
+      box.row('نوع السهم', X.s ? 'سهم واحد ← <b>تأيّن كلّيّ</b>' : 'سهمان متعاكسان ← <b>تأيّن جزئيّ</b>');
+      box.row('الأيون المسؤول عن الخصائص', X.t === 'a' ? L('H⁺') + ' ← خصائص <b>حمضية</b>' : L('OH⁻') + ' ← خصائص <b>قاعدية</b>');
+      body.append(box);
+      const many = X.ions.find(i => i[1] > 1);
+      let msg = X.t === 'a' ? 'يُنتج ' + L('H⁺') + ' في الماء ، فهو <b>حمض</b>' : 'يُنتج ' + L('OH⁻') + ' في الماء ، فهو <b>قاعدة</b>';
+      msg += X.s ? ' <b>قويّ</b> التأيّن.' : ' <b>ضعيف</b> التأيّن.';
+      if (many) msg += ' والمعامل ' + L(String(many[1])) + ' أمام ' + L(ion(many[0], many[2])) + ' لأنّ في الصيغة ' + L(String(many[1])) + ' منه — لا يُكتب داخل الأيون.';
+      if (S.k === 'NH3') msg += ' ولا هيدروكسيد في صيغة الأمونيا ، لكنّها تتفاعل مع الماء فتُنتجه.';
+      body.append(verdict('acok', X.t === 'a' ? 'حمض' : 'قاعدة', msg));
+    }
+    function chips(ions) {
+      const w = el('div', 'abchips');
+      ions.forEach(i => { for (let k = 0; k < i[1]; k++) w.append(el('span', 'abchip ' + (i[2] > 0 ? 'abpos' : 'abneg'), L(ion(i[0], i[2])))); });
+      return w;
+    }
+    draw();
+  }
+
+  /* ---------------- 2 · مختبر الخصائص ---------------- */
+  const SOL = {
+    HCl: { n: 'حمض الهيدروكلوريك ' + 'HCl', k: 'a', st: 1 },
+    vin: { n: 'الخلّ ( حمض الإيثانويك )', k: 'a', st: 0 },
+    NaOH: { n: 'هيدروكسيد الصوديوم NaOH', k: 'b', st: 1 },
+    NaCl: { n: 'محلول ملح الطعام NaCl', k: 'n', st: 1 },
+    sug: { n: 'محلول السكّر', k: 'n', st: -1 }
+  };
+  const TESTS = [
+    ['blue', 'ورقة تبّاع الشمس الزرقاء'], ['red', 'ورقة تبّاع الشمس الحمراء'], ['php', 'الفينولفثالين'],
+    ['btb', 'البروموثايمول الأزرق'], ['cond', 'توصيل التيار'], ['mg', 'شريط مغنيسيوم']
+  ];
+  function result(k, t) {
+    const X = SOL[k];
+    if (t === 'blue') return X.k === 'a' ? ['تحوّلت إلى <b>الأحمر</b>', '#C0392B'] : ['بقيت <b>زرقاء</b>', '#2E6DB4'];
+    if (t === 'red') return X.k === 'b' ? ['تحوّلت إلى <b>الأزرق</b>', '#2E6DB4'] : ['بقيت <b>حمراء</b>', '#C0392B'];
+    if (t === 'php') return X.k === 'b' ? ['صار <b>زهريًّا</b>', '#E06C9F'] : ['بقي <b>عديم اللون</b>', '#d9dee6'];
+    if (t === 'btb') return X.k === 'a' ? ['صار <b>أصفر</b>', '#E3C21C'] : X.k === 'b' ? ['صار <b>أزرق</b>', '#2E6DB4'] : ['صار <b>أخضر</b> ( بين اللونين )', '#3E9E5A'];
+    if (t === 'cond') return X.st === 1 ? ['المصباح <b>يُضيء بشدّة</b>', '#F2C230'] : X.st === 0 ? ['المصباح <b>يُضيء خافتًا</b>', '#E9DFA8'] : ['المصباح <b>لا يُضيء</b>', '#c3ccd8'];
+    if (t === 'mg') return X.k === 'a' ? [X.st ? '<b>فقاعات كثيرة سريعة</b>' : '<b>فقاعات قليلة بطيئة</b>', '#9AC4E8'] : ['<b>لا تفاعل</b>', '#c3ccd8'];
+  }
+  function props(host) {
+    host.innerHTML = '';
+    const S = { k: 'HCl', done: {} };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(sel('المحلول', S.k, Object.keys(SOL).map(k => [k, SOL[k].n]), v => { S.k = v; S.done = {}; mkbar(); draw(); }));
+      const r = el('div', 'abtests');
+      TESTS.forEach(t => { const b = el('button', 'abtb' + (S.done[t[0]] ? ' abon' : ''), t[1]); b.onclick = () => { S.done[t[0]] = 1; mkbar(); draw(); }; r.append(b); });
+      bar.append(r);
+      bar.append(btn('أجرِ كلّ الاختبارات', 'gh', () => { TESTS.forEach(t => S.done[t[0]] = 1); mkbar(); draw(); }));
+    }
+    function draw() {
+      body.innerHTML = '';
+      const ks = TESTS.filter(t => S.done[t[0]]);
+      if (!ks.length) { body.append(el('p', 'shint', 'اختر اختبارًا أو أكثر ، وسجّل المشاهدة قبل أن تحكم.')); return; }
+      const tb = el('div', 'abres');
+      ks.forEach(t => { const r = result(S.k, t[0]); tb.append(el('div', 'abrr', '<i style="background:' + r[1] + '"></i><span>' + t[1] + '</span><b>' + r[0] + '</b>')); });
+      body.append(tb);
+      const X = SOL[S.k];
+      const have = k => !!S.done[k];
+      const decisive = have('blue') || have('php') || have('btb') || (have('red') && X.k === 'b') || (have('mg') && X.k === 'a');
+      if (!decisive) {
+        body.append(el('div', 'sl note', (have('cond') ? 'توصيل التيار <b>لا يُميّز</b> الحمض من القاعدة ؛ كلاهما يوصل . ' : '') + (have('red') ? 'بقاء الورقة الحمراء حمراء يعني « ليس قاعديًّا » فقط ، فقد يكون حمضيًّا أو متعادلًا . ' : '') + 'أجرِ اختبارًا آخر حاسمًا.'));
+        return;
+      }
+      const name = X.k === 'a' ? 'حمضيّ' : X.k === 'b' ? 'قاعديّ' : 'متعادل';
+      let why = X.k === 'a' ? 'يحتوي على أيونات ' + L('H⁺') : X.k === 'b' ? 'يحتوي على أيونات ' + L('OH⁻') : 'لا تغلب فيه أيونات ' + L('H⁺') + ' ولا ' + L('OH⁻');
+      if (have('cond')) why += X.st === 1 ? ' ، وأيوناته الحرّة كثيرة فيوصل جيّدًا' : X.st === 0 ? ' ، وأيوناته قليلة فيوصل ضعيفًا ( حمض ضعيف )' : ' ، ولا أيونات فيه فلا يوصل';
+      body.append(verdict(X.k === 'n' ? '' : 'acok', 'المحلول ' + name, why + '.'));
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 3 · الأكاسيد ---------------- */
+  const OX = {
+    CO2: { f: 'CO₂', e: 'الكربون', m: 0, eq: 'CO₂ + H₂O ⇌ H₂CO₃' },
+    SO2: { f: 'SO₂', e: 'الكبريت', m: 0, eq: 'SO₂ + H₂O ⇌ H₂SO₃' },
+    NO2: { f: 'NO₂', e: 'النيتروجين', m: 0, eq: '' },
+    Na2O: { f: 'Na₂O', e: 'الصوديوم ( IA )', m: 1, sol: 1, eq: 'Na₂O + H₂O → 2NaOH' },
+    K2O: { f: 'K₂O', e: 'البوتاسيوم ( IA )', m: 1, sol: 1, eq: 'K₂O + H₂O → 2KOH' },
+    CaO: { f: 'CaO', e: 'الكالسيوم ( IIA )', m: 1, sol: 1, eq: 'CaO + H₂O → Ca(OH)₂' },
+    BaO: { f: 'BaO', e: 'الباريوم ( IIA )', m: 1, sol: 1, eq: 'BaO + H₂O → Ba(OH)₂' },
+    CuO: { f: 'CuO', e: 'النحاس', m: 1, sol: 0, eq: 'CuO + 2HCl → CuCl₂ + H₂O' }
+  };
+  function oxides(host) {
+    host.innerHTML = '';
+    const S = { k: 'CO2' };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    const g = el('div', 'abox');
+    Object.keys(OX).forEach(k => { const b = el('button', 'abob', L(OX[k].f)); b.onclick = () => { S.k = k; draw(); }; b.dataset.k = k; g.append(b); });
+    bar.append(g);
+    function draw() {
+      g.querySelectorAll('.abob').forEach(b => b.classList.toggle('abon', b.dataset.k === S.k));
+      body.innerHTML = '';
+      const X = OX[S.k];
+      const steps = el('div', 'absteps');
+      steps.append(el('div', 'abst', '<i>1</i><span>العنصر مع الأكسجين : <b>' + X.e + '</b> — ' + (X.m ? '<b>فلزّ</b>' : '<b>لافلزّ</b>') + '</span>'));
+      steps.append(el('div', 'abst', '<i>2</i><span>نوع الأكسيد : ' + (X.m ? '<b>قاعديّ</b>' : '<b>حمضيّ</b>') + '</span>'));
+      if (X.m) steps.append(el('div', 'abst', '<i>3</i><span>هل يذوب في الماء ؟ ' + (X.sol ? '<b>نعم</b> ← <b>قلويّ</b>' : '<b>لا</b> ← قاعديّ <b>غير قلويّ</b>') + '</span>'));
+      body.append(steps);
+      if (X.eq) body.append(el('div', 'abeq', L(X.eq)));
+      let msg;
+      if (!X.m) msg = 'أكسيد حمضيّ : يذوب في الماء مكوّنًا <b>حمضًا</b> ، فيصير المحلول حمضيًّا' + (S.k === 'NO2' ? ' . ( معادلته خارج الكتاب ، والمهمّ أنّه من أسباب المطر الحمضي. )' : '.');
+      else if (X.sol) msg = 'أكسيد قاعديّ ذائب : يكوّن هيدروكسيد الفلزّ الذي يتأيّن منتجًا ' + L('OH⁻') + ' ، فهو <b>قلويّ</b>.';
+      else msg = 'أكسيد قاعديّ <b>لا يذوب</b> في الماء ، فليس قلويًّا ، لكنّه يتفاعل مع الحموض منتجًا <b>ملحًا وماءً</b> — وهذا ما يجعله قاعديًّا.';
+      body.append(verdict(X.m ? 'acok' : 'acwarn', X.m ? (X.sol ? 'قاعديّ وقلويّ' : 'قاعديّ غير قلويّ') : 'أكسيد حمضيّ', msg));
+    }
+    draw();
+  }
+
+  /* ---------------- 4 · قوّة الحمض والقاعدة ---------------- */
+  const PAIR = {
+    a1: { n: 'HCl و CH₃COOH', A: ['HCl', 'H', 'Cl'], B: ['CH₃COOH', 'H', 'CH₃COO'], acid: 1, metal: 'الخارصين' },
+    a2: { n: 'HNO₃ و HF', A: ['HNO₃', 'H', 'NO₃'], B: ['HF', 'H', 'F'], acid: 1, metal: 'الخارصين' },
+    b1: { n: 'KOH و NH₃', A: ['KOH', 'K', 'OH'], B: ['NH₃', 'NH₄', 'OH'], acid: 0 }
+  };
+  function beaker(strong, A, acid) {
+    let s = '<svg viewBox="0 0 120 120" width="120" height="120" aria-hidden="true">';
+    s += '<path d="M14 10 V104 Q14 114 24 114 H96 Q106 114 106 104 V10" fill="#EAF3FB" stroke="#5b6b80" stroke-width="2"/>';
+    let seed = 7; const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    for (let i = 0; i < 10; i++) {
+      const x = 26 + (i % 4) * 22 + rnd() * 6, y = 28 + Math.floor(i / 4) * 26 + rnd() * 8;
+      const ionized = strong || i === 0;
+      if (ionized) {
+        s += '<circle cx="' + x.toFixed(1) + '" cy="' + y.toFixed(1) + '" r="5" fill="' + (acid ? '#C0392B' : '#E07B39') + '"/>';
+        s += '<circle cx="' + (x + 9).toFixed(1) + '" cy="' + (y + 9).toFixed(1) + '" r="5" fill="#2E6DB4"/>';
+      } else {
+        s += '<ellipse cx="' + (x + 4).toFixed(1) + '" cy="' + (y + 4).toFixed(1) + '" rx="10" ry="6" fill="#9aa6b8" stroke="#5b6b80"/>';
+      }
+    }
+    return s + '</svg>';
+  }
+  function strength(host) {
+    host.innerHTML = '';
+    const S = { k: 'a1' };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sel('المحلولان ( متساويا التركيز )', S.k, Object.keys(PAIR).map(k => [k, PAIR[k].n]), v => { S.k = v; draw(); }));
+    function draw() {
+      body.innerHTML = '';
+      const P = PAIR[S.k];
+      const g = el('div', 'abpair');
+      [[P.A, 1], [P.B, 0]].forEach(([X, st]) => {
+        const c = el('div', 'abcard');
+        c.append(el('div', 'abct', L(X[0]) + ' — ' + (st ? '<b>قويّ</b>' : '<b>ضعيف</b>')));
+        c.append(el('div', 'dpw', beaker(st, X, P.acid)));
+        const pos = ion(X[1], 1), neg = ion(X[2], -1);
+        const eq = (X[0] === 'NH₃' ? 'NH₃ + H₂O ⇌ ' : X[0] + (st ? ' → ' : ' ⇌ ')) + pos + ' + ' + neg;
+        c.append(el('div', 'abeq abeqs', L(eq)));
+        c.append(el('div', 'abbulb', '<i style="opacity:' + (st ? 1 : 0.3) + '"></i>' + (st ? 'يُضيء بشدّة' : 'يُضيء خافتًا')));
+        if (P.acid) c.append(el('div', 'abrate', '<span>سرعة التفاعل مع ' + P.metal + '</span><b style="width:' + (st ? 92 : 28) + '%"></b>'));
+        g.append(c);
+      });
+      body.append(g);
+      body.append(el('p', 'shint', 'الدوائر المنفصلة أيونات ، والأشكال البيضاوية الرمادية جزيئات لم تتأيّن . ( النسبة في الضعيف مرسومة للتوضيح ، وهي في الواقع أصغر. )'));
+      const box = info();
+      box.row('التوصيل الكهربائي', L(P.A[0]) + ' أكبر ، لأنّ أيوناته الحرّة أكثر');
+      if (P.acid) box.row('سرعة التفاعل مع الفلزّ', L(P.A[0]) + ' أسرع ، أي يستغرق زمنًا أقلّ');
+      box.row('الرقم الهيدروجيني', P.acid ? L(P.A[0]) + ' قيمته <b>أقلّ</b> ( الأقوى حمضًا أقلّ pH )' : L(P.A[0]) + ' قيمته <b>أكبر</b> ( الأقوى قاعدةً أكبر pH )');
+      body.append(box);
+      body.append(verdict('acok', 'القوّة = درجة التأيّن', 'القويّ يتأيّن <b>كلّيًّا</b> فمحلوله أيونات فقط ، والضعيف <b>جزئيًّا</b> فيبقى فيه جزيئات . والمقارنة صحيحة لأنّ التركيز متساوٍ ؛ ولو اختلف التركيز لما صحّت.'));
+    }
+    draw();
+  }
+
+  /* ---------------- 5 · تدريج pH والكواشف ---------------- */
+  const PHI = ['حمض بطارية السيارة', 'حمض المعدة', 'الخلّ', 'عصير البرتقال', 'البندورة', 'القهوة', 'الحليب', 'الماء النقيّ', 'ماء البحر', 'مسحوق الخبز', 'مضادّ الحموضة', 'محلول الأمونيا', 'الصابون السائل', 'مبيّض الغسيل', 'منظّف المصارف'];
+  const PHC = ['#D7263D', '#E4472B', '#EE7A21', '#F4A51C', '#F2CB1D', '#B6CF2B', '#6DBE45', '#2FA84F', '#1E9C8F', '#1E7FB8', '#2457A6', '#3B3F9A', '#55358E', '#6A2C86', '#7B2378'];
+  function phscale(host, mode) {
+    host.innerHTML = '';
+    const S = { p: mode === 'ind' ? 3 : 7 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    const r = el('div', 'srow');
+    r.append(sld('الرقم الهيدروجيني : ' + L('pH = ' + S.p), S.p, 0, 14, 1, (v, sp) => { S.p = v; sp.innerHTML = 'الرقم الهيدروجيني : ' + L('pH = ' + v); draw(); }));
+    bar.append(r);
+    function draw() {
+      body.innerHTML = '';
+      const p = S.p;
+      const sc = el('div', 'abph');
+      PHC.forEach((c, i) => { const b = el('span', 'abphc' + (i === p ? ' abon' : ''), String(i)); b.style.background = c; b.onclick = () => { S.p = i; const inp = bar.querySelector('input'); inp.value = i; inp.dispatchEvent(new Event('input')); }; sc.append(b); });
+      body.append(sc);
+      body.append(el('div', 'abphl', '<span>تزداد الحموضة ←</span><span>متعادل</span><span>→ تزداد القاعدية</span>'));
+      const type = p < 7 ? 'حمضيّ' : p > 7 ? 'قاعديّ' : 'متعادل';
+      const box = info();
+      box.row('مثال من الشكل ( 8 )', '<b>' + PHI[p] + '</b>');
+      box.row('نوع المحلول', '<b>' + type + '</b>' + (p < 7 ? ' — البُعد عن 7 : ' + L(String(7 - p)) : p > 7 ? ' — البُعد عن 7 : ' + L(String(p - 7)) : ''));
+      box.row('الأيون الغالب', p < 7 ? L('H⁺') + ' ، ويزداد تركيزه كلّما اقتربنا من 0' : p > 7 ? L('OH⁻') + ' ، ويزداد تركيزه كلّما اقتربنا من 14' : 'لا يغلب أحدهما');
+      body.append(box);
+      const ind = [
+        ['تبّاع الشمس الزرقاء', p < 7 ? ['أحمر', '#C0392B'] : ['أزرق', '#2E6DB4']],
+        ['تبّاع الشمس الحمراء', p > 7 ? ['أزرق', '#2E6DB4'] : ['أحمر', '#C0392B']],
+        ['الفينولفثالين', p > 8 ? ['زهريّ', '#E06C9F'] : p === 8 ? ['زهريّ خفيف جدًّا', '#F4C6D9'] : ['عديم اللون', '#e6e9ee']],
+        ['البروموثايمول الأزرق', p < 6 ? ['أصفر', '#E3C21C'] : p > 7 ? ['أزرق', '#2E6DB4'] : ['أخضر ( بين اللونين )', '#3E9E5A']],
+        ['الكاشف العام', ['يُقارَن بدليل الألوان ← ' + p, PHC[p]]]
+      ];
+      const t = el('div', 'abres' + (mode === 'ind' ? ' abresx' : ''));
+      ind.forEach(x => t.append(el('div', 'abrr', '<i style="background:' + x[1][1] + '"></i><span>' + x[0] + '</span><b>' + x[1][0] + '</b>')));
+      body.append(t);
+      if (mode === 'ind') body.append(el('div', 'sl note', 'لاحظ : الكواشف الأربعة الأولى تُخبرك بـ<b>النوع</b> فقط ، فلا تُفرّق بين ' + L('pH = 2') + ' و ' + L('pH = 5') + ' ، أمّا الكاشف العام فيعطي <b>قيمة</b> تقديرية ، ومقياس pH يعطيها بدقّة.'));
+      else body.append(verdict(p === 7 ? '' : 'acok', 'محلول ' + type, p < 7 ? 'كلّما <b>قلّت</b> القيمة زادت الحموضة ، فالحمض الأقوى قيمته أقلّ ( عند تساوي التركيز ).' : p > 7 ? 'كلّما <b>زادت</b> القيمة زادت القاعدية ، فالقاعدة الأقوى قيمتها أكبر ( عند تساوي التركيز ).' : 'ليس حمضيًّا ولا قاعديًّا ، كالماء النقيّ.'));
+    }
+    draw();
+  }
+
+  /* ---------------- 6 · التعادل ---------------- */
+  function neutral(host) {
+    host.innerHTML = '';
+    const S = { acid: 'HCl', add: 0 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function mkbar() {
+      bar.innerHTML = '';
+      bar.append(sel('الحمض في الكأس', S.acid, [['HCl', 'HCl — 10 أيونات H⁺'], ['H2SO4', 'H₂SO₄ — 10 أيونات H⁺']], v => { S.acid = v; S.add = 0; mkbar(); draw(); }));
+      const r = el('div', 'srow');
+      r.append(sld('أيونات OH⁻ المضافة من NaOH : ' + L(String(S.add)), S.add, 0, 16, 1, (v, sp) => { S.add = v; sp.innerHTML = 'أيونات OH⁻ المضافة من NaOH : ' + L(String(v)); draw(); }));
+      bar.append(r);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const H0 = 10, oh = S.add, w = Math.min(H0, oh), H = H0 - w, OH = oh - w;
+      const anion = S.acid === 'HCl' ? ['Cl⁻', 10] : ['SO₄²⁻', 5];
+      const cnt = [['H⁺', H, '#C0392B'], ['OH⁻', OH, '#2E6DB4'], ['Na⁺', oh, '#E07B39'], [anion[0], anion[1], '#7a5407'], ['H₂O', w, '#7E97B6']];
+      const g = el('div', 'abcnt');
+      cnt.forEach(c => g.append(el('div', 'abcn', '<b style="color:' + c[2] + '">' + c[1] + '</b><span>' + L(c[0]) + '</span>')));
+      body.append(g);
+      const state = H > 0 ? 'a' : OH > 0 ? 'b' : 'n';
+      const box = info();
+      box.row('ما حدث', L(w + ' H⁺ + ' + w + ' OH⁻ → ' + w + ' H₂O'));
+      box.row('المحلول الآن', state === 'a' ? '<b>حمضيّ</b> — بقي ' + L(H + ' H⁺') : state === 'b' ? '<b>قاعديّ</b> — زاد ' + L(OH + ' OH⁻') : '<b>متعادل</b> — ' + L('pH = 7'));
+      box.row('الفينولفثالين', state === 'b' ? '<b>زهريّ</b>' : '<b>عديم اللون</b>');
+      body.append(box);
+      if (state === 'n') {
+        const eq = S.acid === 'HCl' ? 'HCl + NaOH → NaCl + H₂O' : 'H₂SO₄ + 2NaOH → Na₂SO₄ + 2H₂O';
+        body.append(el('div', 'abeq', L(eq)));
+        body.append(verdict('acok', 'اكتمل التعادل', 'كلّ ' + L('H⁺') + ' وجد ' + L('OH⁻') + ' فكوّنا الماء : ' + L('H⁺ + OH⁻ → H₂O') + ' . وبقي ' + L('Na⁺') + ' و ' + L(anion[0]) + ' في المحلول — هذا هو <b>الملح</b> ( ' + (S.acid === 'HCl' ? 'كلوريد الصوديوم' : 'كبريتات الصوديوم') + ' ). ' + (S.acid === 'H2SO4' ? 'ولاحظ أنّ جزيء الحمض الواحد يحتاج جزيئَي NaOH.' : '')));
+      } else body.append(el('p', 'shint', state === 'a' ? 'أضف هيدروكسيدًا حتى يختفي آخر ' + L('H⁺') + ' .' : 'تجاوزتَ نقطة التعادل : الزائد ' + L('OH⁻') + ' جعل المحلول قاعديًّا وحوّل الفينولفثالين إلى الزهريّ.'));
+    }
+    mkbar(); draw();
+  }
+
+  /* ---------------- 7 · بناء الملح وتصنيفه ---------------- */
+  const ACID = {
+    HCl: { f: 'HCl', a: 'Cl', q: -1, an: 'كلوريد', s: 1, poly: 0 },
+    HNO3: { f: 'HNO₃', a: 'NO₃', q: -1, an: 'نترات', s: 1, poly: 1 },
+    H2SO4: { f: 'H₂SO₄', a: 'SO₄', q: -2, an: 'كبريتات', s: 1, poly: 1 },
+    H3PO4: { f: 'H₃PO₄', a: 'PO₄', q: -3, an: 'فوسفات', s: 0, poly: 1 },
+    CH3COOH: { f: 'CH₃COOH', a: 'CH₃COO', q: -1, an: 'إيثانوات', s: 0, poly: 1 }
+  };
+  const BASE = {
+    NaOH: { f: 'NaOH', c: 'Na', q: 1, cn: 'الصوديوم', s: 1 },
+    KOH: { f: 'KOH', c: 'K', q: 1, cn: 'البوتاسيوم', s: 1 },
+    LiOH: { f: 'LiOH', c: 'Li', q: 1, cn: 'الليثيوم', s: 1 },
+    CaOH2: { f: 'Ca(OH)₂', c: 'Ca', q: 2, cn: 'الكالسيوم', s: 1 },
+    BaOH2: { f: 'Ba(OH)₂', c: 'Ba', q: 2, cn: 'الباريوم', s: 1 },
+    NH3: { f: 'NH₃', c: 'NH₄', q: 1, cn: 'الأمونيوم', s: 0, nh3: 1 }
+  };
+  const gcd = (a, b) => (b ? gcd(b, a % b) : a);
+  function saltOf(A, Bs) {
+    const qa = -A.q, qb = Bs.q, g = gcd(qa, qb);
+    const nc = qa / g, na = qb / g;
+    const cat = Bs.c === 'NH₄' && nc > 1 ? '(NH₄)' + sub(nc) : Bs.c + (nc > 1 ? sub(nc) : '');
+    const an = na > 1 ? (A.poly ? '(' + A.a + ')' + sub(na) : A.a + sub(na)) : A.a;
+    const f = A.a === 'CH₃COO' ? (na > 1 ? '(CH₃COO)' + sub(na) + Bs.c : 'CH₃COO' + (Bs.c === 'NH₄' ? 'NH₄' : Bs.c)) : cat + an;
+    /* المعادلة : na حمض + nc قاعدة → ملح + ماء */
+    const h2o = na * qa;
+    const lhs = coef(na) + A.f + ' + ' + coef(nc) + Bs.f;
+    const eq = lhs + ' → ' + f + (Bs.nh3 ? '' : ' + ' + coef(h2o) + 'H₂O');
+    return { f, nc, na, eq, name: A.an + ' ' + Bs.cn };
+  }
+  function salt(host, def) {
+    host.innerHTML = '';
+    const S = def === 'pick' ? { a: 'HCl', b: 'NH3' } : { a: 'H2SO4', b: 'KOH' };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sel('الحمض', S.a, Object.keys(ACID).map(k => [k, ACID[k].f + (ACID[k].s ? ' ( قويّ )' : ' ( ضعيف )')]), v => { S.a = v; draw(); }));
+    const r = el('div', 'srow');
+    r.append(sel('القاعدة', S.b, Object.keys(BASE).map(k => [k, BASE[k].f + (BASE[k].s ? ' ( قوية )' : ' ( ضعيفة )')]), v => { S.b = v; draw(); }));
+    bar.append(r);
+    function draw() {
+      body.innerHTML = '';
+      const A = ACID[S.a], Bs = BASE[S.b], X = saltOf(A, Bs);
+      const cat = ion(Bs.c, Bs.q), an = ion(A.a, A.q);
+      const box = info();
+      box.row('الأيون الموجب ( من القاعدة )', L(cat));
+      box.row('الأيون السالب ( من الحمض )', L(an) + ' — ويُسمّى منه الملح : <b>' + A.an + '</b>');
+      box.row('موازنة الشحنات', L(X.nc + ' × (' + sgn(Bs.q) + ') + ' + X.na + ' × (' + sgn(A.q) + ') = 0'));
+      box.row('الملح', L(X.f) + ' — <b>' + X.name + '</b>');
+      box.row('معادلة التعادل الموزونة', L(X.eq) + (Bs.nh3 ? ' — بلا ماء ، لأنّ الأمونيا لا تحتوي '+ L('OH⁻') : ''));
+      body.append(box);
+      let k, t, why;
+      if (A.s && Bs.s) { k = ''; t = 'محلوله متعادل · pH = 7'; why = 'حمض قويّ مع قاعدة قوية : تساويا في القوّة فلم يفرض أحدهما صفته.'; }
+      else if (A.s && !Bs.s) { k = 'acwarn'; t = 'محلوله حمضيّ · pH أقلّ من 7'; why = 'الحمض <b>قويّ</b> والقاعدة <b>ضعيفة</b> : الطرف الأقوى ( الحمض ) يفرض صفته.'; }
+      else if (!A.s && Bs.s) { k = 'acok'; t = 'محلوله قاعديّ · pH أكبر من 7'; why = 'الحمض <b>ضعيف</b> والقاعدة <b>قوية</b> : الطرف الأقوى ( القاعدة ) يفرض صفته.'; }
+      else { k = ''; t = 'كلاهما ضعيف'; why = 'هذه الحالة <b>خارج الكتاب</b> : الحكم فيها يحتاج مقارنة دقيقة بين ضعفين ، فلا تُطبَّق عليها القاعدة الذهبية.'; }
+      body.append(verdict(k, t, why));
+      if (S.a === 'H3PO4' && (S.b === 'CaOH2' || S.b === 'BaOH2')) body.append(el('div', 'sl note', 'هذا الملح <b>شحيح الذوبان</b> في الماء ، فيترسّب ؛ والتصنيف أعلاه تطبيق للقاعدة لا وصف لمحلول تقيسه فعلًا.'));
+    }
+    draw();
+  }
+
+  /* ---------------- 8 · طرائق تحضير الأملاح ---------------- */
+  const PREP = [
+    { n: 'حمض + قاعدة', eq: 'HCl + KOH → KCl + H₂O', out: ['ماء'], see: 'ترتفع حرارة المحلول ، ولا يُرى غاز ولا راسب.' },
+    { n: 'حمض + أكسيد فلزّ', eq: 'H₂SO₄ + CuO → CuSO₄ + H₂O', out: ['ماء'], see: 'يختفي المسحوق الأسود ويزرقّ المحلول بكبريتات النحاس.' },
+    { n: 'حمض + فلزّ', eq: '2HCl + Mg → MgCl₂ + H₂', out: ['غاز الهيدروجين'], see: '<b>فقاعات</b> غاز الهيدروجين ، ويتآكل شريط الفلزّ.' },
+    { n: 'حمض + كربونات فلزّ', eq: '2HNO₃ + CuCO₃ → Cu(NO₃)₂ + H₂O + CO₂', out: ['ماء', 'غاز CO₂'], see: '<b>فوران</b> غاز ثاني أكسيد الكربون.' },
+    { n: 'حمض + أمونيا', eq: 'NH₃ + HCl → NH₄Cl', out: [], see: 'يتكوّن الملح وحده ، ولا ماء.' },
+    { n: 'خلط محلولَي ملحين', eq: 'ZnCl₂ + K₂CO₃ → ZnCO₃ + 2KCl', out: ['راسب'], see: '<b>راسب</b> من كربونات الخارصين ، ويبقى كلوريد البوتاسيوم ذائبًا.' }
+  ];
+  function saltprep(host) {
+    host.innerHTML = '';
+    const S = { k: 2 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    const g = el('div', 'abox');
+    PREP.forEach((p, i) => { const b = el('button', 'abob abprep', p.n); b.onclick = () => { S.k = i; draw(); }; b.dataset.k = i; g.append(b); });
+    bar.append(g);
+    function draw() {
+      g.querySelectorAll('.abob').forEach(b => b.classList.toggle('abon', +b.dataset.k === S.k));
+      body.innerHTML = '';
+      const P = PREP[S.k];
+      body.append(el('div', 'abeq', L(P.eq)));
+      const o = el('div', 'abchips');
+      o.append(el('span', 'abchip abpos', 'ملح'));
+      P.out.forEach(x => o.append(el('span', 'abchip abneg', x)));
+      if (!P.out.length) o.append(el('span', 'abchip abnone', 'لا شيء غيره'));
+      body.append(el('p', 'shint', 'النواتج :'));
+      body.append(o);
+      body.append(verdict('acok', 'ما تراه في الأنبوب', P.see));
+      body.append(el('div', 'sl note', 'القاعدة : الماء مع القاعدة أو الأكسيد أو الكربونات · الهيدروجين مع الفلزّ · ثاني أكسيد الكربون مع الكربونات فقط · لا ماء مع الأمونيا · راسب مع خلط ملحين.'));
+    }
+    draw();
+  }
+
+  window.SIMS.ionize = h => ionize(h, 'HCl');
+  window.SIMS.ionizeb = h => ionize(h, 'CaOH2');
+  window.SIMS.props = props;
+  window.SIMS.oxides = oxides;
+  window.SIMS.strength = strength;
+  window.SIMS.phscale = h => phscale(h, 'scale');
+  window.SIMS.phind = h => phscale(h, 'ind');
+  window.SIMS.neutral = neutral;
+  window.SIMS.salt = h => salt(h, 'build');
+  window.SIMS.saltpick = h => salt(h, 'pick');
+  window.SIMS.saltprep = saltprep;
+})();
