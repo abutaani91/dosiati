@@ -5717,3 +5717,1450 @@
   window.SIMS.aquifer = aquifer;
   window.SIMS.jobasins = jobasins;
 })();
+/* ===== محاكاة الفيروسات والفيرويدات والبريونات ( أحياء العاشر — الوحدة الثانية ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const L = s => '<span class="ltr">' + s + '</span>';
+  const sel = (lab, val, opts, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const s = document.createElement('select');
+    opts.forEach(o => { const p = document.createElement('option'); p.value = o[0]; p.textContent = o[1]; if (String(o[0]) === String(val)) p.selected = true; s.append(p); });
+    s.onchange = () => fn(s.value); w.append(s); return w;
+  };
+  const sld = (lab, val, lo, hi, step, fn) => {
+    const w = el('label', 'sf'); const sp = el('span', '', lab(val)); w.append(sp);
+    const r = document.createElement('input'); r.type = 'range'; r.min = lo; r.max = hi; r.step = step; r.value = val;
+    r.oninput = () => { sp.innerHTML = lab(+r.value); fn(+r.value); }; w.append(r); return w;
+  };
+  const info = () => { const b = el('div', 'cyinfo'); b.row = (k, v) => b.append(el('div', 'cyrow', '<span class="cyk">' + k + '</span><span class="cyv">' + v + '</span>')); return b; };
+  const verdict = (cls, b, s) => el('div', 'acv' + (cls ? ' ' + cls : ''), '<b>' + b + '</b><span>' + s + '</span>');
+  const seg = (opts, val, fn) => {
+    const w = el('div', 'vrseg');
+    opts.forEach(o => { const b = el('button', 'vrb' + (String(o[0]) === String(val) ? ' vron' : ''), o[1]); b.onclick = () => fn(o[0]); w.append(b); });
+    return w;
+  };
+  const chips = (list, cur, fn, cls) => { const w = el('div', 'vrchips'); list.forEach(o => { const b = el('button', 'vrchip' + (cls ? cls(o[0]) : (String(o[0]) === String(cur) ? ' vron' : '')), o[1]); b.onclick = () => fn(o[0]); w.append(b); }); return w; };
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.append(e); return e; };
+  const fig = (body, w, h) => { const s = sv('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'vrsvg', preserveAspectRatio: 'xMidYMid meet' }); const f = el('div', 'vrfig'); f.append(s); body.append(f); return s; };
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const PH = '#6A4C93', BAC = '#9CCB86', BACS = '#4E8B3A', DNAc = '#D62828', VDNA = '#1F4E8C';
+
+  /* رسم فيروس آكل البكتيريا */
+  function phage(svg, x, y, s, ang, dna) {
+    const g = sv('g', { transform: 'translate(' + x + ' ' + y + ') rotate(' + (ang || 0) + ') scale(' + (s || 1) + ')' }, svg);
+    sv('polygon', { points: '0,-34 12,-27 12,-13 0,-6 -12,-13 -12,-27', fill: '#E8DDF5', stroke: PH, 'stroke-width': 2 }, g);
+    if (dna !== false) sv('path', { d: 'M-6 -25 q4 -4 6 0 t6 0 q-2 6 -6 4 t-6 4', fill: 'none', stroke: VDNA, 'stroke-width': 1.6 }, g);
+    sv('rect', { x: -3, y: -6, width: 6, height: 18, fill: PH }, g);
+    sv('rect', { x: -9, y: 12, width: 18, height: 3, fill: PH }, g);
+    [-1, 1].forEach(k => sv('path', { d: 'M' + (k * 8) + ' 15 l' + (k * 8) + ' 10 l' + (k * 3) + ' 8', fill: 'none', stroke: PH, 'stroke-width': 1.6 }, g));
+    return g;
+  }
+  function bact(svg, x, y, w, h, opt) {
+    opt = opt || {};
+    const g = sv('g', {}, svg);
+    sv('rect', { x: x - w / 2, y: y - h / 2, width: w, height: h, rx: h / 2, fill: opt.dead ? '#E9E3D6' : BAC, stroke: opt.dead ? '#B8A98A' : BACS, 'stroke-width': 3, 'stroke-dasharray': opt.dead ? '6 5' : '' }, g);
+    if (opt.chrom !== false) sv('path', { d: 'M' + (x - w * 0.28) + ' ' + y + ' q' + w * 0.07 + ' -14 ' + w * 0.14 + ' 0 t' + w * 0.14 + ' 0 t' + w * 0.14 + ' 0 t' + w * 0.14 + ' 0', fill: 'none', stroke: opt.broken ? '#C9A8A8' : DNAc, 'stroke-width': 2.2, 'stroke-dasharray': opt.broken ? '3 4' : '' }, g);
+    if (opt.insert) sv('path', { d: 'M' + (x - w * 0.07) + ' ' + y + ' q' + w * 0.035 + ' -14 ' + w * 0.07 + ' 0 t' + w * 0.07 + ' 0', fill: 'none', stroke: VDNA, 'stroke-width': 3.2 }, g);
+    return g;
+  }
+
+  /* ======================= 1 · اكتشاف الفيروسات ======================= */
+  const DISC = [
+    { y: 1892, w: 'ديمتري إيفانوفسكي ( روسي )', x: 'بدأ التجارب لدراسة مرض تبرقش التبغ.' },
+    { y: 1898, w: 'مارتينوس بايرينك ( هولندي )', x: 'توصّل إلى أنّ المسبّب جسيمات مُعدية أصغر من البكتيريا ، وسمّاها الفيروسات.' },
+    { y: 1935, w: 'ويندل ستانلي ( أمريكي )', x: 'بلور الجسيمات المُعدية : فيروس فسيفساء التبغ TMV.' },
+    { y: 'بعد ذلك', w: 'المجهر الإلكتروني', x: 'أمكن رؤية فيروس فسيفساء التبغ وغيره من الفيروسات.' }
+  ];
+  function vdisc(host) {
+    host.innerHTML = '';
+    const S = { done: [], order: shuffle([0, 1, 2, 3]), err: null };
+    const body = el('div'); host.append(body);
+    function draw() {
+      body.innerHTML = '';
+      body.append(el('div', 'shint', 'اضغط الإنجازات بترتيبها الزمني من الأقدم إلى الأحدث :'));
+      const w = el('div', 'vrcards');
+      S.order.forEach(i => {
+        const d = DISC[i], ok = S.done.includes(i);
+        const c = el('button', 'vrcard' + (ok ? ' vrok' : '') + (S.err === i ? ' vrbad' : ''), (ok ? '<b>' + L(String(d.y)) + ' · ' + d.w + '</b>' : '') + '<span>' + d.x + '</span>');
+        c.onclick = () => { if (ok) return; if (i === S.done.length) { S.done.push(i); S.err = null; } else S.err = i; draw(); };
+        w.append(c);
+      });
+      body.append(w);
+      const tl = el('div', 'vrtl');
+      DISC.forEach((d, i) => tl.append(el('div', 'vrtli' + (S.done.includes(i) ? ' vron' : ''), '<i></i><b>' + (S.done.includes(i) ? L(String(d.y)) : '؟') + '</b><span>' + (S.done.includes(i) ? d.w : '') + '</span>')));
+      body.append(tl);
+      if (S.err !== null) body.append(verdict('acwarn', 'ليس الآن', 'هذا الإنجاز جاء لاحقًا . فكّر : لا تسمية قبل دراسة المرض ، ولا بلورة قبل معرفة المسبّب ، ولا رؤية قبل المجهر الإلكتروني.'));
+      if (S.done.length === 4) {
+        body.append(verdict('acok', 'رتّبتَ القصّة كاملة', 'دراسة المرض ← التسمية ← البلورة ← الرؤية . وبلورة ستانلي للفيروس كما تُبلوَر المواد الكيميائية أوّل دليل على أنّه ليس خليّة حيّة عاديّة.'));
+        const r = el('div', 'srow'); r.append(btn('من جديد', 'gh', () => { S.done = []; S.order = shuffle([0, 1, 2, 3]); S.err = null; draw(); })); body.append(r);
+      }
+    }
+    draw();
+  }
+
+  /* ======================= 2 · حلقة الوصل ======================= */
+  const TRAITS = [
+    ['تحتوي مادّة وراثية DNA أو RNA', 'L'], ['تتكاثر وتنتج نسخًا جديدة منها داخل الخلايا', 'L'],
+    ['تفتقر إلى الغشاء البلازمي والسيتوبلازم', 'N'], ['لا تستطيع تكوين البروتينات', 'N'],
+    ['يمكن بلورتها كما تُبلوَر المواد الكيميائية', 'N'], ['تفتقر إلى إنزيمات نسخ المادّة الوراثية ومضاعفتها', 'N']
+  ];
+  function vlive(host) {
+    host.innerHTML = '';
+    const S = { mode: 'sort', i: 0, ans: {}, order: shuffle(TRAITS.map((t, i) => i)), inside: 0 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    let raf = 0;
+    function top() { bar.innerHTML = ''; bar.append(seg([['sort', 'صنّف الصفات'], ['cell', 'خارج الخليّة وداخلها']], S.mode, v => { S.mode = v; top(); draw(); })); }
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      if (S.mode === 'sort') {
+        if (S.i < TRAITS.length) {
+          const t = TRAITS[S.order[S.i]];
+          body.append(verdict('', 'الصفة ' + (S.i + 1) + ' من ' + TRAITS.length, t[0]));
+          const r = el('div', 'srow');
+          [['L', 'تقرّبها من الكائنات الحيّة'], ['N', 'تقرّبها من الجمادات']].forEach(o => r.append(btn(o[1], '', () => { S.ans[S.order[S.i]] = o[0]; S.i++; draw(); })));
+          body.append(r);
+        }
+        const cols = el('div', 'vrcols');
+        [['L', 'تقرّبها من الكائنات الحيّة'], ['N', 'تقرّبها من الجمادات']].forEach(c => {
+          const col = el('div', 'vrcol', '<b>' + c[1] + '</b>');
+          Object.keys(S.ans).forEach(k => { if (S.ans[k] !== c[0]) return; const ok = TRAITS[k][1] === c[0]; col.append(el('div', 'vrit' + (ok ? ' vrok' : ' vrbad'), (ok ? '✓ ' : '✗ ') + TRAITS[k][0])); });
+          cols.append(col);
+        });
+        body.append(cols);
+        if (S.i >= TRAITS.length) {
+          const sc = Object.keys(S.ans).filter(k => TRAITS[k][1] === S.ans[k]).length;
+          body.append(verdict(sc === TRAITS.length ? 'acok' : 'acwarn', 'الصحيح ' + sc + ' من ' + TRAITS.length, 'في الفيروس صفات من الطرفين ، فهو <b>حلقة وصل</b> بين الكائنات الحيّة والجمادات ، و<b>طفيل داخلي إجباري</b> لا يتكاثر إلّا داخل خليّة عائل.'));
+          const r = el('div', 'srow'); r.append(btn('من جديد', 'gh', () => { S.i = 0; S.ans = {}; S.order = shuffle(S.order); draw(); })); body.append(r);
+        }
+        return;
+      }
+      body.append(seg([[0, 'الفيروس خارج الخليّة'], [1, 'الفيروس داخل خليّة عائل']], S.inside, v => { S.inside = +v; draw(); }));
+      const svg = fig(body, 320, 170);
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 170, fill: '#F7F9FC' }, svg);
+        if (!S.inside) { [[80, 80], [160, 110], [240, 70]].forEach((p, i) => phage(svg, p[0], p[1], 1.1, (i - 1) * 15)); }
+        else {
+          bact(svg, 160, 90, 250, 110, { broken: true });
+          const n = 1 + Math.floor(((ts / 600) % 8));
+          for (let i = 0; i < n; i++) phage(svg, 75 + (i % 4) * 55, 70 + Math.floor(i / 4) * 45, 0.7, 0);
+        }
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      body.append(S.inside ? verdict('acok', 'داخل الخليّة : يتكاثر', 'يستعمل <b>إنزيمات الخليّة العائل</b> وأدواتها لنسخ مادّته الوراثية وبناء بروتيناته ، فتظهر نسخ جديدة منه.') : verdict('acwarn', 'خارج الخليّة : جسيم ساكن', 'لا يتغذّى ولا يتنفّس ولا يتكاثر ؛ يفتقر إلى الغشاء البلازمي والسيتوبلازم وإلى إنزيمات النسخ ، ويمكن بلورته.'));
+    }
+    top(); draw();
+  }
+
+  /* ======================= 3 · بناء الفيروس وتصنيفه ======================= */
+  const SHAPES = { phage: 'آكل البكتيريا ( الذيلي )', sphere: 'كروي', poly: 'متعدّد السطوح', rod: 'أسطواني' };
+  function vbuild(host) {
+    host.innerHTML = '';
+    const S = { na: 'DNA', env: 0, sh: 'poly' };
+    const bar = el('div'), body = el('div');
+    host.append(bar, body);
+    function top() {
+      bar.innerHTML = '';
+      const r1 = el('div', 'srow'); r1.append(el('span', 'vrlab', 'الحمض النووي :'), seg([['DNA', 'DNA'], ['RNA', 'RNA'], ['both', 'DNA و RNA معًا']], S.na, v => { S.na = v; top(); draw(); }));
+      const r2 = el('div', 'srow'); r2.append(el('span', 'vrlab', 'الغلاف الغشائي :'), seg([[0, 'بلا غلاف'], [1, 'مع غلاف غشائي']], S.env, v => { S.env = +v; top(); draw(); }));
+      const r3 = el('div', 'srow'); r3.append(el('span', 'vrlab', 'الشكل :'), seg(Object.keys(SHAPES).map(k => [k, SHAPES[k]]), S.sh, v => { S.sh = v; top(); draw(); }));
+      bar.append(r1, r2, r3);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const svg = fig(body, 320, 190);
+      sv('rect', { x: 0, y: 0, width: 320, height: 190, fill: '#F7F9FC' }, svg);
+      const cx = 160, cy = 95, na = S.na === 'RNA' ? '#E07A1F' : VDNA;
+      const nucl = () => { if (S.na === 'both') return; sv('path', { d: 'M' + (cx - 22) + ' ' + cy + ' q8 -14 16 0 t16 0 t16 0', fill: 'none', stroke: na, 'stroke-width': 3, 'stroke-dasharray': S.na === 'RNA' ? '0' : '' }, svg); };
+      if (S.env && S.sh !== 'phage') sv('circle', { cx, cy, r: 68, fill: '#FFF2D9', stroke: '#D9A441', 'stroke-width': 5, 'stroke-dasharray': '2 4' }, svg);
+      if (S.sh === 'sphere') sv('circle', { cx, cy, r: 52, fill: '#E8DDF5', stroke: PH, 'stroke-width': 4 }, svg);
+      if (S.sh === 'poly') sv('polygon', { points: [0, 1, 2, 3, 4, 5].map(k => (cx + 55 * Math.cos(k * Math.PI / 3)) + ',' + (cy + 55 * Math.sin(k * Math.PI / 3))).join(' '), fill: '#E8DDF5', stroke: PH, 'stroke-width': 4 }, svg);
+      if (S.sh === 'rod') sv('rect', { x: cx - 100, y: cy - 22, width: 200, height: 44, rx: 8, fill: '#E8DDF5', stroke: PH, 'stroke-width': 4 }, svg);
+      if (S.sh === 'phage') phage(svg, cx, cy + 10, 2.4, 0, false);
+      if (S.sh !== 'phage') nucl(); else if (S.na !== 'both') sv('path', { d: 'M' + (cx - 12) + ' ' + (cy - 46) + ' q6 -8 12 0 t12 0', fill: 'none', stroke: na, 'stroke-width': 3 }, svg);
+      body.append(el('div', 'vrlg', '<span><i style="background:' + PH + '"></i>المحفظة البروتينية</span><span><i style="background:' + VDNA + '"></i>DNA</span><span><i style="background:#E07A1F"></i>RNA</span><span><i style="background:#D9A441"></i>غلاف غشائي</span>'));
+      if (S.na === 'both') { body.append(verdict('acwarn', 'فيروس غير ممكن', 'الفيروس يحتوي <b>نوعًا واحدًا</b> من الحمض النووي : إمّا DNA وإمّا RNA ، ولا يجمع بينهما.')); return; }
+      if (S.env && S.sh === 'phage') body.append(el('div', 'sl note', 'في الرسم لم يُضَف غلاف غشائي لآكل البكتيريا ؛ والكتاب يصفه بمحفظة وخيوط ذيلية.'));
+      const t = info();
+      t.row('التصنيف بحسب الحمض النووي', '<b>فيروس ' + L(S.na) + '</b>');
+      t.row('التصنيف بحسب الشكل', '<b>' + SHAPES[S.sh] + '</b>');
+      t.row('التركيب الأساسي المشترك', 'حمض نووي + محفظة بروتينية ✓');
+      t.row('الغلاف الغشائي', S.env ? 'موجود — مُشتقّ من الأغشية البلازمية للخلايا التي دخلها' : 'غير موجود — وهذا ممكن ؛ فالغلاف في بعض الفيروسات فقط');
+      body.append(t);
+    }
+    top(); draw();
+  }
+
+  /* ======================= 4 · الدورة الحالّة ======================= */
+  const LYT = [
+    ['الالتصاق', 'يلتصق الفيروس بخليّة البكتيريا بخيوطه الذيلية بعد <b>تعرّفه مستقبلات خاصّة</b> على سطحها.'],
+    ['الحقن', 'يحقن مادّته الوراثية داخل الخليّة ، و<b>يتحلّل DNA البكتيريا</b>.'],
+    ['التضاعف والبناء', 'يتضاعف DNA الفيروس ، وتُبنى بروتيناته بأدوات الخليّة.'],
+    ['التجميع', 'تُجمَّع مكوّنات الفيروس فتُبنى فيروسات جديدة.'],
+    ['الخروج', 'تخرج الفيروسات بعد <b>تحلّل جدار الخليّة</b> بفعل إنزيم يُفرزه الفيروس ، فتموت الخليّة.']
+  ];
+  function drawLytic(svg, i, ts) {
+    svg.innerHTML = '';
+    sv('rect', { x: 0, y: 0, width: 320, height: 190, fill: '#F7F9FC' }, svg);
+    const u = ((ts || 0) / 1200) % 1;
+    if (i === 0) { bact(svg, 160, 120, 240, 100); phage(svg, 160, 30 + 10 * Math.min(1, u * 2), 1.2, 0); }
+    if (i === 1) { bact(svg, 160, 120, 240, 100, { broken: true }); phage(svg, 160, 40, 1.2, 0, false); sv('path', { d: 'M160 72 q6 ' + (10 + u * 20) + ' -4 ' + (24 + u * 20), fill: 'none', stroke: VDNA, 'stroke-width': 3 }, svg); }
+    if (i === 2) { bact(svg, 160, 110, 260, 120, { chrom: false }); for (let k = 0; k < 5; k++) sv('path', { d: 'M' + (70 + k * 40) + ' ' + (95 + (k % 2) * 25) + ' q6 -8 12 0 t12 0', fill: 'none', stroke: VDNA, 'stroke-width': 2.5 }, svg); for (let k = 0; k < 6; k++) sv('polygon', { points: '0,-9 7,-5 7,4 0,8 -7,4 -7,-5', transform: 'translate(' + (80 + k * 32) + ' ' + (145 - (k % 2) * 8) + ')', fill: '#E8DDF5', stroke: PH }, svg); }
+    if (i === 3) { bact(svg, 160, 105, 270, 130, { chrom: false }); for (let k = 0; k < 6; k++) phage(svg, 75 + (k % 3) * 85, 90 + Math.floor(k / 3) * 50, 0.75, 0); }
+    if (i === 4) { bact(svg, 160, 105, 270, 130, { chrom: false, dead: true }); for (let k = 0; k < 6; k++) { const a = k * Math.PI / 3, r = 40 + u * 70; phage(svg, 160 + Math.cos(a) * r * 1.3, 105 + Math.sin(a) * r * 0.6, 0.75, a * 57); } }
+  }
+  function lytic(host) {
+    host.innerHTML = '';
+    const S = { i: 0 };
+    const body = el('div'); host.append(body);
+    let raf = 0;
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const st = el('div', 'vrsteps'); LYT.forEach((s, k) => { const b = el('button', 'vrdot' + (k === S.i ? ' vron' : k < S.i ? ' vrdone' : ''), (k + 1) + ' · ' + s[0]); b.onclick = () => { S.i = k; draw(); }; st.append(b); }); body.append(st);
+      const svg = fig(body, 320, 190);
+      const loop = ts => { if (!svg.isConnected) return; drawLytic(svg, S.i, ts); raf = requestAnimationFrame(loop); };
+      raf = requestAnimationFrame(loop);
+      body.append(el('div', 'vrlg', '<span><i style="background:' + DNAc + '"></i>DNA البكتيريا</span><span><i style="background:' + VDNA + '"></i>DNA الفيروس</span><span><i style="background:' + PH + '"></i>الفيروس</span>'));
+      body.append(verdict(S.i === 4 ? 'acwarn' : '', (S.i + 1) + ' ) ' + LYT[S.i][0], LYT[S.i][1]));
+      const r = el('div', 'srow'); r.append(btn('→ السابق', 'gh', () => { if (S.i > 0) { S.i--; draw(); } }), btn('التالي ←', 'go', () => { if (S.i < 4) { S.i++; draw(); } })); body.append(r);
+      if (S.i === 4) body.append(el('div', 'sl note', 'تُسمّى الفيروسات التي تتكاثر بهذه الدورة <b>الفيروسات المُمرضة بشدّة</b> <span class="ltr">Virulent</span> . والفيروسات الجديدة تبدأ الدورة من جديد في خلايا أخرى.'));
+    }
+    draw();
+  }
+
+  /* ======================= 5 · الدورة الاندماجية ======================= */
+  function lysog(host) {
+    host.innerHTML = '';
+    const S = { gen: 0, lyse: false, i: 0 };
+    const body = el('div'); host.append(body);
+    let raf = 0;
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const n = Math.pow(2, S.gen);
+      const svg = fig(body, 320, 200);
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 200, fill: '#F7F9FC' }, svg);
+        const cols = n <= 2 ? n : n <= 4 ? 2 : 4, rows = Math.ceil(n / cols);
+        const w = Math.min(220, 300 / cols - 10), h = Math.min(90, 180 / rows - 12);
+        for (let k = 0; k < n; k++) {
+          const x = 10 + (300 / cols) * (k % cols + 0.5), y = 10 + (180 / rows) * (Math.floor(k / cols) + 0.5);
+          bact(svg, x, y, w, h, { insert: !S.lyse, dead: S.lyse && k === 0, chrom: !(S.lyse && k === 0) });
+          if (S.lyse && k === 0) { const u = ((ts / 1200) % 1); for (let j = 0; j < 5; j++) { const a = j * 1.25; phage(svg, x + Math.cos(a) * (10 + u * w * 0.4), y + Math.sin(a) * (5 + u * h * 0.4), Math.min(0.6, h / 120), a * 57); } }
+        }
+        if (!S.gen && !S.lyse) phage(svg, 160, 22, 0.8, 0, false);
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      body.append(el('div', 'vrlg', '<span><i style="background:' + DNAc + '"></i>كروموسوم البكتيريا</span><span><i style="background:' + VDNA + '"></i>DNA الفيروس المندمج</span>'));
+      const t = info();
+      t.row('عدد الانقسامات', L(String(S.gen)));
+      t.row('خلايا تحمل DNA الفيروس', L(String(n)) + ' — ' + L(S.gen ? Array.from({ length: S.gen + 1 }, (_, k) => Math.pow(2, k)).join(' → ') : '1'));
+      t.row('جينات الفيروس', S.lyse ? 'نشطت في إحدى الخلايا ← دورة حالّة' : '<b>كامنة</b> — لا فيروسات جديدة');
+      body.append(t);
+      const r = el('div', 'srow');
+      r.append(btn('انقسام البكتيريا', 'go', () => { if (S.gen < 4 && !S.lyse) { S.gen++; draw(); } }), btn('عامل منشّط : انفصال DNA الفيروس', '', () => { S.lyse = true; draw(); }), btn('من البداية', 'gh', () => { S.gen = 0; S.lyse = false; draw(); }));
+      body.append(r);
+      body.append(S.lyse ? verdict('acwarn', 'تحوّلت إلى دورة حالّة', 'انفصل DNA الفيروس نتيجةً لعوامل مختلفة ، فنشطت جيناته ، فتكاثر وخرج بعد تحلّل الخليّة . الاندماجية <b>قد تتحوّل</b> إلى حالّة.') :
+        verdict('acok', 'دورة اندماجية', 'التصق الفيروس وحقن مادّته ، فـ<b>اندمج</b> DNA الفيروس في كروموسوم البكتيريا ، ويتضاعف معه كلّما انقسمت ، والخليّة <b>حيّة</b> وجيناته <b>كامنة</b>.'));
+      const tb = el('div', 'vrtab');
+      tb.append(el('div', 'vrtr vrhd', '<span>وجه المقارنة</span><span>الحالّة</span><span>الاندماجية</span>'));
+      [['DNA البكتيريا', 'يتحلّل', 'يبقى ويندمج فيه DNA الفيروس'], ['خليّة البكتيريا', 'تموت وتتحلّل', 'تبقى حيّة وتتكاثر'], ['جينات الفيروس', 'نشطة', 'كامنة'], ['فيروسات جديدة', 'كثيرة تخرج من الخليّة', 'لا تُنتج ما دامت كامنة']].forEach(x => tb.append(el('div', 'vrtr', '<span>' + x[0] + '</span><span>' + x[1] + '</span><span>' + x[2] + '</span>')));
+      body.append(tb);
+    }
+    draw();
+  }
+
+  /* ======================= 6 · المستقبلات والتخصّص ======================= */
+  const VIR = { phage: ['آكل البكتيريا', 'tri'], tmv: ['فسيفساء التبغ', 'sq'], measles: ['فيروس الحصبة', 'circ'], newv: ['فيروس حيوانيّ تغيّر', 'circ2'] };
+  const CEL = { bac: ['خليّة بكتيرية', 'tri'], plant: ['خليّة نباتية ( تبغ )', 'sq'], human: ['خليّة إنسان', 'circ'] };
+  function vhost(host) {
+    host.innerHTML = '';
+    const S = { v: 'phage', c: 'bac' };
+    const bar = el('div'), body = el('div');
+    host.append(bar, body);
+    function top() {
+      bar.innerHTML = '';
+      const r1 = el('div', 'srow'); r1.append(el('span', 'vrlab', 'الفيروس :'), seg(Object.keys(VIR).map(k => [k, VIR[k][0]]), S.v, v => { S.v = v; top(); draw(); }));
+      const r2 = el('div', 'srow'); r2.append(el('span', 'vrlab', 'الخليّة :'), seg(Object.keys(CEL).map(k => [k, CEL[k][0]]), S.c, v => { S.c = v; top(); draw(); }));
+      bar.append(r1, r2);
+    }
+    const key = (svg, k, x, y, col, out) => {
+      if (k === 'tri') sv('polygon', { points: (x - 9) + ',' + y + ' ' + (x + 9) + ',' + y + ' ' + x + ',' + (y + (out ? 14 : -14)), fill: col }, svg);
+      if (k === 'sq') sv('rect', { x: x - 8, y: out ? y : y - 14, width: 16, height: 14, fill: col }, svg);
+      if (k === 'circ' || k === 'circ2') sv('circle', { cx: x, cy: y + (out ? 7 : -7), r: 8, fill: col }, svg);
+    };
+    function draw() {
+      body.innerHTML = '';
+      const vk = VIR[S.v][1], ck = CEL[S.c][1];
+      const match = vk === ck || (vk === 'circ2' && ck === 'circ');
+      const svg = fig(body, 320, 190);
+      sv('rect', { x: 0, y: 0, width: 320, height: 190, fill: '#F7F9FC' }, svg);
+      sv('rect', { x: 20, y: 120, width: 280, height: 60, rx: 18, fill: S.c === 'bac' ? BAC : S.c === 'plant' ? '#CDE8B5' : '#F6D5CF', stroke: '#555', 'stroke-width': 2 }, svg);
+      [70, 160, 250].forEach(x => key(svg, ck, x, 120, '#555', false));
+      const vy = match ? 82 : 45;
+      sv('circle', { cx: 160, cy: vy - 25, r: 24, fill: '#E8DDF5', stroke: PH, 'stroke-width': 3 }, svg);
+      key(svg, vk, 160, vy, PH, true);
+      if (match) sv('path', { d: 'M130 105 l-10 -10 M190 105 l10 -10', stroke: '#2E7D4F', 'stroke-width': 3 }, svg);
+      body.append(el('div', 'vrlg', '<span><i style="background:' + PH + '"></i>جزء الفيروس الذي يلتصق</span><span><i style="background:#555"></i>مستقبلات الخليّة</span>'));
+      body.append(match ? verdict('acok', 'التصاق وإصابة', S.v === 'newv' ? 'هذا فيروس بدأ في الحيوانات ثمّ <b>تخطّى حاجز الأنواع</b> فصار يتعرّف مستقبلات خلايا الإنسان ؛ كالإيبولا والسارس وإنفلونزا الطيور.' : 'الفيروس <b>تعرّف مستقبلات خاصّة</b> على سطح الخليّة فالتصق بها ، فيستطيع التكاثر فيها.') :
+        verdict('acwarn', 'لا إصابة', 'الفيروس <b>لا يتعرّف</b> مستقبلات هذه الخليّة ، فلا يلتصق بها ولا يتكاثر فيها . فالفيروس الذي يصيب البكتيريا لا يصيب الإنسان أو النبات.'));
+      body.append(el('div', 'sl note', 'الأشكال الهندسية هنا رمز لتوافق الفيروس مع المستقبلات ، لا صورة حقيقية لها.'));
+    }
+    top(); draw();
+  }
+
+  /* ======================= 7 · الأمراض الفيروسية ======================= */
+  const DIS = {
+    hep: { n: 'التهاب الكبد', c: 'فيروسات التهاب الكبد A و B و C و E', t: 'الماء والغذاء الملوّثان ببراز شخص مصاب ، والدم', i: 'بحسب النوع ، وقد تمتدّ من أسبوعين إلى ستة أشهر في فيروس C', s: 'يرقان ، وألم في البطن ، وقيء', p: 'نظافة اليدين ، ومطعوم التهاب الكبد' },
+    mea: { n: 'الحصبة', c: 'فيروس الحصبة', t: 'رذاذ التنفّس', i: 'من 7 إلى 15 يومًا', s: 'أعراض الزكام ، وطفح جلديّ أحمر', p: 'مطعوم MMR ( المطعوم الثلاثي )' },
+    chk: { n: 'جُدَري الماء', c: 'فيروس جُدَري الماء النطاقي', t: 'رذاذ التنفّس ، ولمس المريض', i: 'من 14 إلى 16 يومًا', s: 'فقدان الشهية ، وصداع ، وارتفاع الحرارة ، وبقع حمراء تتطوّر إلى بثور مملوءة بسائل تثير الحكّة', p: 'مطعوم جُدَري الماء' },
+    aids: { n: 'الإيدز', c: 'فيروس العوز المناعي البشري المكتسب HIV', t: 'الأدوات الحادّة الملوّثة ، وسوائل جسم المصاب كالدم وحليب الأمّ', i: 'من 9 أشهر إلى 20 سنة', s: 'بعد أسبوعين إلى أربعة شبيهة بالرشح ، ثمّ انخفاض الوزن والخمول والأورام وانعدام المناعة', p: 'الالتزام الديني والأخلاقي ، وفحص الدم المُتبرَّع به ، وعدم مشاركة الأدوات الشخصية ، وتجنّب الأدوات الحادّة غير المعقّمة' }
+  };
+  const CASES = [
+    ['طفل أصيب بعد مخالطة زميل بأعراض زكام ، ثمّ ظهر على جلده طفح أحمر بعد نحو 10 أيّام.', 'mea'],
+    ['شخص شرب ماءً ملوّثًا ، وبعد أسابيع اصفرّ جلده وعيناه ( يرقان ) مع ألم في البطن وقيء.', 'hep'],
+    ['طفلة ظهرت عليها بقع حمراء تحوّلت إلى بثور مملوءة بسائل تثير الحكّة على الوجه والجذع.', 'chk'],
+    ['شخص أُصيب عبر أداة حادّة ملوّثة ، ولم تظهر عليه أعراض واضحة إلّا بعد سنوات ، ثمّ ضعفت مناعته.', 'aids']
+  ];
+  const ROWS = [['c', 'المسبّب'], ['t', 'انتقال العدوى'], ['i', 'مدّة الحضانة'], ['s', 'الأعراض'], ['p', 'الوقاية']];
+  function vdis(host) {
+    host.innerHTML = '';
+    const S = { mode: 'cmp', a: 'mea', b: 'chk', ci: 0, pick: null, order: shuffle([0, 1, 2, 3]) };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    function top() { bar.innerHTML = ''; bar.append(seg([['cmp', 'قارن بين مرضين'], ['dx', 'شخّص الحالة']], S.mode, v => { S.mode = v; top(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      if (S.mode === 'cmp') {
+        const r = el('div', 'srow');
+        const opts = Object.keys(DIS).map(k => [k, DIS[k].n]);
+        r.append(sel('المرض الأوّل', S.a, opts, v => { S.a = v; draw(); }), sel('المرض الثاني', S.b, opts, v => { S.b = v; draw(); }));
+        body.append(r);
+        const A = DIS[S.a], B = DIS[S.b];
+        const tb = el('div', 'vrtab');
+        tb.append(el('div', 'vrtr vrhd', '<span>وجه المقارنة</span><span>' + A.n + '</span><span>' + B.n + '</span>'));
+        ROWS.forEach(x => tb.append(el('div', 'vrtr', '<span>' + x[1] + '</span><span>' + A[x[0]] + '</span><span>' + B[x[0]] + '</span>')));
+        body.append(tb);
+        if (S.a === 'mea' && S.b === 'chk' || S.a === 'chk' && S.b === 'mea') body.append(el('div', 'sl note', 'العلامة الفارقة : الحصبة طفح جلديّ أحمر ، وجُدَري الماء بقع تتطوّر إلى بثور مملوءة بسائل ؛ ولجُدَري الماء طريقا عدوى.'));
+        return;
+      }
+      const c = CASES[S.order[S.ci]];
+      body.append(el('div', 'vrcount', 'الحالة ' + (S.ci + 1) + ' من ' + CASES.length));
+      body.append(verdict('', 'شخّص المرض المرجّح', c[0]));
+      body.append(chips(Object.keys(DIS).map(k => [k, DIS[k].n]), S.pick, k => { if (S.pick) return; S.pick = k; draw(); }, k => S.pick === k ? (k === c[1] ? ' vrok' : ' vrbad') : ''));
+      if (S.pick) {
+        const D = DIS[c[1]], ok = S.pick === c[1];
+        body.append(verdict(ok ? 'acok' : 'acwarn', (ok ? 'صحيح : ' : 'الأرجح : ') + D.n, 'الأعراض : ' + D.s + ' . الحضانة : ' + D.i + ' . الوقاية : ' + D.p + '.'));
+        const r = el('div', 'srow'); r.append(btn(S.ci < CASES.length - 1 ? 'الحالة التالية' : 'من جديد', 'go', () => { S.ci = (S.ci + 1) % CASES.length; if (!S.ci) S.order = shuffle(S.order); S.pick = null; draw(); })); body.append(r);
+      }
+    }
+    top(); draw();
+  }
+
+  /* ======================= 8 · مصنِّف الجسيمات المُعدية ======================= */
+  const AGENTS = [
+    ['جسيم فيه DNA داخل محفظة بروتينية ، ويصيب البكتيريا.', 'v'], ['جزيء RNA حلقيّ صغير بلا أيّ غلاف ، يصيب درنات البطاطا.', 'vd'],
+    ['بروتين فقط بلا مادّة وراثية ، يسبّب تجاويف في دماغ الأبقار.', 'p'], ['جسيم فيه RNA داخل محفظة يحيط بها غلاف غشائي ، يصيب الإنسان.', 'v'],
+    ['بروتين التفّ بصورة مغلوطة فصار يحوّل البروتينات الطبيعية مثله.', 'p'], ['مادّة وراثية RNA توجّه الخليّة النباتية لإنتاج نسخ منها ، ولا بروتين فيها.', 'vd']
+  ];
+  const NAMES = { v: 'فيروس', vd: 'فيرويد', p: 'بريون' };
+  function pclass(host) {
+    host.innerHTML = '';
+    const S = { i: 0, q1: null, q2: null, order: shuffle(AGENTS.map((a, i) => i)), score: 0 };
+    const body = el('div'); host.append(body);
+    function draw() {
+      body.innerHTML = '';
+      const a = AGENTS[S.order[S.i]];
+      body.append(el('div', 'vrcount', 'العامل ' + (S.i + 1) + ' من ' + AGENTS.length + ' · الصحيح ' + S.score));
+      body.append(verdict('', 'عامل مُمرض مجهول', a[0]));
+      const q = (lab, k) => { const w = el('div', 'vrq'); w.append(el('div', 'vrql', lab)); w.append(seg([[1, 'نعم'], [0, 'لا']], S[k], v => { S[k] = +v; draw(); })); body.append(w); };
+      q('1 · هل فيه مادّة وراثية ؟', 'q1');
+      if (S.q1 === 1) q('2 · هل له محفظة بروتينية ؟', 'q2');
+      let res = null;
+      if (S.q1 === 0) res = 'p'; else if (S.q1 === 1 && S.q2 !== null) res = S.q2 ? 'v' : 'vd';
+      if (res) {
+        const ok = res === a[1];
+        if (ok && !S.counted) { S.score++; S.counted = true; }
+        body.append(verdict(ok ? 'acok' : 'acwarn', (ok ? 'صحيح : ' : 'إجاباتك تقود إلى « ' + NAMES[res] + ' » ، والصحيح : ') + NAMES[a[1]], a[1] === 'v' ? 'مادّة وراثية + محفظة بروتينية ← فيروس.' : a[1] === 'vd' ? 'مادّة وراثية ( RNA حلقيّ ) بلا غلاف بروتيني ← فيرويد ، يصيب الخلايا النباتية.' : 'لا مادّة وراثية ، بروتين فقط ← بريون ، يصيب الجهاز العصبي المركزي.'));
+        const r = el('div', 'srow'); r.append(btn(S.i < AGENTS.length - 1 ? 'التالي' : 'من جديد', 'go', () => { S.i = (S.i + 1) % AGENTS.length; if (!S.i) { S.order = shuffle(S.order); S.score = 0; } S.q1 = S.q2 = null; S.counted = false; draw(); })); body.append(r);
+      }
+    }
+    draw();
+  }
+
+  /* ======================= 9 · البريونات ======================= */
+  function prion(host) {
+    host.innerHTML = '';
+    const S = { st: 0 };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    bar.append(sld(v => 'عدد المراحل : ' + L(String(v)), S.st, 0, 10, 1, v => { S.st = v; draw(); }));
+    function draw() {
+      body.innerHTML = '';
+      const n = Math.pow(2, S.st), shown = Math.min(n, 64);
+      const svg = fig(body, 320, 200);
+      sv('rect', { x: 0, y: 0, width: 320, height: 200, fill: '#F7F9FC' }, svg);
+      for (let k = 0; k < 64; k++) {
+        const x = 22 + (k % 16) * 18.5, y = 25 + Math.floor(k / 16) * 40;
+        const bad = k < shown;
+        if (bad) sv('path', { d: 'M' + (x - 7) + ' ' + (y + 6) + ' l5 -14 l4 10 l5 -12', fill: 'none', stroke: '#C1121F', 'stroke-width': 3, 'stroke-linejoin': 'round' }, svg);
+        else sv('path', { d: 'M' + (x - 6) + ' ' + y + ' q6 -14 12 0 q-6 14 -12 0', fill: '#9CC3E4', stroke: '#1F4E8C', 'stroke-width': 1.5 }, svg);
+      }
+      body.append(el('div', 'vrlg', '<span><i style="background:#9CC3E4"></i>بروتين طبيعي ملتفّ صحيحًا</span><span><i style="background:#C1121F"></i>بريون ( التفاف مغلوط )</span>'));
+      const t = info();
+      t.row('عدد البريونات', L(Array.from({ length: Math.min(S.st, 10) + 1 }, (_, k) => Math.pow(2, k)).join(' → ')));
+      t.row('بعد ' + S.st + ' مراحل', '<b>' + L('2^' + S.st + ' = ' + n) + '</b>' + (n > 64 ? ' ( الرسم يتّسع لـ 64 فقط )' : ''));
+      body.append(t);
+      body.append(verdict(S.st >= 6 ? 'acwarn' : 'acok', S.st >= 6 ? 'تجمّع يُعطّل الخليّة' : 'كيف ينتشر ؟', 'بحسب بروزينر : البريون بروتين طبيعي <b>التفّ بصورة مغلوطة</b> ، وعند دخوله الخليّة <b>يحوّل البروتين الطبيعي إلى بريون</b> ، فتتكوّن سلسلة تحوّل مزيدًا منها ، ويؤثّر تجمّعها سلبًا في العمليات الحيوية فتظهر الأعراض . لا مادّة وراثية تُنسَخ ؛ الشكل الخاطئ هو الذي يُعدي.'));
+      body.append(el('div', 'sl note', 'المضاعفة المنتظمة افتراض رياضي للتوضيح ؛ الكتاب يصف التحويل المتسلسل دون معدّل محدّد . وتذكّر : الطهي لا يقضي على البريونات ، والحضانة قد تصل إلى 10 سنوات.'));
+    }
+    draw();
+  }
+
+  /* ======================= 10 · المقارنة الثلاثية ======================= */
+  const CMP3 = [
+    ['المادّة الوراثية', 'DNA أو RNA', 'RNA حلقيّ صغير', 'لا يحتوي'],
+    ['الغلاف البروتيني', 'محفظة ، وقد يُحاط بغلاف غشائي', 'غير محاط بغلاف بروتيني', 'هو بروتين في ذاته'],
+    ['ما يصيبه', 'بكتيريا أو نبات أو حيوان أو إنسان', 'الخلايا النباتية', 'الجهاز العصبي المركزي'],
+    ['مثال على مرض', 'تبرقش التبغ ، الحصبة ، الإيدز', 'الدرنة المغزلية في البطاطا', 'جنون البقر ، كروتزفيلد - جاكوب'],
+    ['العالِم', 'إيفانوفسكي وبايرينك وستانلي', 'ثيودور دينر 1971 م', 'ستانلي بروزينر ( نوبل 1997 م )']
+  ];
+  function pcmp(host) {
+    host.innerHTML = '';
+    const S = { mode: 't', qi: 0, pick: null, order: null };
+    const bar = el('div', 'srow'), body = el('div');
+    host.append(bar, body);
+    const Q = []; CMP3.forEach((r, ri) => [1, 2, 3].forEach(c => Q.push([r[0] + ' : ' + r[c], c])));
+    function top() { bar.innerHTML = ''; bar.append(seg([['t', 'الجدول'], ['q', 'لمن هذه الصفة ؟']], S.mode, v => { S.mode = v; if (v === 'q') { S.order = shuffle(Q.map((q, i) => i)); S.qi = 0; S.pick = null; } top(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      if (S.mode === 't') {
+        const svg = fig(body, 320, 120);
+        sv('rect', { x: 0, y: 0, width: 320, height: 120, fill: '#F7F9FC' }, svg);
+        sv('polygon', { points: [0, 1, 2, 3, 4, 5].map(k => (55 + 30 * Math.cos(k * Math.PI / 3)) + ',' + (60 + 30 * Math.sin(k * Math.PI / 3))).join(' '), fill: '#E8DDF5', stroke: PH, 'stroke-width': 3 }, svg);
+        sv('path', { d: 'M40 60 q7 -10 14 0 t14 0', fill: 'none', stroke: VDNA, 'stroke-width': 2.5 }, svg);
+        sv('circle', { cx: 160, cy: 60, r: 22, fill: 'none', stroke: '#E07A1F', 'stroke-width': 4 }, svg);
+        sv('path', { d: 'M248 70 l8 -24 l7 18 l8 -20 l8 22 l6 -12', fill: 'none', stroke: '#C1121F', 'stroke-width': 4, 'stroke-linejoin': 'round' }, svg);
+        body.append(el('div', 'vrtri', '<span>فيروس</span><span>فيرويد</span><span>بريون</span>'));
+        const tb = el('div', 'vrtab vrtab4');
+        tb.append(el('div', 'vrtr vrhd', '<span>وجه المقارنة</span><span>الفيروس</span><span>الفيرويد</span><span>البريون</span>'));
+        CMP3.forEach(x => tb.append(el('div', 'vrtr', x.map(c => '<span>' + c + '</span>').join(''))));
+        body.append(tb);
+        body.append(el('div', 'sl note', 'من الأعقد إلى الأبسط : الفيروس ( مادّة وراثية + محفظة ) ← الفيرويد ( مادّة وراثية فقط ) ← البريون ( بروتين فقط ) . وانتبه : ويندل ستانلي للفيروس ، وستانلي بروزينر للبريون.'));
+        return;
+      }
+      const q = Q[S.order[S.qi]];
+      body.append(el('div', 'vrcount', 'الصفة ' + (S.qi + 1) + ' من ' + Q.length));
+      body.append(verdict('', 'لمن هذه الصفة ؟', q[0]));
+      body.append(chips([[1, 'الفيروس'], [2, 'الفيرويد'], [3, 'البريون']], S.pick, k => { if (S.pick) return; S.pick = +k; draw(); }, k => S.pick === k ? (k === q[1] ? ' vrok' : ' vrbad') : ''));
+      if (S.pick) {
+        body.append(verdict(S.pick === q[1] ? 'acok' : 'acwarn', S.pick === q[1] ? 'صحيح' : 'الصحيح : ' + ['', 'الفيروس', 'الفيرويد', 'البريون'][q[1]], q[0] + '.'));
+        const r = el('div', 'srow'); r.append(btn('التالية', 'go', () => { S.qi = (S.qi + 1) % Q.length; S.pick = null; draw(); })); body.append(r);
+      }
+    }
+    top(); draw();
+  }
+
+  window.SIMS.vdisc = vdisc;
+  window.SIMS.vlive = vlive;
+  window.SIMS.vbuild = vbuild;
+  window.SIMS.lytic = lytic;
+  window.SIMS.lysog = lysog;
+  window.SIMS.vhost = vhost;
+  window.SIMS.vdis = vdis;
+  window.SIMS.pclass = pclass;
+  window.SIMS.prion = prion;
+  window.SIMS.pcmp = pcmp;
+})();
+/* ===== محاكاة المركّبات والروابط الكيميائية ( كيمياء العاشر — الوحدة الثالثة ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const L = s => '<span class="ltr">' + s + '</span>';
+  const sel = (lab, val, opts, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const s = document.createElement('select');
+    opts.forEach(o => { const p = document.createElement('option'); p.value = o[0]; p.textContent = o[1]; if (String(o[0]) === String(val)) p.selected = true; s.append(p); });
+    s.onchange = () => fn(s.value); w.append(s); return w;
+  };
+  const info = () => { const b = el('div', 'cyinfo'); b.row = (k, v) => b.append(el('div', 'cyrow', '<span class="cyk">' + k + '</span><span class="cyv">' + v + '</span>')); return b; };
+  const verdict = (cls, b, s) => el('div', 'acv' + (cls ? ' ' + cls : ''), '<b>' + b + '</b><span>' + s + '</span>');
+  const seg = (opts, val, fn) => { const w = el('div', 'bdseg'); opts.forEach(o => { const b = el('button', 'bdb' + (String(o[0]) === String(val) ? ' bdon' : ''), o[1]); b.onclick = () => fn(o[0]); w.append(b); }); return w; };
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.append(e); return e; };
+  const tx = (svg, x, y, s, a) => { const t = sv('text', Object.assign({ x, y, 'text-anchor': 'middle', 'dominant-baseline': 'central', 'font-size': 18, 'font-weight': 700, fill: '#1F3A5F', 'font-family': 'Arial, sans-serif', direction: 'ltr', 'unicode-bidi': 'plaintext' }, a || {}), svg); t.textContent = s; return t; };
+  const fig = (body, w, h) => { const s = sv('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'bdsvg', preserveAspectRatio: 'xMidYMid meet' }), f = el('div', 'bdfig'); f.append(s); body.append(f); return s; };
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const SUB = { 0: '₀', 1: '₁', 2: '₂', 3: '₃', 4: '₄', 5: '₅', 6: '₆', 7: '₇', 8: '₈', 9: '₉' };
+  const SUP = { 0: '⁰', 1: '¹', 2: '²', 3: '³', 4: '⁴', 5: '⁵', 6: '⁶', 7: '⁷', 8: '⁸', 9: '⁹' };
+  const sub = n => n > 1 ? String(n).split('').map(c => SUB[c]).join('') : '';
+  const sup = n => String(n).split('').map(c => SUP[c]).join('');
+  const chg = q => (Math.abs(q) > 1 ? sup(Math.abs(q)) : '') + (q > 0 ? '⁺' : '⁻');
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const ROM = { 1: 'I', 2: 'II', 3: 'III', 4: 'IV' };
+  const BLUE = '#1F4E8C', RED = '#C1121F', NAVY = '#1F3A5F';
+
+  /* ---------- العناصر ---------- */
+  const E = {
+    H: [1, 'الهيدروجين', 'n'], Li: [3, 'الليثيوم', 'm'], B: [5, 'البورون', 'n'], C: [6, 'الكربون', 'n'], N: [7, 'النتروجين', 'n'], O: [8, 'الأكسجين', 'n'], F: [9, 'الفلور', 'n'], Ne: [10, 'النيون', 'g'],
+    Na: [11, 'الصوديوم', 'm'], Mg: [12, 'المغنيسيوم', 'm'], Al: [13, 'الألمنيوم', 'm'], Si: [14, 'السليكون', 'n'], P: [15, 'الفوسفور', 'n'], S: [16, 'الكبريت', 'n'], Cl: [17, 'الكلور', 'n'], Ar: [18, 'الأرغون', 'g'],
+    K: [19, 'البوتاسيوم', 'm'], Ca: [20, 'الكالسيوم', 'm']
+  };
+  const ORB = [['1s', 2], ['2s', 2], ['2p', 6], ['3s', 2], ['3p', 6], ['4s', 2]];
+  const conf = z => { const out = []; let r = z; for (const [o, c] of ORB) { if (r <= 0) break; const k = Math.min(r, c); out.push([o, k]); r -= k; } return out; };
+  const confStr = (z, hi) => { const c = conf(z), lev = c[c.length - 1][0][0]; return c.map(([o, k]) => { const s = o + sup(k); return hi && o[0] === lev ? '<b class="bdval">' + s + '</b>' : s; }).join(' '); };
+  const valE = z => { const c = conf(z), lev = c[c.length - 1][0][0]; return c.filter(x => x[0][0] === lev).reduce((a, x) => a + x[1], 0); };
+  const GROUP = { 1: 'IA', 2: 'IIA', 3: 'IIIA', 4: 'IVA', 5: 'VA', 6: 'VIA', 7: 'VIIA', 8: 'VIIIA' };
+  const NOBLE = [[2, 'الهيليوم'], [10, 'النيون'], [18, 'الأرغون']];
+  const KIND = { m: 'فلزّ', n: 'لافلزّ', g: 'غاز نبيل' };
+  /* نقاط لويس : تُوزَّع فرادى على الجهات الأربع ثمّ تُزاوَج */
+  function lewisDots(svg, x, y, n, col, r0) {
+    const R = r0 || 22, SIDES = [[0, -1], [1, 0], [0, 1], [-1, 0]];
+    const cnt = [0, 0, 0, 0]; for (let i = 0; i < n; i++) cnt[i % 4]++;
+    if (x === undefined) return cnt;
+    cnt.forEach((c, s) => { const [dx, dy] = SIDES[s]; for (let k = 0; k < c; k++) { const off = c === 2 ? (k ? 5 : -5) : 0; sv('circle', { cx: x + dx * R + (dy ? off : 0), cy: y + dy * R + (dx ? off : 0), r: 3.6, fill: col || RED }, svg); } });
+    return cnt;
+  }
+
+  /* ======================= 1 · لماذا ترتبط الذرّات ؟ ======================= */
+  function noble(host) {
+    host.innerHTML = '';
+    const S = { a: 'Na', b: 'Cl' };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    const opts = Object.keys(E).filter(k => E[k][2] !== 'g').map(k => [k, E[k][1] + ' ' + k]);
+    bar.append(sel('الذرّة الأولى', S.a, opts, v => { S.a = v; draw(); }), sel('الذرّة الثانية', S.b, opts, v => { S.b = v; draw(); }));
+    const plan = k => {
+      const z = E[k][0], v = valE(z), m = E[k][2] === 'm';
+      if (k === 'H') return { act: 'يحتاج إلكترونًا واحدًا ( ليشبه الهيليوم )', n: 1, near: 'الهيليوم' };
+      if (m) { const ng = NOBLE.filter(x => x[0] < z).pop(); return { act: 'يفقد ' + v + ' ← أيون ' + L(k + chg(v)), n: -v, near: ng[1] }; }
+      const ng = NOBLE.find(x => x[0] > z); return { act: 'يحتاج ' + (8 - v) + ' ← يكسب أو يشارك', n: 8 - v, near: ng[1] };
+    };
+    function draw() {
+      body.innerHTML = '';
+      const A = E[S.a], Bq = E[S.b];
+      const t = info();
+      [[S.a, A], [S.b, Bq]].forEach(([k, e]) => { const p = plan(k); t.row(e[1] + ' ' + L(k), L(confStr(e[0], 1)) + '<br>' + KIND[e[2]] + ' · تكافؤ ' + valE(e[0]) + ' · ' + p.act + ' ← توزيع يشبه <b>' + p.near + '</b>'); });
+      body.append(t);
+      const mA = A[2] === 'm', mB = Bq[2] === 'm';
+      let k, x;
+      if (mA && mB) { k = 'رابطة فلزية'; x = 'فلزّ + فلزّ : تفقد الذرّات إلكترونات تكافؤها إلى <b>بحر مشترك</b> من الإلكترونات يحيط بالأيونات الموجبة.'; }
+      else if (mA !== mB) { k = 'رابطة أيونية'; x = 'فلزّ + لافلزّ : الفلزّ <b>يفقد</b> إلكترونات تكافؤه القليلة ، واللافلزّ <b>يكسبها</b> ، فيتجاذب الأيونان المختلفان في الشحنة.'; }
+      else { k = 'رابطة تساهمية'; x = 'لافلزّ + لافلزّ : لا تميل أيّ منهما إلى فقد الإلكترونات ، فـ<b>تتشاركان</b> بزوج أو أكثر.'; }
+      body.append(verdict('acok', k, x + ' والسبب في كلّ الحالات واحد : الوصول إلى توزيع إلكتروني <b>مكتمل يشبه الغاز النبيل</b> ، وهو أكثر التوزيعات استقرارًا.'));
+      body.append(el('div', 'sl note', 'الذرّة لا تصير غازًا نبيلًا ؛ عدد بروتوناتها لا يتغيّر ، بل يصير توزيعها الإلكتروني مثله.'));
+    }
+    draw();
+  }
+
+  /* ======================= 2 · تركيب لويس ======================= */
+  function lewis(host) {
+    host.innerHTML = '';
+    const S = { k: 'N', mode: 'x', q: null, pick: null };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    function top() { bar.innerHTML = ''; bar.append(seg([['x', 'ارسم لعنصر'], ['q', 'من صاحب النقاط ؟']], S.mode, v => { S.mode = v; S.q = null; S.pick = null; top(); draw(); })); }
+    const ks = Object.keys(E).filter(k => E[k][0] > 2);
+    function draw() {
+      body.innerHTML = '';
+      if (S.mode === 'x') {
+        body.append(sel('العنصر', S.k, Object.keys(E).map(k => [k, E[k][1] + ' ' + k + ' ( ' + E[k][0] + ' )']), v => { S.k = v; draw(); }));
+        const z = E[S.k][0], v = valE(z), svg = fig(body, 320, 140);
+        tx(svg, 160, 70, S.k, { 'font-size': 30 });
+        const cnt = lewisDots(svg, 160, 70, v, RED, 30);
+        const t = info();
+        t.row('التوزيع الإلكتروني', L(confStr(z, 1)));
+        t.row('إلكترونات التكافؤ', '<b>' + v + '</b>' + (S.k !== 'H' ? ' = رقم المجموعة ' + L(GROUP[v]) : ''));
+        t.row('النقاط', 'مفردة ' + cnt.filter(c => c === 1).length + ' · أزواج ' + cnt.filter(c => c === 2).length);
+        body.append(t, el('div', 'sl note', 'النقاط لإلكترونات المستوى الخارجي وحدها ، وتوزَّع <b>فرادى</b> على الجهات الأربع أوّلًا ثمّ تُزاوَج . والنقاط المفردة هي التي تشارك في الروابط.'));
+        return;
+      }
+      if (!S.q) S.q = shuffle(ks)[0];
+      const v = valE(E[S.q][0]), svg = fig(body, 320, 140);
+      tx(svg, 160, 70, 'X', { 'font-size': 30 }); lewisDots(svg, 160, 70, v, RED, 30);
+      body.append(el('div', 'shint', 'هذا تركيب لويس لعنصر مجهول X . إلى أيّ مجموعة ينتمي ؟'));
+      const ch = el('div', 'bdchips');
+      [1, 2, 3, 4, 5, 6, 7, 8].forEach(g => { const b = el('button', 'bdchip' + (S.pick === g ? (g === v ? ' bdok' : ' bdbad') : ''), L(GROUP[g])); b.onclick = () => { S.pick = g; draw(); }; ch.append(b); });
+      body.append(ch);
+      if (S.pick) {
+        const ok = S.pick === v, same = ks.filter(k => valE(E[k][0]) === v).map(k => E[k][1] + ' ' + L(k)).join(' ، ');
+        body.append(verdict(ok ? 'acok' : 'acwarn', ok ? 'صحيح : ' + GROUP[v] : 'عدّ النقاط مرّة أخرى', v + ' نقاط ← ' + v + ' إلكترونات تكافؤ ← المجموعة ' + L(GROUP[v]) + ' . من أمثلتها : ' + same + '.'));
+        const r = el('div', 'srow'); r.append(btn('عنصر آخر', 'go', () => { S.q = null; S.pick = null; draw(); })); body.append(r);
+      }
+    }
+    top(); draw();
+  }
+
+  /* ======================= 3 · الرابطة الأيونية ======================= */
+  const METALS = ['Li', 'Na', 'K', 'Mg', 'Ca', 'Al'], NONMET = ['F', 'Cl', 'O', 'S', 'N'];
+  const ANAME = { F: 'فلوريد', Cl: 'كلوريد', O: 'أكسيد', S: 'كبريتيد', N: 'نتريد' };
+  function ionic(host) {
+    host.innerHTML = '';
+    const S = { m: 'Na', n: 'Cl', t: 0 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    let raf = 0;
+    bar.append(sel('الفلزّ', S.m, METALS.map(k => [k, E[k][1] + ' ' + k]), v => { S.m = v; draw(); }), sel('اللافلزّ', S.n, NONMET.map(k => [k, E[k][1] + ' ' + k]), v => { S.n = v; draw(); }));
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const vm = valE(E[S.m][0]), vn = 8 - valE(E[S.n][0]);
+      const lcm = vm * vn / gcd(vm, vn), nm = lcm / vm, nn = lcm / vn;
+      const svg = fig(body, 320, 190);
+      const ions = (k, cnt, x0, isM) => Array.from({ length: cnt }, (_, i) => ({ k, x: x0, y: cnt === 1 ? 95 : 50 + i * (90 / (cnt - 1 || 1)) * (cnt > 2 ? 1 : 1) }));
+      const M = ions(S.m, nm, 70, 1), N = ions(S.n, nn, 250, 0);
+      const moves = []; let ni = 0, need = vn;
+      M.forEach((a, i) => { for (let e = 0; e < vm; e++) { while (need === 0) { ni++; need = vn; } moves.push([i, ni, e]); need--; } });
+      const t0 = performance.now();
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        const u = Math.max(0, Math.min(1, (ts - t0) / 2200));
+        svg.innerHTML = '';
+        const fs = (nm > 2 || nn > 2) ? 20 : 26;
+        M.forEach((a, i) => { tx(svg, a.x, a.y, a.k + (u >= 1 ? chg(vm) : ''), { 'font-size': fs, fill: u >= 1 ? BLUE : NAVY }); });
+        N.forEach((b, i) => { tx(svg, b.x, b.y, b.k + (u >= 1 ? chg(-vn) : ''), { 'font-size': fs, fill: u >= 1 ? RED : NAVY }); lewisDots(svg, b.x, b.y, 8 - vn, '#555', 20); });
+        moves.forEach(([i, j, e], q) => {
+          const a = M[i], b = N[j], cntB = lewisDots(undefined, 0, 0, 8 - vn), slot = (8 - vn + moves.filter(m => m[1] === j).indexOf(moves[q]));
+          const SIDES = [[0, -1], [1, 0], [0, 1], [-1, 0]], sd = SIDES[slot % 4];
+          const sx = a.x + 22 * (e % 2 ? 0 : 1), sy = a.y + (e % 2 ? -22 : 0), ex = b.x + sd[0] * 20 + (sd[1] ? 5 : 0), ey = b.y + sd[1] * 20 + (sd[0] ? 5 : 0);
+          sv('circle', { cx: sx + (ex - sx) * u, cy: sy + (ey - sy) * u, r: 4, fill: '#E9A400', stroke: '#9A6A00' }, svg);
+        });
+        if (u >= 1) sv('path', { d: 'M120 95 h80 m-8 -6 l8 6 l-8 6 M200 95 m-80 0 m8 -6 l-8 6 l8 6', stroke: '#2E7D4F', 'stroke-width': 2, fill: 'none' }, svg);
+        if (u < 1) raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      body.append(el('div', 'bdlg', '<span><i style="background:#E9A400"></i>إلكترونات تنتقل من الفلزّ</span><span><i style="background:#555"></i>إلكترونات التكافؤ الأصلية للّافلزّ</span>'));
+      const formula = S.m + sub(nm) + S.n + sub(nn);
+      const t = info();
+      t.row(E[S.m][1], L(confStr(E[S.m][0])) + ' ← يفقد ' + vm + ' ← ' + L(S.m + chg(vm)));
+      t.row(E[S.n][1], L(confStr(E[S.n][0])) + ' ← يكسب ' + vn + ' ← ' + L(S.n + chg(-vn)));
+      t.row('عدد الإلكترونات المنتقلة', '<b>' + lcm + '</b> ( ' + nm + ' × ' + vm + ' = ' + nn + ' × ' + vn + ' )');
+      t.row('الصيغة', '<b>' + L(formula) + '</b> — ' + ANAME[S.n] + ' ' + E[S.m][1].replace(/^ال/, 'ال'));
+      body.append(t);
+      body.append(verdict('acok', 'رابطة أيونية', 'يفقد الفلزّ إلكترونات تكافؤه فتزيد بروتوناته على إلكتروناته ← أيون <b>موجب</b> ، ويكسبها اللافلزّ ← أيون <b>سالب</b> ، ويتجاذب الأيونان المختلفان في الشحنة . وكلّ ما يفقده الفلزّ يكسبه اللافلزّ : مجموع الشحنات صفر.'));
+      const r = el('div', 'srow'); r.append(btn('أعد الحركة', 'gh', draw)); body.append(r);
+    }
+    draw();
+  }
+
+  /* ---------- رسم الجزيئات ---------- */
+  const MOL = {
+    H2: { n: L('H₂') + ' الهيدروجين', at: [['H', 120, 90], ['H', 200, 90]], b: [[0, 1, 1]], lp: [0, 0] },
+    HCl: { n: L('HCl') + ' كلوريد الهيدروجين', at: [['H', 115, 90], ['Cl', 205, 90]], b: [[0, 1, 1]], lp: [0, 3] },
+    H2O: { n: L('H₂O') + ' الماء', at: [['O', 160, 80], ['H', 100, 130], ['H', 220, 130]], b: [[0, 1, 1], [0, 2, 1]], lp: [2, 0, 0] },
+    NH3: { n: L('NH₃') + ' الأمونيا', at: [['N', 160, 75], ['H', 95, 120], ['H', 160, 150], ['H', 225, 120]], b: [[0, 1, 1], [0, 2, 1], [0, 3, 1]], lp: [1, 0, 0, 0] },
+    CH4: { n: L('CH₄') + ' الميثان', at: [['C', 160, 90], ['H', 160, 30], ['H', 230, 90], ['H', 160, 150], ['H', 90, 90]], b: [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1]], lp: [0, 0, 0, 0, 0] },
+    C2H6: { n: L('C₂H₆') + ' الإيثان', at: [['C', 125, 90], ['C', 195, 90], ['H', 125, 35], ['H', 60, 90], ['H', 125, 145], ['H', 195, 35], ['H', 260, 90], ['H', 195, 145]], b: [[0, 1, 1], [0, 2, 1], [0, 3, 1], [0, 4, 1], [1, 5, 1], [1, 6, 1], [1, 7, 1]], lp: [0, 0, 0, 0, 0, 0, 0, 0] },
+    CO2: { n: L('CO₂') + ' ثاني أكسيد الكربون', at: [['O', 85, 90], ['C', 160, 90], ['O', 235, 90]], b: [[0, 1, 2], [1, 2, 2]], lp: [2, 0, 2] },
+    C2H4: { n: L('C₂H₄') + ' الإيثين', at: [['C', 125, 90], ['C', 195, 90], ['H', 80, 45], ['H', 80, 135], ['H', 240, 45], ['H', 240, 135]], b: [[0, 1, 2], [0, 2, 1], [0, 3, 1], [1, 4, 1], [1, 5, 1]], lp: [0, 0, 0, 0, 0, 0] },
+    N2: { n: L('N₂') + ' النتروجين', at: [['N', 125, 90], ['N', 195, 90]], b: [[0, 1, 3]], lp: [1, 1] }
+  };
+  function drawMol(svg, M, hl) {
+    svg.innerHTML = '';
+    const P = M.at;
+    M.b.forEach(([i, j, o], bi) => {
+      const [, x1, y1] = P[i], [, x2, y2] = P[j], dx = x2 - x1, dy = y2 - y1, d = Math.hypot(dx, dy), ux = dx / d, uy = dy / d, nx = -uy, ny = ux, s = 16;
+      for (let k = 0; k < o; k++) {
+        const off = (k - (o - 1) / 2) * 7, isPi = k !== Math.floor((o - 1) / 2) || (o === 2 && k === 1);
+        const pi = o === 1 ? false : (o === 2 ? k === 1 : k !== 1);
+        sv('line', { x1: x1 + ux * s + nx * off, y1: y1 + uy * s + ny * off, x2: x2 - ux * s + nx * off, y2: y2 - uy * s + ny * off, stroke: hl ? (pi ? '#E07A00' : BLUE) : NAVY, 'stroke-width': 3, 'stroke-linecap': 'round' }, svg);
+      }
+    });
+    P.forEach(([s, x, y], i) => {
+      tx(svg, x, y, s, { 'font-size': 22 });
+      const n = M.lp[i]; if (!n) return;
+      const used = M.b.filter(b => b[0] === i || b[1] === i).map(b => { const o = P[b[0] === i ? b[1] : b[0]]; return Math.atan2(o[2] - y, o[1] - x); });
+      const cand = [-Math.PI / 2, 0, Math.PI / 2, Math.PI, -Math.PI / 4, -3 * Math.PI / 4].filter(a => used.every(u => Math.abs(Math.atan2(Math.sin(a - u), Math.cos(a - u))) > 0.7));
+      cand.slice(0, n).forEach(a => { const cx = x + Math.cos(a) * 20, cy = y + Math.sin(a) * 20, px = -Math.sin(a) * 4.5, py = Math.cos(a) * 4.5; sv('circle', { cx: cx + px, cy: cy + py, r: 3, fill: RED }, svg); sv('circle', { cx: cx - px, cy: cy - py, r: 3, fill: RED }, svg); });
+    });
+  }
+  const molCount = M => { let s = 0, p = 0, sh = 0; M.b.forEach(b => { s++; p += b[2] - 1; sh += b[2] * 2; }); return { s, p, sh, single: M.b.filter(b => b[2] === 1).length }; };
+
+  /* ======================= 4 · التساهمية الأحادية ======================= */
+  function covalent(host) {
+    host.innerHTML = '';
+    const S = { m: 'H2O' };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    bar.append(sel('الجزيء', S.m, ['H2', 'HCl', 'H2O', 'NH3', 'CH4', 'C2H6'].map(k => [k, MOL[k].n.replace(/<[^>]+>/g, '')]), v => { S.m = v; draw(); }));
+    const NEED = { H: 1, C: 4, N: 3, O: 2, Cl: 1 };
+    function draw() {
+      body.innerHTML = '';
+      const M = MOL[S.m], svg = fig(body, 320, 180); drawMol(svg, M);
+      body.append(el('div', 'bdlg', '<span><i style="background:' + NAVY + '"></i>خطّ = رابطة أحادية = زوج مشترك</span><span><i style="background:' + RED + '"></i>زوج غير مشترك</span>'));
+      const c = molCount(M), t = info();
+      t.row('الروابط الأحادية', '<b>' + c.single + '</b> ( كلّها سيجما σ )');
+      t.row('الإلكترونات المشتركة', L(c.single + ' × 2 = ' + c.sh));
+      const RB = n => n === 1 ? 'رابطة واحدة' : n === 2 ? 'رابطتان' : n + ' روابط';
+      t.row('ما تحتاجه كلّ ذرّة', [...new Set(M.at.map(a => a[0]))].map(s => L(s) + ' يحتاج ' + NEED[s] + ' ← ' + RB(NEED[s])).join(' · '));
+      body.append(t);
+      body.append(verdict('acok', 'مشاركة لا انتقال', 'كلّ ذرّة تشارك بعدد الإلكترونات الذي ينقصها ليكتمل مستواها الخارجي ، والزوج يبقى <b>مشتركًا بين النواتين</b> ينجذب إليهما معًا ؛ ولا تفقد أيّ ذرّة إلكتروناتها.' + (S.m === 'NH3' ? ' ( جزيء الأمونيا يرد في أسئلة الكتاب . )' : '')));
+    }
+    draw();
+  }
+
+  /* ======================= 5 · سيجما وباي ======================= */
+  function sigpi(host) {
+    host.innerHTML = '';
+    const S = { m: 'C2H4', s: 0, p: 0, shown: false };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    bar.append(sel('الجزيء', S.m, ['H2', 'CH4', 'C2H6', 'CO2', 'C2H4', 'N2'].map(k => [k, MOL[k].n.replace(/<[^>]+>/g, '')]), v => { S.m = v; S.s = 0; S.p = 0; S.shown = false; draw(); }));
+    function draw() {
+      body.innerHTML = '';
+      const M = MOL[S.m], c = molCount(M), svg = fig(body, 320, 180); drawMol(svg, M, S.shown);
+      if (S.shown) body.append(el('div', 'bdlg', '<span><i style="background:' + BLUE + '"></i>سيجما σ ( تداخل رأسي )</span><span><i style="background:#E07A00"></i>باي π ( تداخل جانبي p-p )</span>'));
+      const st = (lab, key) => { const w = el('div', 'bdstep'); w.append(el('span', '', lab), btn('−', 'gh', () => { S[key] = Math.max(0, S[key] - 1); S.shown = false; draw(); }), el('b', '', String(S[key])), btn('+', 'gh', () => { S[key]++; S.shown = false; draw(); })); return w; };
+      const r = el('div', 'srow'); r.append(st('سيجما σ :', 's'), st('باي π :', 'p'), btn('تحقّق', 'go', () => { S.shown = true; draw(); })); body.append(r);
+      if (S.shown) {
+        const ok = S.s === c.s && S.p === c.p;
+        body.append(verdict(ok ? 'acok' : 'acwarn', ok ? 'صحيح : ' + c.s + 'σ و ' + c.p + 'π' : 'الصحيح : ' + c.s + 'σ و ' + c.p + 'π',
+          'في كلّ رابطة بين ذرّتين <b>سيجما واحدة فقط</b> ، وما زاد فهو باي : الأحادية σ ، الثنائية σ + π ، الثلاثية σ + 2π . ' + (M.b.length > 1 ? 'عدد الروابط بين الذرّات ' + M.b.length + ' فعدد سيجما ' + c.s + '.' : '')));
+      }
+      const t = info(); t.row('أحادية', 'زوج واحد ← σ'); t.row('ثنائية', 'زوجان ← σ + π ( ' + L('CO₂') + ' ، ' + L('C₂H₄') + ' )'); t.row('ثلاثية', 'ثلاثة أزواج ← σ + 2π ( ' + L('N₂') + ' )'); body.append(t);
+    }
+    draw();
+  }
+
+  /* ======================= 6 · بحر الإلكترونات ======================= */
+  function metalsea(host) {
+    host.innerHTML = '';
+    const S = { m: 'Na', V: 0, shift: 0 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    let raf = 0;
+    bar.append(sel('الفلزّ', S.m, [['Na', 'الصوديوم Na'], ['Mg', 'المغنيسيوم Mg'], ['Al', 'الألمنيوم Al']], v => { S.m = v; draw(); }));
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const v = valE(E[S.m][0]), svg = fig(body, 320, 200);
+      const ions = []; for (let r = 0; r < 4; r++) for (let c = 0; c < 6; c++) ions.push([35 + c * 50, 35 + r * 44, r]);
+      const els = Array.from({ length: ions.length * v }, (_, i) => ({ x: Math.random() * 320, y: Math.random() * 200, vx: (Math.random() - .5) * 2, vy: (Math.random() - .5) * 2 }));
+      let sh = 0;
+      const loop = () => {
+        if (!svg.isConnected) return;
+        sh += (S.shift - sh) * 0.08;
+        svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 200, fill: '#F2F6FB' }, svg);
+        if (S.V) { sv('rect', { x: 0, y: 85, width: 10, height: 30, fill: '#C1121F' }, svg); sv('rect', { x: 310, y: 85, width: 10, height: 30, fill: '#1F4E8C' }, svg); }
+        ions.forEach(([x, y, r]) => { const xx = x + (r >= 2 ? sh : 0); sv('circle', { cx: xx, cy: y, r: 15, fill: '#9CC3E4', stroke: BLUE, 'stroke-width': 1.5 }, svg); tx(svg, xx, y, S.m + chg(v), { 'font-size': 10, fill: NAVY }); });
+        els.forEach(e => {
+          e.vx += (Math.random() - .5) * .4 + (S.V ? -0.06 : 0); e.vy += (Math.random() - .5) * .4; e.vx *= .95; e.vy *= .95;
+          e.x += e.vx; e.y += e.vy; if (e.x < 0) e.x += 320; if (e.x > 320) e.x -= 320; if (e.y < 0) e.y += 200; if (e.y > 200) e.y -= 200;
+          sv('circle', { cx: e.x, cy: e.y, r: 2.6, fill: '#E9A400' }, svg);
+        });
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      body.append(el('div', 'bdlg', '<span><i style="background:#9CC3E4"></i>أيونات موجبة ' + L(S.m + chg(v)) + '</span><span><i style="background:#E9A400"></i>إلكترونات حرّة ( ' + v + ' من كلّ ذرّة )</span>'));
+      const r = el('div', 'srow');
+      r.append(btn(S.V ? 'افصل مصدر الجهد' : 'صِل بمصدر جهد', S.V ? 'go' : '', () => { S.V = S.V ? 0 : 1; draw(); }), btn(S.shift ? 'أعد الصفوف' : 'اطرق الفلزّ', S.shift ? 'go' : '', () => { S.shift = S.shift ? 0 : 50; draw(); }));
+      body.append(r);
+      body.append(S.V ? verdict('acok', 'تيار كهربائي', 'تنساق الإلكترونات الحرّة نحو القطب الموجب فيمرّ تيار ، والفلزّ صلب . الأيونات الموجبة تبقى في مواقعها.') :
+        S.shift ? verdict('acok', 'انزلقت الصفوف ولم تنكسر', 'انزلق صفّان من الأيونات الموجبة ، لكنّهما بقيا في <b>بحر الإلكترونات نفسه</b> ، فلا تنافر ولا كسر ؛ ولهذا الفلزّ قابل للطرق والسحب.') :
+        verdict('', 'الرابطة الفلزية', 'قوّة التجاذب بين الأيونات الموجبة للفلزّ والإلكترونات حرّة الحركة . فقدت كلّ ذرّة ' + v + ' ' + (v > 1 ? 'إلكترونات' : 'إلكترون') + ' تكافؤ إلى بحر مشترك لا ينتمي إلى ذرّة بعينها.'));
+    }
+    draw();
+  }
+
+  /* ---------- شبكة أيونية ---------- */
+  function lattice(svg, st, ts, pos, neg) {
+    svg.innerHTML = '';
+    sv('rect', { x: 0, y: 0, width: 320, height: 200, fill: st === 'sol' ? '#E3F0FA' : '#F7F9FC' }, svg);
+    const R = 5, C = 7, cell = 36, x0 = 52, y0 = 28;
+    const t = (ts || 0) / 1000;
+    for (let r = 0; r < R; r++) for (let c = 0; c < C; c++) {
+      const plus = (r + c) % 2 === 0;
+      let x = x0 + c * cell, y = y0 + r * cell;
+      if (st === 'push' && r >= 2) x += cell;
+      if (st === 'melt') { x += Math.sin(t * 3 + r * 7 + c * 3) * 10 + (r - 2) * Math.sin(t + c) * 6; y += Math.cos(t * 2.6 + c * 5 + r) * 10; }
+      if (st === 'sol') { x += Math.sin(t * .8 + r * 9 + c * 4) * 30 + (c - 3) * 10; y += Math.cos(t * .7 + c * 7 + r * 2) * 26 + (r - 2) * 8; }
+      if (st === 'push' && r >= 2 && x > 300) continue;
+      sv('circle', { cx: x, cy: y, r: plus ? 11 : 14, fill: plus ? '#9CC3E4' : '#F4B6B6', stroke: plus ? BLUE : RED, 'stroke-width': 1.5 }, svg);
+      tx(svg, x, y, plus ? pos : neg, { 'font-size': 9, fill: NAVY });
+      if (st === 'sol' && (r + c) % 3 === 0) { sv('circle', { cx: x + 16, cy: y - 12, r: 4, fill: '#fff', stroke: '#6CA0C8' }, svg); }
+    }
+    if (st === 'push') { sv('path', { d: 'M20 ' + (y0 + 2 * cell - 18) + ' H300', stroke: RED, 'stroke-width': 3, 'stroke-dasharray': '8 6' }, svg); for (let c = 0; c < 6; c++) { const x = x0 + 18 + c * cell; tx(svg, x, y0 + 1.5 * cell, '↕', { 'font-size': 14, fill: RED }); } }
+  }
+
+  /* ======================= 7 · خصائص البلّورة الأيونية ======================= */
+  function ioncrys(host) {
+    host.innerHTML = '';
+    const S = { st: 'solid' };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    let raf = 0;
+    function top() { bar.innerHTML = ''; bar.append(seg([['solid', 'بلّورة صلبة'], ['push', 'اضغط / اطرق'], ['melt', 'اصهر'], ['sol', 'أذب في الماء']], S.st, v => { S.st = v; top(); draw(); })); }
+    const TXT = {
+      solid: ['acok', 'قاسية · لا توصل', 'كلّ أيون ' + L('Na⁺') + ' يحيط به 6 أيونات ' + L('Cl⁻') + ' والعكس ، والتجاذب القويّ يجعلها <b>قاسية</b> . والأيونات <b>مقيّدة</b> في أماكنها فلا توصل الكهرباء.', 0],
+      push: ['acwarn', 'تنكسر : هشّة', 'انزاح نصف البلّورة صفًّا واحدًا فصار كلّ أيون أمام <b>أيون يشبهه</b> في الشحنة ، فتتنافر ( ↕ ) وتنكسر البلّورة على الخطّ الأحمر.', 0],
+      melt: ['acok', 'المصهور يوصل', 'الصهر يحتاج طاقة كبيرة ( ' + L('NaCl') + ' عند ' + L('801 °C') + ' ) لأنّ التجاذب قويّ ؛ وبعده تتفكّك البلّورة وتصبح الأيونات <b>حرّة الحركة</b> فيمرّ التيار.', 1],
+      sol: ['acok', 'المحلول يوصل', 'تتجاذب جزيئات الماء مع الأيونات فتفصلها عن البلّورة ( ذائبية عالية ) ، فتصبح الأيونات <b>حرّة الحركة</b> بين جزيئات الماء ويمرّ التيار.', 1]
+    };
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const svg = fig(body, 320, 200);
+      const loop = ts => { if (!svg.isConnected) return; lattice(svg, S.st, ts, 'Na⁺', 'Cl⁻'); if (S.st === 'melt' || S.st === 'sol') raf = requestAnimationFrame(loop); };
+      raf = requestAnimationFrame(loop);
+      const T = TXT[S.st];
+      body.append(el('div', 'bdbulb' + (T[3] ? ' bdlit' : ''), '<i></i><span>' + (T[3] ? 'المصباح يضيء' : 'المصباح لا يضيء') + '</span>'));
+      body.append(verdict(T[0], T[1], T[2]));
+      const t = info();
+      t.row('درجة انصهار ' + L('NaCl'), L('801 °C') + ' ( الشحنتان ' + L('1+') + ' و ' + L('1−') + ' )');
+      t.row('درجة انصهار ' + L('MgO'), L('2852 °C') + ' ( الشحنتان ' + L('2+') + ' و ' + L('2−') + ' : تجاذب أقوى )');
+      body.append(t);
+    }
+    top(); draw();
+  }
+
+  /* ======================= 8 · الطرق : فلزّ مقابل أيوني ، وتصنيف المواد ======================= */
+  const PROPS = [
+    ['تنصهر عند ' + L('801 °C') + ' ولا توصل وهي صلبة ، ومحلولها يوصل', 'i'], ['لامعة ، وتتحوّل إلى أسلاك بالسحب', 'm'], ['غاز في درجة حرارة الغرفة ولا توصل الكهرباء', 'c'],
+    ['بلّورة قاسية تتفتّت عند الطرق', 'i'], ['سائل يتبخّر بسهولة ولا يذوب في الماء', 'c'], ['توصل الكهرباء والحرارة وهي صلبة', 'm'],
+    ['صلبة تذوب في الماء ومحلولها لا يوصل ( مثل سكّر الجلوكوز )', 'c'], ['مصهورها يوصل الكهرباء ودرجة انصهارها عالية جدًّا', 'i']
+  ];
+  const KN = { i: 'أيونية', c: 'تساهمية', m: 'فلزّ' };
+  function malleable(host) {
+    host.innerHTML = '';
+    const S = { mode: 'h', hit: 0, i: 0, pick: null, sc: 0, order: shuffle(PROPS.map((_, i) => i)) };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    function top() { bar.innerHTML = ''; bar.append(seg([['h', 'اطرق المادّتين'], ['q', 'صنّف من الخصائص']], S.mode, v => { S.mode = v; top(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      if (S.mode === 'h') {
+        const pair = el('div', 'bdpair');
+        const mk = (title, ionicLike) => {
+          const c = el('div', 'bdcard'); c.append(el('div', 'bdct', title));
+          const s = sv('svg', { viewBox: '0 0 150 120', class: 'bdsvg' }); c.append(s);
+          for (let r = 0; r < 4; r++) for (let k = 0; k < 5; k++) {
+            let x = 18 + k * 28 + (S.hit && r >= 2 ? 28 : 0), y = 18 + r * 28;
+            if (x > 140) continue;
+            const plus = ionicLike ? (r + k) % 2 === 0 : true;
+            sv('circle', { cx: x, cy: y, r: 10, fill: plus ? '#9CC3E4' : '#F4B6B6', stroke: plus ? BLUE : RED }, s);
+          }
+          if (!ionicLike) for (let i = 0; i < 30; i++) sv('circle', { cx: 5 + Math.random() * 140, cy: 5 + Math.random() * 110, r: 1.8, fill: '#E9A400' }, s);
+          if (S.hit && ionicLike) sv('path', { d: 'M0 57 L35 50 L70 64 L105 50 L150 60', stroke: RED, 'stroke-width': 3, fill: 'none' }, s);
+          c.append(el('div', 'bdres', S.hit ? (ionicLike ? '✗ انكسرت : تنافر المتشابه' : '✓ صفيحة : بقيت في بحر الإلكترونات') : ''));
+          return c;
+        };
+        pair.append(mk('فلزّ ( نحاس )', 0), mk('بلّورة أيونية ( ملح )', 1)); body.append(pair);
+        const r = el('div', 'srow'); r.append(btn(S.hit ? 'أعد' : 'اطرق', 'go', () => { S.hit = S.hit ? 0 : 1; draw(); })); body.append(r);
+        body.append(verdict('', 'الفرق في الانزلاق', 'في الفلزّ تنزلق صفوف الأيونات الموجبة وتظلّ في بحر الإلكترونات نفسه ← <b>قابل للطرق والسحب</b> . وفي البلّورة الأيونية يقرّب الانزلاق الأيونات المتماثلة فتتنافر ← <b>هشّة</b>.'));
+        const t = info(); t.row('السبائك', 'خليط من فلزّ وعنصر آخر على الأقلّ لتحسين خصائصه : الفولاذ والمنغنيز ( نحو ' + L('13 %') + ' منغنيز ) للسكك وآلات الحفر ، والفولاذ ( حديد وكربون ) للبناء'); body.append(t);
+        return;
+      }
+      const P = PROPS[S.order[S.i]];
+      body.append(el('div', 'bdcount', 'المادّة ' + (S.i + 1) + ' من ' + PROPS.length + ' · الصحيح ' + S.sc));
+      body.append(verdict('', 'ما نوع المادّة ؟', P[0]));
+      const r = el('div', 'srow');
+      ['i', 'c', 'm'].forEach(k => r.append(btn(KN[k], S.pick === k ? 'go' : '', () => { if (S.pick) return; S.pick = k; if (k === P[1]) S.sc++; draw(); })));
+      body.append(r);
+      if (S.pick) {
+        const ok = S.pick === P[1];
+        body.append(verdict(ok ? 'acok' : 'acwarn', (ok ? 'صحيح : ' : 'الصحيح : ') + KN[P[1]], P[1] === 'i' ? 'أيونات مقيّدة في بلّورة قويّة : انصهار عالٍ ، هشاشة ، توصيل في المحلول والمصهور فقط.' : P[1] === 'm' ? 'بحر إلكترونات : لمعان ، طرق وسحب ، توصيل وهي صلبة.' : 'جزيئات منفصلة : انصهار منخفض ، تطاير ، ولا أيونات غالبًا فلا توصيل.'));
+        const n = el('div', 'srow'); n.append(btn(S.i < PROPS.length - 1 ? 'التالية' : 'من جديد', 'go', () => { if (S.i < PROPS.length - 1) S.i++; else { S.i = 0; S.sc = 0; S.order = shuffle(S.order); } S.pick = null; draw(); })); body.append(n);
+      }
+    }
+    top(); draw();
+  }
+
+  /* ======================= 9 · جهاز فحص التوصيل ======================= */
+  const SUBS = {
+    NaCl: ['كلوريد الصوديوم ' + L('NaCl'), 'i'], KCl: ['كلوريد البوتاسيوم ' + L('KCl'), 'i'], MgCl2: ['كلوريد المغنيسيوم ' + L('MgCl₂'), 'i'],
+    sugar: ['سكّر الجلوكوز', 'c'], HCl: ['كلوريد الهيدروجين ' + L('HCl'), 'h'], Cu: ['النحاس ' + L('Cu'), 'm'], Al: ['الألمنيوم ' + L('Al'), 'm']
+  };
+  function conduct(host) {
+    host.innerHTML = '';
+    const S = { k: 'NaCl', st: 's' };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    function top() {
+      bar.innerHTML = '';
+      bar.append(sel('المادّة', S.k, Object.keys(SUBS).map(k => [k, SUBS[k][0].replace(/<[^>]+>/g, '')]), v => { S.k = v; draw(); }));
+      bar.append(seg([['s', 'صلبة'], ['l', 'مصهورة'], ['a', 'محلول مائي']], S.st, v => { S.st = v; top(); draw(); }));
+    }
+    function judge() {
+      const t = SUBS[S.k][1];
+      if (t === 'm') return S.st === 'a' ? [null, 'الفلزّات لا تذوب في الماء ، فلا محلول لها.'] : [1, 'إلكترونات حرّة الحركة ( بحر الإلكترونات ) تحمل التيار' + (S.st === 's' ? ' حتّى وهي صلبة.' : '.')];
+      if (t === 'i') return S.st === 's' ? [0, 'الأيونات مقيّدة في أماكنها في الشبكة البلّورية.'] : [1, (S.st === 'l' ? 'الصهر' : 'الإذابة') + ' فكّك البلّورة فأصبحت الأيونات حرّة الحركة.'];
+      if (t === 'c') return [0, 'مركّب تساهمي لا يحتوي على أيونات ، ' + (S.st === 'a' ? 'ويذوب دون أن يُنتج أيونات.' : 'ولا إلكترونات حرّة.')];
+      return S.st === 'a' ? [1, 'مركّب تساهمي ، لكنّ محلوله يحتوي على أيونات ، فيوصل ( مثال الكتاب ).'] : [0, 'مركّب تساهمي ( غاز ) لا يحتوي على أيونات حرّة قبل إذابته.'];
+    }
+    function draw() {
+      body.innerHTML = '';
+      const [on, why] = judge();
+      const svg = fig(body, 320, 170);
+      sv('path', { d: 'M60 40 H260 V70 M60 40 V70', stroke: NAVY, 'stroke-width': 2.5, fill: 'none' }, svg);
+      sv('rect', { x: 140, y: 26, width: 40, height: 28, rx: 5, fill: '#fff', stroke: NAVY, 'stroke-width': 2 }, svg);
+      tx(svg, 160, 40, '+ −', { 'font-size': 12 });
+      sv('circle', { cx: 230, cy: 40, r: 13, fill: on ? '#FFD84D' : '#E6E9EF', stroke: '#8a6d00', 'stroke-width': 1.5 }, svg);
+      if (on) for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4; sv('line', { x1: 230 + Math.cos(a) * 17, y1: 40 + Math.sin(a) * 17, x2: 230 + Math.cos(a) * 24, y2: 40 + Math.sin(a) * 24, stroke: '#E9A400', 'stroke-width': 2 }, svg); }
+      sv('path', { d: 'M40 80 V155 H280 V80', stroke: '#5b6b80', 'stroke-width': 2, fill: S.st === 'a' ? '#DCEBF7' : S.st === 'l' ? '#FCE3C6' : '#fff' }, svg);
+      sv('rect', { x: 56, y: 70, width: 8, height: 70, fill: '#777' }, svg); sv('rect', { x: 256, y: 70, width: 8, height: 70, fill: '#777' }, svg);
+      const t = SUBS[S.k][1];
+      if (on !== null) for (let i = 0; i < 14; i++) { const x = 80 + (i % 7) * 25, y = 100 + Math.floor(i / 7) * 28; const c = t === 'm' ? '#B87333' : t === 'c' ? '#BFD8A8' : (i % 2 ? '#F4B6B6' : '#9CC3E4'); if (S.st === 's' && t !== 'm') sv('rect', { x: x - 9, y: y - 9, width: 18, height: 18, fill: c, stroke: '#888' }, svg); else sv('circle', { cx: x + (S.st !== 's' ? Math.sin(i * 3) * 6 : 0), cy: y, r: t === 'm' ? 10 : 8, fill: c, stroke: '#888' }, svg); }
+      body.append(on === null ? verdict('acwarn', 'لا يمكن', why) : verdict(on ? 'acok' : 'acwarn', on ? 'المصباح يضيء : موصل' : 'المصباح لا يضيء : غير موصل', why));
+      body.append(el('div', 'sl note', 'القاعدة : التيار يحتاج <b>حاملات شحنة حرّة الحركة</b> — إلكترونات في الفلزّ ، أو أيونات في المصهور والمحلول الأيوني.'));
+    }
+    top(); draw();
+  }
+
+  /* ---------- الأيونات للصيغ ---------- */
+  const CAT = {
+    Na: ['Na', 1, 'الصوديوم'], K: ['K', 1, 'البوتاسيوم'], Ag: ['Ag', 1, 'الفضّة'], NH4: ['NH₄', 1, 'الأمونيوم', 1], Mg: ['Mg', 2, 'المغنيسيوم'], Ca: ['Ca', 2, 'الكالسيوم'], Zn: ['Zn', 2, 'الخارصين'],
+    Cu: ['Cu', 2, 'النحاس ( II )'], Fe2: ['Fe', 2, 'الحديد ( II )'], Fe3: ['Fe', 3, 'الحديد ( III )'], Al: ['Al', 3, 'الألمنيوم']
+  };
+  const AN = {
+    F: ['F', 1, 'فلوريد'], Cl: ['Cl', 1, 'كلوريد'], Br: ['Br', 1, 'بروميد'], O: ['O', 2, 'أكسيد'], S: ['S', 2, 'كبريتيد'], N: ['N', 3, 'نتريد'],
+    OH: ['OH', 1, 'هيدروكسيد', 1], NO3: ['NO₃', 1, 'نترات', 1], CO3: ['CO₃', 2, 'كربونات', 1], SO4: ['SO₄', 2, 'كبريتات', 1], PO4: ['PO₄', 3, 'فوسفات', 1]
+  };
+  const part = (sym, n, poly) => n > 1 ? (poly ? '(' + sym + ')' + sub(n) : sym + sub(n)) : sym;
+  const build = (c, a) => { const g = gcd(c[1], a[1]); const nc = a[1] / g, na = c[1] / g; return { nc, na, f: part(c[0], nc, c[3]) + part(a[0], na, a[3]), raw: [a[1], c[1]], g }; };
+
+  /* ======================= 10 · بناء الصيغة ======================= */
+  function formula(host) {
+    host.innerHTML = '';
+    const S = { c: 'Al', a: 'O', step: 6 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    const mono = k => !CAT[k][3] && k !== 'Fe2' && k !== 'Fe3' && k !== 'Cu';
+    bar.append(sel('الأيون الموجب', S.c, Object.keys(CAT).filter(mono).map(k => [k, CAT[k][2] + ' ' + CAT[k][0]]), v => { S.c = v; S.step = 1; draw(); }));
+    bar.append(sel('الأيون السالب', S.a, ['F', 'Cl', 'Br', 'O', 'S', 'N'].map(k => [k, AN[k][2] + ' ' + AN[k][0]]), v => { S.a = v; S.step = 1; draw(); }));
+    function draw() {
+      body.innerHTML = '';
+      const c = CAT[S.c], a = AN[S.a], R = build(c, a);
+      body.append(el('div', 'bdname', '1 ) اسم المركّب : <b>' + a[2] + ' ' + c[2] + '</b>'));
+      const svg = fig(body, 320, 150);
+      if (S.step >= 2) { tx(svg, 120, 70, c[0], { 'font-size': 28 }); tx(svg, 200, 70, a[0], { 'font-size': 28 }); }
+      if (S.step >= 3) { tx(svg, 120, 108, c[1], { 'font-size': 18, fill: BLUE }); tx(svg, 200, 108, a[1], { 'font-size': 18, fill: RED }); }
+      if (S.step >= 4) { sv('path', { d: 'M128 102 L190 78', stroke: BLUE, 'stroke-width': 2, 'marker-end': 'url(#bdar)' }, svg); sv('path', { d: 'M192 102 L130 78', stroke: RED, 'stroke-width': 2, 'marker-end': 'url(#bdar2)' }, svg); tx(svg, 146, 80, a[1], { 'font-size': 14, fill: RED }); tx(svg, 226, 80, c[1], { 'font-size': 14, fill: BLUE }); }
+      const defs = sv('defs', {}, svg); [['bdar', BLUE], ['bdar2', RED]].forEach(m => { const mk = sv('marker', { id: m[0], viewBox: '0 0 10 10', refX: 8, refY: 5, markerWidth: 6, markerHeight: 6, orient: 'auto' }, defs); sv('path', { d: 'M0 0 L10 5 L0 10 z', fill: m[1] }, mk); });
+      if (S.step >= 6) tx(svg, 160, 138, R.f, { 'font-size': 26, fill: '#14603f' });
+      const STEPS = ['اكتب اسم المركّب', 'اكتب رمز كلّ عنصر تحت اسمه', 'اكتب التكافؤ أسفل كلّ رمز', 'بادل التكافؤ بين الرمزين', 'بسّط إن وُجد قاسم مشترك', 'اكتب الصيغة النهائية'];
+      const ol = el('div', 'bdsteps'); STEPS.forEach((s, i) => ol.append(el('div', 'bdst' + (i < S.step ? ' bdon' : ''), '<b>' + (i + 1) + '</b> ' + s))); body.append(ol);
+      const r = el('div', 'srow'); r.append(btn('الخطوة التالية', 'go', () => { if (S.step < 6) { S.step++; draw(); } }), btn('من البداية', 'gh', () => { S.step = 1; draw(); })); body.append(r);
+      if (S.step >= 5) {
+        const t = info();
+        t.row('بعد المبادلة', L(c[0] + sub(R.raw[0]) + a[0] + sub(R.raw[1])));
+        t.row('التبسيط', R.g > 1 ? 'قاسم مشترك ' + R.g + ' ← نقسم عليه' : (R.raw[0] === R.raw[1] ? 'التكافؤان متساويان ← نحذفهما' : 'لا قاسم مشترك'));
+        if (S.step >= 6) t.row('تحقّق الشحنات', L(R.nc + '(' + c[1] + '+) + ' + R.na + '(' + a[1] + '−) = 0'));
+        body.append(t);
+      }
+    }
+    draw();
+  }
+
+  /* ======================= 11 · المجموعات الأيونية والأرقام اللاتينية ======================= */
+  function formulab(host) {
+    host.innerHTML = '';
+    const S = { mode: 'f', q: null, pick: null, sc: 0, n: 0 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    function top() { bar.innerHTML = ''; bar.append(seg([['f', 'من الاسم إلى الصيغة'], ['n', 'من الصيغة إلى الاسم']], S.mode, v => { S.mode = v; S.q = null; S.pick = null; top(); draw(); })); }
+    const pick1 = o => o[Math.floor(Math.random() * o.length)];
+    function newQ() {
+      let c, a, tries = 0;
+      do { c = pick1(Object.keys(CAT)); a = pick1(Object.keys(AN)); tries++; } while (tries < 80 && (!(CAT[c][3] || AN[a][3] || /Fe|Cu/.test(c)) || (c === 'NH4' && ['O', 'S', 'N'].includes(a))));
+      const C = CAT[c], A = AN[a], R = build(C, A);
+      const nameOf = (cc, aa) => aa[2] + ' ' + cc[2];
+      if (S.mode === 'f') {
+        const wrong = new Set();
+        wrong.add(C[0] + sub(R.nc) + A[0] + sub(R.na));
+        wrong.add(part(C[0], R.na, C[3]) + part(A[0], R.nc, A[3]));
+        wrong.add(part(C[0], R.raw[0], C[3]) + part(A[0], R.raw[1], A[3]));
+        wrong.add(C[0] + A[0]);
+        wrong.add(part(C[0], R.nc, C[3]) + part(A[0], R.na + 1, A[3]));
+        wrong.add(part(C[0], R.nc + 1, C[3]) + part(A[0], R.na, A[3]));
+        const opts = shuffle([R.f].concat(shuffle([...wrong].filter(w => w !== R.f && !/[₀-₉]{2}/.test(w))).slice(0, 3)));
+        S.q = { t: nameOf(C, A), key: R.f, opts, C, A, R };
+      } else {
+        const alt = [];
+        if (/Fe/.test(c)) alt.push(nameOf(CAT[c === 'Fe2' ? 'Fe3' : 'Fe2'], A), A[2] + ' الحديد');
+        alt.push(C[2] + ' ' + A[2], nameOf(C, AN[pick1(Object.keys(AN).filter(k => k !== a))]));
+        const opts = shuffle([nameOf(C, A)].concat(shuffle([...new Set(alt)].filter(x => x !== nameOf(C, A))).slice(0, 3)));
+        S.q = { t: R.f, key: nameOf(C, A), opts, C, A, R };
+      }
+      S.pick = null;
+    }
+    function draw() {
+      body.innerHTML = '';
+      if (!S.q) newQ();
+      const q = S.q;
+      body.append(el('div', 'bdcount', 'السؤال ' + (S.n + 1) + ' · الصحيح ' + S.sc));
+      body.append(verdict('', S.mode === 'f' ? 'اختر الصيغة الصحيحة' : 'اختر الاسم الصحيح', S.mode === 'f' ? '<b>' + q.t + '</b>' : '<b>' + L(q.t) + '</b>'));
+      const ch = el('div', 'bdchips');
+      q.opts.forEach(o => { const b = el('button', 'bdchip' + (S.pick === o ? (o === q.key ? ' bdok' : ' bdbad') : ''), S.mode === 'f' ? L(o) : o); b.onclick = () => { if (S.pick) return; S.pick = o; if (o === q.key) S.sc++; draw(); }; ch.append(b); });
+      body.append(ch);
+      if (S.pick) {
+        const ok = S.pick === q.key, C = q.C, A = q.A, R = q.R;
+        const why = C[2] + ' ' + L(C[0] + chg(C[1])) + ' · ' + A[2] + ' ' + L(A[0] + chg(-A[1])) + ' ← بالمبادلة ' + L(R.f) + '.' +
+          ((C[3] && R.nc > 1) || (A[3] && R.na > 1) ? ' المجموعة الأيونية تكرّرت فوُضعت بين قوسين.' : (C[3] || A[3]) ? ' المجموعة لم تتكرّر فلا قوسين.' : '') +
+          (/II|III/.test(C[2]) ? ' الرقم اللاتيني يدلّ على تكافؤ ' + C[2].replace(/ \(.*/, '') + ' في المركّب.' : '') + (R.g > 1 ? ' وبُسّطت بالقسمة على ' + R.g + '.' : '');
+        body.append(verdict(ok ? 'acok' : 'acwarn', ok ? 'صحيح' : 'الصحيح : ' + (S.mode === 'f' ? L(q.key) : q.key), why));
+        const r = el('div', 'srow'); r.append(btn('سؤال آخر', 'go', () => { S.n++; newQ(); draw(); })); body.append(r);
+      }
+      const t = info(); t.row('مجموعات أحادية', L('OH⁻ NO₃⁻ HCO₃⁻ MnO₄⁻ NH₄⁺')); t.row('ثنائية وثلاثية', L('CO₃²⁻ SO₄²⁻ CrO₄²⁻ Cr₂O₇²⁻ PO₄³⁻')); body.append(t);
+    }
+    top(); draw();
+  }
+
+  window.SIMS.noble = noble;
+  window.SIMS.lewis = lewis;
+  window.SIMS.ionic = ionic;
+  window.SIMS.covalent = covalent;
+  window.SIMS.sigpi = sigpi;
+  window.SIMS.metalsea = metalsea;
+  window.SIMS.ioncrys = ioncrys;
+  window.SIMS.malleable = malleable;
+  window.SIMS.conduct = conduct;
+  window.SIMS.formula = formula;
+  window.SIMS.formulab = formulab;
+})();
+/* ===== محاكاة علوم الأرض والبيئة ( علوم الثامن — الوحدة الرابعة ) ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const L = s => '<span class="ltr">' + s + '</span>';
+  const sel = (lab, val, opts, fn) => {
+    const w = el('label', 'sf'); w.append(el('span', '', lab));
+    const s = document.createElement('select');
+    opts.forEach(o => { const p = document.createElement('option'); p.value = o[0]; p.textContent = o[1]; if (String(o[0]) === String(val)) p.selected = true; s.append(p); });
+    s.onchange = () => fn(s.value); w.append(s); return w;
+  };
+  const sld = (lab, val, lo, hi, step, fn) => {
+    const w = el('label', 'sf'); const sp = el('span', '', lab(val)); w.append(sp);
+    const r = document.createElement('input'); r.type = 'range'; r.min = lo; r.max = hi; r.step = step; r.value = val;
+    r.oninput = () => { sp.innerHTML = lab(+r.value); fn(+r.value); }; w.append(r); return w;
+  };
+  const info = () => { const b = el('div', 'cyinfo'); b.row = (k, v) => b.append(el('div', 'cyrow', '<span class="cyk">' + k + '</span><span class="cyv">' + v + '</span>')); return b; };
+  const verdict = (cls, b, s) => el('div', 'acv' + (cls ? ' ' + cls : ''), '<b>' + b + '</b><span>' + s + '</span>');
+  const seg = (opts, val, fn) => { const w = el('div', 'ekseg'); opts.forEach(o => { const b = el('button', 'ekb' + (String(o[0]) === String(val) ? ' ekon' : ''), o[1]); b.onclick = () => fn(o[0]); w.append(b); }); return w; };
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.append(e); return e; };
+  const fig = (body, w, h) => { const s = sv('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'eksvg', preserveAspectRatio: 'xMidYMid meet' }), f = el('div', 'ekfig'); f.append(s); body.append(f); return s; };
+  const lg = items => el('div', 'eklg', items.map(i => '<span><i style="background:' + i[0] + '"></i>' + i[1] + '</span>').join(''));
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const OC = '#3E5C76', CO = '#B08968', AST = '#E8A87C', MAG = '#D62828', SEA = '#7FB3D5', NAVY = '#1F3A5F';
+  const arrow = (svg, x1, y1, x2, y2, col, w) => { sv('line', { x1, y1, x2, y2, stroke: col || NAVY, 'stroke-width': w || 3 }, svg); const a = Math.atan2(y2 - y1, x2 - x1), h = 8; sv('path', { d: 'M' + x2 + ' ' + y2 + ' L' + (x2 - h * Math.cos(a - .5)) + ' ' + (y2 - h * Math.sin(a - .5)) + ' L' + (x2 - h * Math.cos(a + .5)) + ' ' + (y2 - h * Math.sin(a + .5)) + ' Z', fill: col || NAVY }, svg); };
+
+  /* ======================= 1 · الصفائح والزمن ======================= */
+  function plates(host) {
+    host.innerHTML = '';
+    const S = { my: 0 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    bar.append(sld(v => 'قبل الآن بـ : ' + L(v + ' My') + ' ( مليون سنة )', 35, 0, 35, 1, v => { S.my = 35 - v; draw(); }));
+    function draw() {
+      body.innerHTML = '';
+      const u = S.my / 35, svg = fig(body, 320, 190);
+      sv('rect', { x: 0, y: 0, width: 320, height: 190, fill: '#EEF3F8' }, svg);
+      sv('rect', { x: 0, y: 120, width: 320, height: 70, fill: AST }, svg);
+      const gap = 6 + u * 46, cx = 160;
+      sv('rect', { x: 0, y: 70, width: cx - gap / 2, height: 50, fill: CO }, svg);
+      sv('rect', { x: cx + gap / 2, y: 70, width: 320 - cx - gap / 2, height: 50, fill: '#C9A27A' }, svg);
+      if (u > 0.05) { sv('rect', { x: cx - gap / 2, y: 92, width: gap, height: 28, fill: OC }, svg); sv('rect', { x: cx - gap / 2, y: 70, width: gap, height: 22, fill: SEA }, svg); }
+      for (let i = 0; i < 4; i++) sv('path', { d: 'M' + (cx - 4 + i * 3) + ' 185 q -6 -30 0 -60', stroke: MAG, 'stroke-width': 2, fill: 'none', opacity: .7 }, svg);
+      if (u > 0.02) { arrow(svg, cx - gap / 2 - 10, 60, cx - gap / 2 - 50, 60, NAVY); arrow(svg, cx + gap / 2 + 10, 60, cx + gap / 2 + 50, 60, NAVY); }
+      body.append(lg([[CO, 'الصفيحة الإفريقية ( يسار )'], ['#C9A27A', 'الصفيحة العربية ( يمين )'], [OC, 'قشرة محيطية جديدة'], [SEA, 'البحر الأحمر'], [AST, 'الغلاف اللدن']]));
+      body.append(el('div', 'sl note', 'رسم تخطيطي مبسّط : المقياس والأبعاد توضيحية.'));
+      body.append(verdict(u > 0.05 ? 'acok' : '', u > 0.05 ? 'تكوّن البحر الأحمر' : 'قبل ' + L('35') + ' مليون سنة', u > 0.05 ? 'تتحرّك الصفيحتان <b>بالنسبة إلى بعضهما</b> فوق الغلاف اللدن ، فابتعدت العربية عن الإفريقية سنتيمترات قليلة كلّ سنة ، ومع ملايين السنين اتّسع البحر الأحمر بينهما.' : 'لم يكن البحر الأحمر ولا البحر الميت موجودَين . حرّك المنزلق نحو اليوم.'));
+      const t = info(); t.row('صفائح كبيرة', 'صفيحة المحيط الهادي'); t.row('متوسّطة', 'الصفيحة العربية ( عليها الأردن )'); t.row('صغيرة', 'صفيحة جوان دي فوكا'); body.append(t);
+    }
+    S.my = 0; draw();
+  }
+
+  /* ======================= 2 · من يغطس ؟ ======================= */
+  const PT = { o_old: ['محيطية قديمة ( 150 مليون سنة )', 'o', 3.05], o_new: ['محيطية حديثة ( 40 مليون سنة )', 'o', 3.0], c: ['قارية', 'c', 2.7] };
+  function pdensity(host) {
+    host.innerHTML = '';
+    const S = { a: 'o_old', b: 'c', t0: 0 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    let raf = 0;
+    bar.append(sel('الصفيحة اليسرى', S.a, Object.keys(PT).map(k => [k, PT[k][0]]), v => { S.a = v; draw(); }), sel('الصفيحة اليمنى', S.b, Object.keys(PT).map(k => [k, PT[k][0]]), v => { S.b = v; draw(); }));
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const A = PT[S.a], B = PT[S.b], svg = fig(body, 320, 170);
+      let sink = null;
+      if (A[1] === 'c' && B[1] === 'c') sink = 'none';
+      else if (A[2] > B[2]) sink = 'a'; else if (B[2] > A[2]) sink = 'b'; else sink = 'eq';
+      const t0 = performance.now();
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        const u = Math.max(0, Math.min(1, (ts - t0) / 2000));
+        svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 170, fill: '#EEF3F8' }, svg);
+        sv('rect', { x: 0, y: 110, width: 320, height: 60, fill: AST }, svg);
+        const col = P => P[1] === 'c' ? CO : OC;
+        const th = 26, ya = A[1] === 'c' ? 64 : 80, yb = B[1] === 'c' ? 64 : 80;
+        if (sink === 'a') { sv('path', { d: 'M0 ' + ya + ' H' + (140 + u * 20) + ' l' + (30 * u) + ' ' + (60 * u) + ' v' + th + ' l' + (-30 * u) + ' ' + (-60 * u) + ' H0 Z', fill: col(A) }, svg); sv('rect', { x: 160, y: yb, width: 160, height: th, fill: col(B) }, svg); }
+        else if (sink === 'b') { sv('rect', { x: 0, y: ya, width: 160, height: th, fill: col(A) }, svg); sv('path', { d: 'M320 ' + yb + ' H' + (180 - u * 20) + ' l' + (-30 * u) + ' ' + (60 * u) + ' v' + th + ' l' + (30 * u) + ' ' + (-60 * u) + ' H320 Z', fill: col(B) }, svg); }
+        else { sv('rect', { x: 0, y: ya, width: 160, height: th, fill: col(A) }, svg); sv('rect', { x: 160, y: yb, width: 160, height: th, fill: col(B) }, svg); if (sink === 'none') sv('path', { d: 'M135 ' + ya + ' L150 ' + (ya - 30 * u) + ' L160 ' + (ya - 10 * u) + ' L172 ' + (ya - 36 * u) + ' L185 ' + ya + ' Z', fill: '#8D6E53' }, svg); }
+        arrow(svg, 40, 40, 90, 40); arrow(svg, 280, 40, 230, 40);
+        if (u < 1) raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      body.append(lg([[OC, 'صفيحة محيطية ( بازلت ، ' + L('3 g/cm³') + ' )'], [CO, 'صفيحة قارية ( غرانيت ، ' + L('2.7 g/cm³') + ' )'], [AST, 'الغلاف اللدن']]));
+      const name = k => PT[k][0];
+      body.append(sink === 'none' ? verdict('acok', 'لا غطس : تصادم', 'قارية مع قارية : كثافتاهما متقاربتان ( ' + L('2.7 g/cm³') + ' ) ، فتتصادمان وتنطوي الصخور وترتفع.') :
+        sink === 'eq' ? verdict('acwarn', 'اختر صفيحتين مختلفتين', 'الصفيحتان متطابقتان في النوع والعمر.') :
+        verdict('acok', 'تغطس : ' + name(sink === 'a' ? S.a : S.b), 'الأكثر كثافة تغطس تحت الأقلّ كثافة . ' + ((A[1] === 'o' && B[1] === 'o') ? 'وبين محيطيتين تغطس <b>الأكبر عمرًا</b> لأنّها الأكثر كثافة.' : 'المحيطية ( ' + L('3') + ' ) أكثر كثافة من القارية ( ' + L('2.7') + ' ) ، فهي التي تغطس دائمًا.')));
+      const r = el('div', 'srow'); r.append(btn('أعد الحركة', 'gh', draw)); body.append(r);
+    }
+    draw();
+  }
+
+  /* ======================= 3 · الحدود المتباعدة ======================= */
+  const DIV = [
+    ['1 ) صعود الماغما', 'تندفع الماغما أسفل الغلاف الصخري القاري فيتمدّد بسبب حرارتها العالية ويتقوّس.'],
+    ['2 ) وادٍ متصدّع', 'يتشقّق الغلاف وينقسم إلى جزأين ينشأ بينهما وادٍ متصدّع.'],
+    ['3 ) قشرة محيطية جديدة', 'تستمرّ الماغما بالاندفاع مكوّنة قشرة محيطية جديدة.'],
+    ['4 ) بحر ضيّق', 'يُملأ الحيّز بالماء فيتكوّن بحر ضيّق ، مثل البحر الأحمر اليوم.'],
+    ['5 ) محيط', 'بازدياد التباعد يتكوّن محيط ، مثل المحيط الأطلسي.']
+  ];
+  function diverge(host) {
+    host.innerHTML = '';
+    const S = { i: 0 };
+    const body = el('div'); host.append(body);
+    function draw() {
+      body.innerHTML = '';
+      const st = el('div', 'ekdots'); DIV.forEach((d, k) => { const b = el('button', 'ekdot' + (k === S.i ? ' ekon' : k < S.i ? ' ekdone' : ''), String(k + 1)); b.onclick = () => { S.i = k; draw(); }; st.append(b); }); body.append(st);
+      const svg = fig(body, 320, 170), i = S.i;
+      sv('rect', { x: 0, y: 0, width: 320, height: 170, fill: '#EEF3F8' }, svg);
+      sv('rect', { x: 0, y: 120, width: 320, height: 50, fill: AST }, svg);
+      const gap = [0, 14, 30, 60, 140][i], cx = 160, bulge = i === 0 ? 14 : 0;
+      sv('path', { d: 'M0 70 H' + (cx - gap / 2 - 30) + ' Q' + (cx - gap / 2) + ' ' + (70 - bulge) + ' ' + (cx - gap / 2) + ' ' + (70 - bulge / 2) + ' V120 H0 Z', fill: CO }, svg);
+      sv('path', { d: 'M320 70 H' + (cx + gap / 2 + 30) + ' Q' + (cx + gap / 2) + ' ' + (70 - bulge) + ' ' + (cx + gap / 2) + ' ' + (70 - bulge / 2) + ' V120 H320 Z', fill: CO }, svg);
+      if (i >= 1) sv('path', { d: 'M' + (cx - gap / 2) + ' 70 L' + cx + ' ' + (i === 1 ? 92 : 100) + ' L' + (cx + gap / 2) + ' 70 Z', fill: i >= 3 ? SEA : '#EEF3F8' }, svg);
+      if (i >= 2) sv('rect', { x: cx - gap / 2, y: 100, width: gap, height: 20, fill: OC }, svg);
+      for (let k = 0; k < 3; k++) sv('path', { d: 'M' + (cx - 6 + k * 6) + ' 168 q -8 -24 0 -' + (i === 0 ? 70 : 60), stroke: MAG, 'stroke-width': 2.5, fill: 'none' }, svg);
+      if (i >= 1) { arrow(svg, cx - gap / 2 - 20, 50, cx - gap / 2 - 60, 50); arrow(svg, cx + gap / 2 + 20, 50, cx + gap / 2 + 60, 50); }
+      body.append(lg([[CO, 'غلاف صخري قاري'], [OC, 'قشرة محيطية جديدة'], [SEA, 'ماء'], [MAG, 'ماغما صاعدة']]));
+      body.append(verdict(i >= 2 ? 'acok' : '', DIV[i][0], DIV[i][1] + (i >= 2 ? ' ولهذا تُسمّى الحدود المتباعدة <b>البنّاءة</b> : تبني قشرة جديدة.' : '')));
+      const r = el('div', 'srow'); r.append(btn('→ السابق', 'gh', () => { if (S.i) { S.i--; draw(); } }), btn('التالي ←', 'go', () => { if (S.i < 4) { S.i++; draw(); } })); body.append(r);
+    }
+    draw();
+  }
+
+  /* ======================= 4 · الحدود المتقاربة ======================= */
+  const CV = {
+    oo: ['محيطية مع محيطية', 'حدود طرح', 'تغطس الأكبر عمرًا والأكثر كثافة ، فيتكوّن <b>أخدود بحري</b> ، وتنصهر مع رسوبيات القاع فتصعد ماغما تكوّن جزرًا بركانية تنتظم في <b>قوس الجزر</b> الموازي للأخدود.'],
+    oc: ['محيطية مع قارية', 'حدود طرح', 'تغطس المحيطية الأكثر كثافة تحت القارية ، فتتكوّن <b>أخاديد بحرية</b> و<b>أقواس بركانية</b> على اليابسة.'],
+    cc: ['قارية مع قارية', 'حدود تصادم', 'لا غطس : <b>تصادم وطيّ للصخور</b> ثمّ <b>سلاسل جبلية</b> ، مثل جبال الهملايا ( صفيحة الهند مع أوراسيا ).']
+  };
+  function converge(host) {
+    host.innerHTML = '';
+    const S = { k: 'oo' };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    function top() { bar.innerHTML = ''; bar.append(seg(Object.keys(CV).map(k => [k, CV[k][0]]), S.k, v => { S.k = v; top(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      const svg = fig(body, 320, 190), k = S.k;
+      sv('rect', { x: 0, y: 0, width: 320, height: 190, fill: '#EEF3F8' }, svg);
+      sv('rect', { x: 0, y: 140, width: 320, height: 50, fill: AST }, svg);
+      if (k !== 'cc') {
+        sv('rect', { x: 0, y: 60, width: 320, height: 30, fill: SEA }, svg);
+        sv('path', { d: 'M0 90 H150 L230 175 L215 185 L140 110 H0 Z', fill: OC }, svg);
+        if (k === 'oo') { sv('path', { d: 'M170 90 H320 V110 H175 Z', fill: '#4F6D8A' }, svg); [205, 245, 285].forEach(x => { sv('path', { d: 'M' + (x - 14) + ' 92 L' + x + ' 50 L' + (x + 14) + ' 92 Z', fill: '#6B4F3A' }, svg); sv('path', { d: 'M' + x + ' 150 q 10 -40 0 -96', stroke: MAG, 'stroke-width': 2, fill: 'none' }, svg); }); }
+        else { sv('path', { d: 'M170 60 H320 V120 H180 Z', fill: CO }, svg); [230, 275].forEach(x => { sv('path', { d: 'M' + (x - 18) + ' 62 L' + x + ' 22 L' + (x + 18) + ' 62 Z', fill: '#6B4F3A' }, svg); sv('path', { d: 'M' + x + ' 150 q 10 -60 0 -126', stroke: MAG, 'stroke-width': 2, fill: 'none' }, svg); }); }
+        sv('path', { d: 'M150 90 l12 22 l12 -22', fill: '#2F4A63' }, svg);
+      } else {
+        sv('rect', { x: 0, y: 60, width: 150, height: 60, fill: CO }, svg); sv('rect', { x: 170, y: 60, width: 150, height: 60, fill: '#C9A27A' }, svg);
+        sv('path', { d: 'M110 60 L135 30 L150 45 L160 12 L172 40 L185 25 L210 60 Z', fill: '#8D6E53' }, svg);
+        sv('path', { d: 'M120 70 q 20 -15 40 0 t 40 0 M120 85 q 20 -15 40 0 t 40 0', stroke: '#5B4636', 'stroke-width': 2, fill: 'none' }, svg);
+      }
+      arrow(svg, 20, 30, 70, 30); arrow(svg, 300, 30, 250, 30);
+      body.append(lg(k === 'cc' ? [[CO, 'قارية'], ['#8D6E53', 'جبال مطويّة']] : [[OC, 'محيطية تغطس'], [SEA, 'ماء'], ['#2F4A63', 'أخدود بحري'], [MAG, 'ماغما']]));
+      body.append(verdict('acok', CV[k][1] + ' ( هدّامة )', CV[k][2]));
+      const t = info(); t.row('لماذا « هدّامة » ؟', 'تغطس إحدى الصفيحتين وتنصهر فتفنى القشرة القديمة ( في الطرح ) ، وتُطوى الصخور في التصادم'); t.row('قوس الجزر أم الأقواس البركانية ؟', 'قوس الجزر : محيطية + محيطية · الأقواس البركانية : محيطية + قارية'); body.append(t);
+    }
+    top(); draw();
+  }
+
+  /* ======================= 5 · الحدود التحويلية وسرعة الصفيحة ======================= */
+  function pspeed(host) {
+    host.innerHTML = '';
+    const S = { ask: 'v', d: 2, du: 'km', t: 100000, v: 2 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    let raf = 0;
+    function top() { bar.innerHTML = ''; bar.append(seg([['v', 'احسب السرعة v'], ['d', 'احسب المسافة d'], ['t', 'احسب الزمن t']], S.ask, v => { S.ask = v; top(); draw(); })); }
+    const fmt = x => (Math.round(x * 1000) / 1000).toLocaleString('en-US');
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const svg = fig(body, 320, 110), t0 = performance.now();
+      const loop = ts => { if (!svg.isConnected) return; const s = ((ts - t0) / 60) % 80; svg.innerHTML = ''; sv('rect', { x: 0, y: 0, width: 320, height: 55, fill: '#C9A27A' }, svg); sv('rect', { x: 0, y: 55, width: 320, height: 55, fill: CO }, svg); for (let i = -1; i < 6; i++) { sv('rect', { x: i * 80 + s, y: 18, width: 30, height: 18, fill: '#8D6E53' }, svg); sv('rect', { x: i * 80 - s + 40, y: 74, width: 30, height: 18, fill: '#6B4F3A' }, svg); } sv('line', { x1: 0, y1: 55, x2: 320, y2: 55, stroke: MAG, 'stroke-width': 3, 'stroke-dasharray': '8 5' }, svg); arrow(svg, 120, 45, 180, 45, NAVY, 2.5); arrow(svg, 200, 66, 140, 66, NAVY, 2.5); raf = requestAnimationFrame(loop); };
+      raf = requestAnimationFrame(loop);
+      body.append(lg([[MAG, 'صدع : حدود تحويلية ( محافظة )']]));
+      const c = el('div', 'srow');
+      const num = (lab, key) => { const w = el('label', 'sf'); w.append(el('span', '', lab)); const i = document.createElement('input'); i.type = 'number'; i.value = S[key]; i.className = 'ekinp'; i.oninput = () => { S[key] = +i.value; out(); }; w.append(i); return w; };
+      if (S.ask !== 'd') { c.append(num('المسافة d', 'd')); c.append(sel('وحدتها', S.du, [['km', 'km'], ['m', 'm'], ['cm', 'cm']], v => { S.du = v; out(); })); }
+      if (S.ask !== 't') c.append(num('الزمن t ( سنة )', 't'));
+      if (S.ask !== 'v') c.append(num('السرعة v ( cm/year )', 'v'));
+      body.append(c);
+      const res = el('div'); body.append(res);
+      const F = { km: 100000, m: 100, cm: 1 };
+      function out() {
+        res.innerHTML = '';
+        const t = info();
+        if (S.ask === 'v') { const dc = S.d * F[S.du]; t.row('التحويل', L(S.d + ' ' + S.du + ' = ' + fmt(dc) + ' cm')); t.row('v = d / t', L(fmt(dc) + ' / ' + fmt(S.t) + ' = ' + fmt(dc / S.t) + ' cm/year')); }
+        if (S.ask === 'd') { const dc = S.v * S.t; t.row('d = v × t', L(fmt(S.v) + ' × ' + fmt(S.t) + ' = ' + fmt(dc) + ' cm')); t.row('بالكيلومتر', L(fmt(dc) + ' ÷ 100000 = ' + fmt(dc / 100000) + ' km')); }
+        if (S.ask === 't') { const dc = S.d * F[S.du]; t.row('التحويل', L(S.d + ' ' + S.du + ' = ' + fmt(dc) + ' cm')); t.row('t = d / v', L(fmt(dc) + ' / ' + fmt(S.v) + ' = ' + fmt(dc / S.v) + ' year')); }
+        res.append(t, el('div', 'sl note', 'تذكّر : ' + L('1 km = 1000 m = 100000 cm') + ' . حركة الصفائح سنتيمترات قليلة في السنة ، وتغيّر معالم الأرض لأنّها تستمرّ ملايين السنين.'));
+      }
+      out();
+    }
+    top(); draw();
+  }
+
+  /* ======================= 6 · من الأسهم إلى نوع الحدّ ======================= */
+  const BT = { d: ['متباعدة', 'بنّاءة', 'بركاني وزلزالي'], c: ['متقاربة', 'هدّامة', 'بركاني وزلزالي'], t: ['تحويلية', 'محافظة', 'زلزالي'] };
+  function quakes(host) {
+    host.innerHTML = '';
+    const S = { k: 'd', pick: null, sc: 0, n: 0 };
+    const body = el('div'); host.append(body);
+    const nq = () => { S.k = shuffle(['d', 'c', 't'])[0]; S.pick = null; };
+    function draw() {
+      body.innerHTML = '';
+      body.append(el('div', 'ekcount', 'الشكل ' + (S.n + 1) + ' · الصحيح ' + S.sc));
+      const svg = fig(body, 320, 140);
+      sv('rect', { x: 10, y: 20, width: 140, height: 100, fill: '#C9A27A', stroke: '#8D6E53' }, svg); sv('rect', { x: 170, y: 20, width: 140, height: 100, fill: CO, stroke: '#8D6E53' }, svg);
+      sv('line', { x1: 160, y1: 15, x2: 160, y2: 125, stroke: MAG, 'stroke-width': 3, 'stroke-dasharray': '6 4' }, svg);
+      if (S.k === 'd') { arrow(svg, 120, 70, 50, 70); arrow(svg, 200, 70, 270, 70); }
+      if (S.k === 'c') { arrow(svg, 50, 70, 130, 70); arrow(svg, 270, 70, 190, 70); }
+      if (S.k === 't') { arrow(svg, 80, 100, 80, 35); arrow(svg, 240, 35, 240, 100); }
+      body.append(el('div', 'shint', 'ما نوع الحدّ بين الصفيحتين بحسب الأسهم ؟'));
+      const r = el('div', 'srow');
+      Object.keys(BT).forEach(k => r.append(btn(BT[k][0], S.pick === k ? 'go' : '', () => { if (S.pick) return; S.pick = k; if (k === S.k) S.sc++; draw(); })));
+      body.append(r);
+      if (S.pick) {
+        const ok = S.pick === S.k, B = BT[S.k];
+        body.append(verdict(ok ? 'acok' : 'acwarn', (ok ? 'صحيح : ' : 'الصحيح : ') + 'حدود ' + B[0] + ' ( ' + B[1] + ' )', 'النشاط عند هذه الحدود : <b>' + B[2] + '</b> . ' + (S.k === 't' ? 'ومثالها في الأردن <b>صدع البحر الميت التحويلي</b> ، ولهذا يتعرّض وادي الأردن والبحر الميت ووادي عربة للزلازل.' : S.k === 'c' ? 'وعلى امتداد حدود صفيحة المحيط الهادي يتركّز معظم النشاط الزلزالي والبركاني : <b>حزام المحيط الهادي الناري</b>.' : 'تصعد الماغما فتبني قشرة محيطية جديدة.')));
+        const n = el('div', 'srow'); n.append(btn('شكل آخر', 'go', () => { S.n++; nq(); draw(); })); body.append(n);
+      }
+      body.append(el('div', 'sl note', 'متعاكسان إلى الخارج ← متباعدة · متقابلان ← متقاربة · متوازيان متعاكسان ← تحويلية . والزلازل تتوزّع على حدود الصفائح.'));
+    }
+    nq(); draw();
+  }
+
+  /* ======================= 7 · تصنيف الموارد في جدول من أربع خانات ======================= */
+  const RES = [['النباتات', 1, 1], ['الحيوانات', 1, 1], ['المياه', 0, 1], ['الطاقة الشمسية', 0, 1], ['طاقة الرياح', 0, 1], ['المعادن', 0, 0], ['الصخور', 0, 0], ['الوقود الأحفوري', 0, 0], ['الأشجار', 1, 1]];
+  function rsort(host) {
+    host.innerHTML = '';
+    const S = { order: shuffle(RES.map((_, i) => i)), i: 0, b: null, r: null, sc: 0, placed: [] };
+    const body = el('div'); host.append(body);
+    function draw() {
+      body.innerHTML = '';
+      const grid = el('div', 'ekgrid');
+      grid.append(el('div', 'ekh', ''), el('div', 'ekh', 'متجدّد'), el('div', 'ekh', 'غير متجدّد'));
+      [[1, 'حيوي'], [0, 'غير حيوي']].forEach(([bv, bn]) => {
+        grid.append(el('div', 'ekh', bn));
+        [1, 0].forEach(rv => { const c = el('div', 'ekcell'); S.placed.filter(p => p[1] === bv && p[2] === rv).forEach(p => c.append(el('span', 'ektag', p[0]))); grid.append(c); });
+      });
+      body.append(grid);
+      if (S.i >= RES.length) { body.append(verdict('acok', 'اكتمل الجدول : ' + S.sc + ' من ' + RES.length, 'لاحظ أنّ خانة « حيوي وغير متجدّد » فارغة في أمثلة الكتاب ، وأنّ المياه والطاقة الشمسية <b>غير حيوية لكنّها متجدّدة</b> ، والمعادن غير حيوية وغير متجدّدة.')); const r = el('div', 'srow'); r.append(btn('من جديد', 'go', () => { S.order = shuffle(S.order); S.i = 0; S.placed = []; S.sc = 0; draw(); })); body.append(r); return; }
+      const R = RES[S.order[S.i]];
+      body.append(verdict('', 'المورد : ' + R[0], 'أجب عن السؤالين ثمّ ضعه في الجدول.'));
+      const q1 = el('div', 'srow'); q1.append(el('span', 'ekq', 'من أين يُستمدّ ؟'), btn('الغلاف الحيوي', S.b === 1 ? 'go' : '', () => { S.b = 1; draw(); }), btn('غلاف آخر', S.b === 0 ? 'go' : '', () => { S.b = 0; draw(); }));
+      const q2 = el('div', 'srow'); q2.append(el('span', 'ekq', 'هل يتجدّد ؟'), btn('متجدّد', S.r === 1 ? 'go' : '', () => { S.r = 1; draw(); }), btn('غير متجدّد', S.r === 0 ? 'go' : '', () => { S.r = 0; draw(); }));
+      body.append(q1, q2);
+      if (S.b !== null && S.r !== null) {
+        const ok = S.b === R[1] && S.r === R[2];
+        body.append(verdict(ok ? 'acok' : 'acwarn', ok ? 'صحيح' : 'الصحيح : ' + (R[1] ? 'حيوي' : 'غير حيوي') + ' و' + (R[2] ? 'متجدّد' : 'غير متجدّد'), R[1] ? 'يُستمدّ من الغلاف الحيوي.' : 'يُستمدّ من غلاف غير الغلاف الحيوي.' + (R[0] === 'المعادن' ? ' والمعادن موارد غير متجدّدة يستغرق تكوّنها ملايين السنين.' : '')));
+        const n = el('div', 'srow'); n.append(btn('ضعه في الجدول', 'go', () => { if (ok) S.sc++; S.placed.push(R); S.i++; S.b = null; S.r = null; draw(); })); body.append(n);
+      }
+    }
+    draw();
+  }
+
+  /* ======================= 8 · العمليات الجيولوجية والتبخّر ======================= */
+  const MINS = [['الماس', 'v', 'في صخر الكمبرلايت الناري'], ['النحاس على امتداد الأنديز', 'v', 'مرتبط بحدود الصفائح'], ['الجبس', 's', 'ترسيب كيميائي بتبخّر بحر في منطقة جافّة'], ['الهاليت', 's', 'ترسيب كيميائي بتبخّر بحر في منطقة جافّة'], ['الغرافيت', 'm', 'من تحوّل الفحم الحجري بالحرارة والضغط']];
+  const PN = { v: 'نشاط بركاني', s: 'ترسيب', m: 'تحوّل' };
+  function minform(host) {
+    host.innerHTML = '';
+    const S = { mode: 'm', i: 0, pick: null, sc: 0, order: shuffle(MINS.map((_, i) => i)), ev: 0 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    function top() { bar.innerHTML = ''; bar.append(seg([['m', 'أيّ عملية كوّنته ؟'], ['e', 'بحر يتبخّر']], S.mode, v => { S.mode = v; top(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      if (S.mode === 'e') {
+        body.append(sld(v => 'نسبة الماء المتبخّر : ' + L(v + ' %'), S.ev, 0, 95, 5, v => { S.ev = v; draw(); }));
+        const svg = fig(body, 320, 160), lvl = 140 - (1 - S.ev / 100) * 100;
+        sv('path', { d: 'M60 20 V140 H260 V20', stroke: NAVY, 'stroke-width': 3, fill: 'none' }, svg);
+        sv('rect', { x: 62, y: lvl, width: 196, height: 138 - lvl, fill: SEA, opacity: .5 + S.ev / 300 }, svg);
+        const gy = S.ev >= 50, hl = S.ev >= 80;
+        if (gy) sv('rect', { x: 62, y: 128, width: 196, height: 10, fill: '#F1E9D2' }, svg);
+        if (hl) sv('rect', { x: 62, y: 118, width: 196, height: 10, fill: '#FFFFFF', stroke: '#ccc' }, svg);
+        for (let i = 0; i < 4; i++) sv('path', { d: 'M' + (90 + i * 45) + ' ' + (lvl - 6) + ' q 5 -12 0 -24', stroke: '#9AB', 'stroke-width': 2, fill: 'none' }, svg);
+        body.append(lg([['#F1E9D2', 'جبس ( يترسّب أوّلًا )'], ['#FFFFFF', 'هاليت ( يترسّب بعده )']]));
+        body.append(el('div', 'sl note', 'النِّسب التي يبدأ عندها الترسيب في الرسم توضيحية.'));
+        body.append(verdict(gy ? 'acok' : '', !gy ? 'الأملاح ذائبة' : !hl ? 'ترسّب الجبس' : 'ترسّب الهاليت أيضًا', 'مع التبخّر يزداد تركيز الأملاح ، فيبلغ <b>الأقلّ ذائبية</b> حدّ التشبّع أوّلًا فيترسّب . وذائبية الجبس أقلّ من الهاليت ، فالجبس أوّلًا . وهذا ترسيب كيميائي في منطقة جافّة كالبحر الميت.'));
+        return;
+      }
+      if (S.i >= MINS.length) { body.append(verdict('acok', 'النتيجة : ' + S.sc + ' من ' + MINS.length, 'احفظ المثال مع عمليّته : بركاني ( ماس ونحاس ) · ترسيب ( جبس وهاليت ) · تحوّل ( غرافيت ).')); const r = el('div', 'srow'); r.append(btn('من جديد', 'go', () => { S.i = 0; S.sc = 0; S.order = shuffle(S.order); draw(); })); body.append(r); return; }
+      const M = MINS[S.order[S.i]];
+      body.append(el('div', 'ekcount', (S.i + 1) + ' من ' + MINS.length), verdict('', M[0], 'بأيّ عملية جيولوجية تكوّن ؟'));
+      const r = el('div', 'srow'); Object.keys(PN).forEach(k => r.append(btn(PN[k], S.pick === k ? 'go' : '', () => { if (S.pick) return; S.pick = k; if (k === M[1]) S.sc++; draw(); }))); body.append(r);
+      if (S.pick) { const ok = S.pick === M[1]; body.append(verdict(ok ? 'acok' : 'acwarn', (ok ? 'صحيح : ' : 'الصحيح : ') + PN[M[1]], M[2] + '.' + (M[0] === 'الغرافيت' || M[0] === 'الماس' ? ' والماس والغرافيت كلاهما كربون ، ويختلفان في شكل الشبكة البلورية فالماس أقسى المعادن والغرافيت هشّ.' : ''))); const n = el('div', 'srow'); n.append(btn('التالي', 'go', () => { S.i++; S.pick = null; draw(); })); body.append(n); }
+    }
+    top(); draw();
+  }
+
+  /* ======================= 9 · خريطة الموارد المعدنية في الأردن ======================= */
+  const JM = [
+    ['هيماتيت', 'الحديد', 'مغارة وردة — عجلون', 'الصناعات المعدنية والإنشاءات', [[118, 52]], '#8B2E2E'],
+    ['ملاكيت', 'النحاس', 'وادي ضانا ، وادي أبو خشيبة ، خربة النحاس', 'الصناعات الكهربائية والسبائك وأسلاك التوصيل', [[104, 190], [96, 228], [100, 206]], '#2E8B57'],
+    ['ذهب', 'الذهب', 'وادي أبو خشيبة شمال خليج العقبة', 'المجوهرات والحليّ', [[96, 228]], '#D4A017'],
+    ['فلسبار', 'الفلسبار', 'منطقة العقبة جنوب الأردن', 'الزجاج والخزف والصابون والأسنان الصناعية', [[92, 262]], '#7B68EE']
+  ];
+  function jomin(host) {
+    host.innerHTML = '';
+    const S = { k: 0 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    function top() { bar.innerHTML = ''; bar.append(seg(JM.map((m, i) => [i, m[0]]), S.k, v => { S.k = +v; top(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      const svg = fig(body, 320, 280);
+      sv('path', { d: 'M100 20 L150 22 L175 40 L300 60 L310 90 L230 120 L250 170 L200 200 L120 270 L88 268 L95 200 L100 150 L108 100 L105 60 Z', fill: '#F3E9D2', stroke: '#8D6E53', 'stroke-width': 2 }, svg);
+      sv('path', { d: 'M108 70 L110 120 L104 160 L98 230 L90 266', stroke: SEA, 'stroke-width': 3, fill: 'none', 'stroke-dasharray': '2 3' }, svg);
+      sv('ellipse', { cx: 104, cy: 140, rx: 5, ry: 14, fill: SEA }, svg);
+      JM.forEach((m, i) => m[4].forEach(([x, y]) => { const on = i === S.k; sv('circle', { cx: x + (i === 2 ? 8 : 0), cy: y, r: on ? 9 : 5, fill: m[5], stroke: '#fff', 'stroke-width': 2, opacity: on ? 1 : .45 }, svg); }));
+      body.append(lg(JM.map(m => [m[5], m[0]]).concat([[SEA, 'البحر الميت ووادي عربة']])));
+      body.append(el('div', 'sl note', 'خريطة تقريبية للتوضيح ، لا تُستعمل لقياس المسافات.'));
+      const M = JM[S.k], t = info();
+      t.row('المعدن', '<b>' + M[0] + '</b>'); t.row('ما يُستخلص منه', M[1]); t.row('موقعه', M[2]); t.row('أهمّ استخداماته', M[3]); body.append(t);
+      body.append(verdict('', 'الموارد المعدنية في الأردن', 'من أهمّ عوامل التطوّر الاقتصادي ، ويختلف توزيعها بين المناطق : الحديد في الشمال ( عجلون ) ، ومعظم الباقي في الجنوب.'));
+    }
+    top(); draw();
+  }
+
+  /* ======================= 10 · الإثراء الغذائي ======================= */
+  function eutroph(host) {
+    host.innerHTML = '';
+    const S = { f: 0 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    bar.append(sld(v => 'الأسمدة الواصلة إلى البحيرة : ' + ['لا شيء', 'قليلة', 'متوسّطة', 'كثيرة', 'كثيرة جدًّا'][v], S.f, 0, 4, 1, v => { S.f = v; draw(); }));
+    let raf = 0;
+    function draw() {
+      body.innerHTML = ''; cancelAnimationFrame(raf);
+      const f = S.f / 4, algae = f, light = 1 - .9 * f, plants = Math.max(0, 1 - f * 1.2), o2 = Math.max(.05, 1 - f * .95), fish = Math.round(8 * Math.max(0, 1 - f * 1.1));
+      const svg = fig(body, 320, 190), t0 = performance.now();
+      const loop = ts => {
+        if (!svg.isConnected) return;
+        const t = (ts - t0) / 1000; svg.innerHTML = '';
+        sv('rect', { x: 0, y: 0, width: 320, height: 190, fill: '#FFF8E1' }, svg);
+        sv('rect', { x: 0, y: 40, width: 320, height: 150, fill: '#7FB3D5' }, svg);
+        sv('rect', { x: 0, y: 40, width: 320, height: 150, fill: '#0A2A3A', opacity: .55 * f }, svg);
+        if (algae > 0) sv('rect', { x: 0, y: 36, width: 320, height: 4 + 12 * algae, fill: '#4CAF50' }, svg);
+        for (let i = 0; i < 4; i++) sv('line', { x1: 40 + i * 80, y1: 0, x2: 50 + i * 80, y2: 40 + 140 * light, stroke: '#F4C430', 'stroke-width': 3, opacity: .7 }, svg);
+        for (let i = 0; i < 9; i++) { const x = 18 + i * 35; sv('path', { d: 'M' + x + ' 190 q ' + (plants ? 6 : 14) + ' -' + (12 + 30 * plants) + ' 0 -' + (20 + 40 * plants), stroke: plants > .3 ? '#2E7D32' : '#795548', 'stroke-width': 3, fill: 'none' }, svg); }
+        for (let i = 0; i < fish; i++) { const x = (40 + i * 37 + t * 20 * (i % 2 ? 1 : -1) + 320) % 320, y = 80 + (i % 4) * 22; sv('ellipse', { cx: x, cy: y, rx: 9, ry: 4.5, fill: '#FF8A65' }, svg); }
+        raf = requestAnimationFrame(loop);
+      };
+      raf = requestAnimationFrame(loop);
+      const bars = el('div', 'ekbars');
+      [['الطحالب على السطح', algae, '#4CAF50'], ['الضوء في الأعماق', light, '#F4C430'], ['الأكسجين المذاب', o2, '#3A7CA5'], ['الكائنات البحرية', fish / 8, '#FF8A65']].forEach(b => bars.append(el('div', 'ekbar', '<span>' + b[0] + '</span><i><b style="width:' + Math.round(b[1] * 100) + '%;background:' + b[2] + '"></b></i>')));
+      body.append(bars);
+      body.append(el('div', 'sl note', 'المقادير في النموذج نسبية للتوضيح ؛ والثابت من الكتاب هو ترتيب السلسلة.'));
+      const chain = ['أسمدة ← فسفور ونيتروجين', 'نموّ كبير للطحالب على السطح', 'حجب الضوء عن نباتات الأعماق', 'موتها وتحلّلها', 'استهلاك الأكسجين المذاب', 'موت الكائنات البحرية'];
+      const k = S.f === 0 ? 0 : Math.min(6, S.f + 2);
+      const ch = el('div', 'ekchain'); chain.forEach((c, i) => ch.append(el('div', 'eklink' + (i < k ? ' ekon' : ''), (i + 1) + ' ) ' + c))); body.append(ch);
+      body.append(verdict(S.f ? 'acwarn' : 'acok', S.f ? 'إثراء غذائي : تلوّث غير مباشر' : 'بحيرة سليمة', S.f ? 'الطحالب لا تسمّم الماء ، بل <b>تحجب الضوء</b> فتموت نباتات الأعماق ، وتحلّلها <b>يستهلك الأكسجين المذاب</b> فتختنق الكائنات.' : 'الضوء يصل إلى الأعماق ، والنباتات حيّة ، والأكسجين كافٍ.'));
+    }
+    draw();
+  }
+
+  /* ======================= 11 · من النشاط إلى الأثر ======================= */
+  const IMP = [
+    ['حرق الوقود الأحفوري في المصانع', 'تلوّث الهواء : أكاسيد الكربون والكبريت ( أوّلية ) ثمّ هطل حمضي ( ثانوي ) وغازات دفيئة'],
+    ['تسرّب المياه العادمة إلى بحيرة', 'تلوّث مباشر للمياه يقضي على الكائنات المائية'],
+    ['الرعي الجائر', 'زوال الغطاء النباتي واتّساع التصحّر وانخفاض التنوّع الحيوي'],
+    ['إزالة الغابات لإقامة الطرق', 'تدمير المواطن الطبيعية وازدياد ثاني أكسيد الكربون'],
+    ['الصيد الجائر في موسم التكاثر', 'تراجع أعداد الأنواع وقد تختفي من بيئاتها'],
+    ['التوسّع العمراني على الأراضي الزراعية', 'استنزاف الموارد الطبيعية'],
+    ['تراكم غازات الدفيئة', 'ارتفاع حرارة الغلاف الجوّي فالتغيّر المناخي : انصهار الجليد وحرائق الغابات']
+  ];
+  function impact(host) {
+    host.innerHTML = '';
+    const S = { i: 0, pick: null, sc: 0, order: shuffle(IMP.map((_, i) => i)) };
+    const body = el('div'); host.append(body);
+    function draw() {
+      body.innerHTML = '';
+      if (S.i >= IMP.length) { body.append(verdict('acok', 'النتيجة : ' + S.sc + ' من ' + IMP.length, 'تلوّث المياه ، وتلوّث الهواء ، واستنزاف الموارد : ثلاث مشكلات تنتج من استخدام الإنسان للمياه واليابسة.')); const r = el('div', 'srow'); r.append(btn('من جديد', 'go', () => { S.i = 0; S.sc = 0; S.order = shuffle(S.order); draw(); })); body.append(r); return; }
+      const P = IMP[S.order[S.i]];
+      const opts = shuffle([P[1]].concat(shuffle(IMP.filter(x => x !== P).map(x => x[1])).slice(0, 2)));
+      if (!S.opts || S.optsFor !== S.i) { S.opts = opts; S.optsFor = S.i; }
+      body.append(el('div', 'ekcount', (S.i + 1) + ' من ' + IMP.length + ' · الصحيح ' + S.sc), verdict('', P[0], 'ما الأثر الذي يذكره الكتاب ؟'));
+      const ch = el('div', 'ekopts');
+      S.opts.forEach(o => { const b = el('button', 'ekopt' + (S.pick === o ? (o === P[1] ? ' ekok' : ' ekbad') : (S.pick && o === P[1] ? ' ekok' : '')), o); b.onclick = () => { if (S.pick) return; S.pick = o; if (o === P[1]) S.sc++; draw(); }; ch.append(b); });
+      body.append(ch);
+      if (S.pick) { const n = el('div', 'srow'); n.append(btn('التالي', 'go', () => { S.i++; S.pick = null; draw(); })); body.append(n); }
+    }
+    draw();
+  }
+
+  /* ======================= 12 · طرائق الاستدامة ======================= */
+  const SUS = [
+    ['إطفاء الأجهزة التي لا تُستخدم', 'u'], ['تركيب قطع توفير المياه', 'u'], ['إعادة استخدام العبوات الفارغة في الزراعة', 'u'],
+    ['مزرعة رياح الطفيلة', 'e'], ['الخلايا الشمسية', 'e'], ['الطاقة الجيوحرارية من الماغما', 'e'],
+    ['أنابيب البلاستيك بدل النحاس', 'm'], ['تطوير تقنيات التنقيب', 'm'], ['تدوير الحديد بصهره', 'm'],
+    ['محمية غابات عجلون', 'p'], ['محمية الأزرق المائية وسمك السرحاني', 'p']
+  ];
+  const SN = { u: 'الاستخدام الأمثل', e: 'الطاقة المتجدّدة', m: 'استدامة الموارد المعدنية', p: 'المحميات الطبيعية' };
+  function sustain(host) {
+    host.innerHTML = '';
+    const S = { i: 0, pick: null, sc: 0, order: shuffle(SUS.map((_, i) => i)) };
+    const body = el('div'); host.append(body);
+    function draw() {
+      body.innerHTML = '';
+      const meter = el('div', 'ekmeter', '<span>مؤشّر الاستدامة</span><i><b style="width:' + Math.round(S.sc / SUS.length * 100) + '%"></b></i>'); body.append(meter);
+      if (S.i >= SUS.length) { body.append(verdict('acok', S.sc + ' من ' + SUS.length, 'الاستدامة : تلبية الاحتياجات دون الإضرار بالبيئة ، والمحافظة على الموارد <b>للأجيال القادمة</b>.')); const r = el('div', 'srow'); r.append(btn('من جديد', 'go', () => { S.i = 0; S.sc = 0; S.order = shuffle(S.order); draw(); })); body.append(r); return; }
+      const X = SUS[S.order[S.i]];
+      body.append(verdict('', X[0], 'إلى أيّ طريقة من طرائق الاستدامة ينتمي ؟'));
+      const r = el('div', 'ekopts'); Object.keys(SN).forEach(k => { const b = el('button', 'ekopt' + (S.pick === k ? (k === X[1] ? ' ekok' : ' ekbad') : (S.pick && k === X[1] ? ' ekok' : '')), SN[k]); b.onclick = () => { if (S.pick) return; S.pick = k; if (k === X[1]) S.sc++; draw(); }; r.append(b); }); body.append(r);
+      if (S.pick) { const n = el('div', 'srow'); n.append(btn('التالي', 'go', () => { S.i++; S.pick = null; draw(); })); body.append(n); }
+      body.append(el('div', 'sl note', 'الزراعة المائية المركّبة ( Aquaponics ) تحتاج ' + L('10 %') + ' فقط من مياه زراعة اليابسة.'));
+    }
+    draw();
+  }
+
+  /* ======================= 13 · الاتفاقيات ======================= */
+  const TR = [
+    ['اتفاقية التغيّر المناخي', '1992', 'قمّة الأرض — البرازيل', 'استقرار تراكيز غازات الدفيئة في الغلاف الجوّي'],
+    ['اتفاقية التنوّع الحيوي', '1992', 'قمّة الأرض — البرازيل', 'الحفاظ على التنوّع الحيوي واستخدامه المستدام وتقاسم منافع الموارد الجينية'],
+    ['اتفاقية مكافحة التصحّر', '1994', '—', 'استعادة الأراضي المتدهورة وتقليل آثار الجفاف على المجتمعات الزراعية']
+  ];
+  function treaty(host) {
+    host.innerHTML = '';
+    const S = { mode: 'x', q: null, pick: null, sc: 0, n: 0 };
+    const bar = el('div', 'srow'), body = el('div'); host.append(bar, body);
+    function top() { bar.innerHTML = ''; bar.append(seg([['x', 'الاتفاقيات'], ['q', 'طابِق']], S.mode, v => { S.mode = v; S.q = null; top(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      if (S.mode === 'x') {
+        const tl = el('div', 'ektl'); TR.forEach(t => tl.append(el('div', 'ektli', '<b>' + L(t[1]) + '</b><span><b>' + t[0] + '</b><br>' + t[3] + (t[2] !== '—' ? ' · ' + t[2] : '') + '</span>'))); body.append(tl);
+        body.append(verdict('acok', 'الأردن', 'من <b>أوائل الدول الموقّعة</b> على هذه الاتفاقيات والمشاركة الفاعلة فيها.'));
+        return;
+      }
+      if (!S.q) { const t = TR[Math.floor(Math.random() * 3)], kind = Math.random() < .5 ? 'g' : 'y'; S.q = { t, kind }; S.pick = null; }
+      const q = S.q;
+      body.append(el('div', 'ekcount', 'السؤال ' + (S.n + 1) + ' · الصحيح ' + S.sc));
+      body.append(verdict('', q.kind === 'g' ? 'لأيّ اتفاقية هذا الهدف ؟' : 'أيّ اتفاقية وُقّعت في هذه السنة ؟', q.kind === 'g' ? q.t[3] : L(q.t[1]) + ' م'));
+      const r = el('div', 'ekopts');
+      TR.forEach(t => { const okT = q.kind === 'g' ? t === q.t : t[1] === q.t[1]; const b = el('button', 'ekopt' + (S.pick === t ? (okT ? ' ekok' : ' ekbad') : ''), t[0]); b.onclick = () => { if (S.pick) return; S.pick = t; if (okT) S.sc++; draw(); }; r.append(b); });
+      body.append(r);
+      if (S.pick) {
+        const okT = q.kind === 'g' ? S.pick === q.t : S.pick[1] === q.t[1];
+        body.append(verdict(okT ? 'acok' : 'acwarn', okT ? 'صحيح' : 'راجع', S.pick[0] + ' : ' + L(S.pick[1]) + ' م · ' + S.pick[3] + '.'));
+        const n = el('div', 'srow'); n.append(btn('سؤال آخر', 'go', () => { S.n++; S.q = null; draw(); })); body.append(n);
+      }
+    }
+    top(); draw();
+  }
+
+  window.SIMS.plates = plates;
+  window.SIMS.pdensity = pdensity;
+  window.SIMS.diverge = diverge;
+  window.SIMS.converge = converge;
+  window.SIMS.pspeed = pspeed;
+  window.SIMS.quakes = quakes;
+  window.SIMS.rsort = rsort;
+  window.SIMS.minform = minform;
+  window.SIMS.jomin = jomin;
+  window.SIMS.eutroph = eutroph;
+  window.SIMS.impact = impact;
+  window.SIMS.sustain = sustain;
+  window.SIMS.treaty = treaty;
+})();

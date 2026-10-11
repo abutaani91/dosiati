@@ -1,6 +1,6 @@
 /* تركيب learn.json من ملفات الوحدات بالترتيب المعتمد */
 const fs=require('fs');
-const ORDER=['s8u1','s8u2','p10u1','p10u2','c10u1','c10u2','b10u1','p9u1','c9u1','b9u1','e9u1','e10u1','p9u2','c9u2','b9u2','e9u2'];
+const ORDER=['s8u1','s8u2','p10u1','p10u2','c10u1','c10u2','b10u1','p9u1','c9u1','b9u1','e9u1','e10u1','p9u2','c9u2','b9u2','e9u2','b10u2','c10u3','s8u4'];
 const out={};
 ORDER.forEach(id=>{
   const f='content/unit_'+id+'.json';
