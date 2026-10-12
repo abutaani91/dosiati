@@ -7164,3 +7164,1118 @@
   window.SIMS.sustain = sustain;
   window.SIMS.treaty = treaty;
 })();
+
+/* ===== محاكاة النجوم ( علوم الأرض العاشر — الوحدة الثانية ) — البادئة nj ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const L = s => '<span class="ltr">' + s + '</span>';
+  const sld = (lab, val, lo, hi, step, fn) => {
+    const w = el('label', 'sf'); const sp = el('span', '', lab(val)); w.append(sp);
+    const r = document.createElement('input'); r.type = 'range'; r.min = lo; r.max = hi; r.step = step; r.value = val;
+    r.oninput = () => { sp.innerHTML = lab(+r.value); fn(+r.value); }; w.append(r); return w;
+  };
+  const info = () => { const b = el('div', 'cyinfo'); b.row = (k, v) => b.append(el('div', 'cyrow', '<span class="cyk">' + k + '</span><span class="cyv">' + v + '</span>')); return b; };
+  const verdict = (cls, b, s) => el('div', 'acv' + (cls ? ' ' + cls : ''), '<b>' + b + '</b><span>' + s + '</span>');
+  const seg = (opts, val, fn) => {
+    const w = el('div', 'njseg');
+    opts.forEach(o => { const b = el('button', 'njb' + (String(o[0]) === String(val) ? ' njon' : ''), o[1]); b.onclick = () => fn(o[0]); w.append(b); });
+    return w;
+  };
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.append(e); return e; };
+  const txt = (svg, x, y, s, a) => { const t = sv('text', Object.assign({ x: x, y: y, 'font-size': 10, fill: '#5b6b80', direction: 'ltr' }, a || {}), svg); t.textContent = s; return t; };
+  const fig = (body, w, h) => { const s = sv('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'njsvg', preserveAspectRatio: 'xMidYMid meet' }); const f = el('div', 'njfig'); f.append(s); body.append(f); return s; };
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const note = s => el('div', 'njnote', s);
+  /* لون النجم بحسب الحرارة : الفئات الأربع في الكتاب */
+  const COLS = [['أحمر', '#E0533B'], ['برتقاليّ', '#F2963A'], ['أصفر', '#F5CF3F'], ['أزرق', '#5B8DEF']];
+  const catOf = T => T < 3900 ? 0 : T < 5200 ? 1 : T < 7500 ? 2 : 3;
+  const disk = (col, px, cls) => { const d = el('span', 'njdisk' + (cls ? ' ' + cls : '')); d.style.width = d.style.height = px + 'px'; d.style.background = 'radial-gradient(circle at 35% 35%, #fff 0%, ' + col + ' 45%, ' + col + ' 100%)'; d.style.boxShadow = '0 0 ' + Math.max(4, px / 4) + 'px ' + col; return d; };
+  /* لعبة تصنيف عامّة : بطاقة ← اختيار */
+  function sorter(body, pool, cats, intro, done) {
+    const S = { q: shuffle(pool), k: 0, ok: 0, ans: null };
+    function draw() {
+      body.innerHTML = '';
+      if (S.k >= S.q.length) {
+        body.append(verdict('acok', 'النتيجة : ' + S.ok + ' من ' + S.q.length, done));
+        const r = el('div', 'srow'); r.append(btn('من جديد', 'gh', () => { S.q = shuffle(pool); S.k = 0; S.ok = 0; S.ans = null; draw(); })); body.append(r); return;
+      }
+      const it = S.q[S.k];
+      body.append(el('div', 'shint', intro + ' ( ' + (S.k + 1) + ' / ' + S.q.length + ' )'));
+      body.append(el('div', 'njq', it[0]));
+      const r = el('div', 'njseg');
+      cats.forEach((c, i) => { const b = el('button', 'njb' + (S.ans !== null && i === it[1] ? ' njon' : '') + (S.ans === i && i !== it[1] ? ' njno' : ''), c); b.onclick = () => { if (S.ans !== null) return; S.ans = i; if (i === it[1]) S.ok++; draw(); }; r.append(b); });
+      body.append(r);
+      if (S.ans !== null) {
+        body.append(verdict(S.ans === it[1] ? 'acok' : 'acwarn', S.ans === it[1] ? 'صحيح' : 'الصواب : ' + cats[it[1]], it[2]));
+        const r2 = el('div', 'srow'); r2.append(btn('التالي', '', () => { S.k++; S.ans = null; draw(); })); body.append(r2);
+      }
+    }
+    draw();
+  }
+
+  /* ======================= 1 · ما النجم ؟ ======================= */
+  const CAND = [
+    { n: 'الشمس', sh: 1, gas: 1, hhe: 1, own: 1, d: 'كرة غاز ساخن مُتأيّن يغلب عليها الهيدروجين والهيليوم ، وتُصدر الحرارة والضوء.' },
+    { n: 'نجم السمّاك الأعزل', sh: 1, gas: 1, hhe: 1, own: 1, d: 'نجم كبير جدًّا شديد الحرارة ، يُصدر ضوءه بذاته.' },
+    { n: 'القمر', sh: 1, gas: 0, hhe: 0, own: 0, d: 'جسم صخريّ كرويّ يعكس ضوء الشمس ولا يُصدر ضوءًا.' },
+    { n: 'كوكب الأرض', sh: 1, gas: 0, hhe: 0, own: 0, d: 'كوكب صخريّ لا يُصدر ضوءًا بذاته.' },
+    { n: 'السديم', sh: 0, gas: 1, hhe: 1, own: 0, d: 'سحابة كبيرة من الغبار الكونيّ والغاز ، معظمه هيدروجين وهيليوم ، ولا اندماج فيها بعد.' },
+    { n: 'نجم النسر الواقع', sh: 1, gas: 1, hhe: 1, own: 1, d: 'نجم كبير أسخن من الشمس ، يُصدر ضوءه بذاته.' }
+  ];
+  const CON = [['sh', 'جِرم كرويّ'], ['gas', 'غاز ساخن مُتأيّن'], ['hhe', 'يغلب عليه الهيدروجين والهيليوم'], ['own', 'يُصدر طاقة حرارية وضوئية بذاته']];
+  function njdef(host) {
+    host.innerHTML = '';
+    const S = { m: 'ex', c: 0, qs: null };
+    const top = el('div'), body = el('div'); host.append(top, body);
+    function bar() { top.innerHTML = ''; top.append(seg([['ex', 'افحص بالقيود'], ['q', 'اختبر نفسك']], S.m, v => { S.m = v; bar(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      if (S.m === 'ex') {
+        const r = el('div', 'njseg'); CAND.forEach((c, i) => { const b = el('button', 'njb' + (i === S.c ? ' njon' : ''), c.n); b.onclick = () => { S.c = i; draw(); }; r.append(b); }); body.append(r);
+        const c = CAND[S.c]; body.append(el('div', 'njq', c.d));
+        const b = info(); let fail = [];
+        CON.forEach(k => { b.row(k[1], c[k[0]] ? '✔ يتحقّق' : '✘ لا يتحقّق'); if (!c[k[0]]) fail.push(k[1]); }); body.append(b);
+        body.append(fail.length ? verdict('acwarn', 'ليس نجمًا', 'يسقط عند قيد : ' + fail.join(' ، ') + '.') : verdict('acok', 'نجم', 'تحقّقت القيود الأربعة في تعريف الكتاب.'));
+        body.append(note('وكيف عرف العلماء هذه الصفات دون الوصول إلى النجوم ؟ بتحليل أطياف الأشعّة المُنبعثة منها.'));
+      } else {
+        const pool = CAND.map(c => [c.n + ' : ' + c.d, CON.every(k => c[k[0]]) ? 0 : 1, CON.every(k => c[k[0]]) ? 'تتحقّق فيه القيود الأربعة.' : 'يسقط عند قيد : ' + CON.filter(k => !c[k[0]]).map(k => k[1]).join(' ، ') + '.']);
+        sorter(body, pool, ['نجم', 'ليس نجمًا'], 'هل هذا نجم ؟', 'القيد الحاسم في أكثر الحالات : النجم يُصدر الطاقة بذاته ، ولا يعكسها.');
+      }
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 2 · الاندماج النوويّ ======================= */
+  function nuc(svg, x, y, p, n, r) {
+    const g = sv('g', {}, svg); const tot = p + n; const pts = [];
+    for (let i = 0; i < tot; i++) { const a = i * 2.4, rr = tot === 1 ? 0 : r * 0.55 * Math.sqrt((i + 0.5) / tot); pts.push([x + rr * Math.cos(a), y + rr * Math.sin(a)]); }
+    pts.forEach((q, i) => sv('circle', { cx: q[0], cy: q[1], r: r * 0.42, fill: i < p ? '#D62828' : '#9AA5B1', stroke: '#fff', 'stroke-width': 1.2 }, g));
+    return g;
+  }
+  function njfuse(host) {
+    host.innerHTML = '';
+    const S = { T: 0, P: 0, done: false };
+    const top = el('div'), body = el('div'); host.append(top, body);
+    function bar() {
+      top.innerHTML = '';
+      top.append(el('div', 'shint', 'اضبط ظروف المكان ، ثمّ اضغط « ادمج » :'));
+      top.append(seg([[0, 'حرارة منخفضة'], [1, 'حرارة مرتفعة جدًّا']], S.T, v => { S.T = +v; S.done = false; bar(); draw(); }));
+      top.append(seg([[0, 'ضغط عاديّ'], [1, 'ضغط هائل']], S.P, v => { S.P = +v; S.done = false; bar(); draw(); }));
+      const r = el('div', 'srow'); r.append(btn('ادمج', '', () => { S.done = true; draw(); }), btn('ضع في قلب النجم', 'gh', () => { S.T = 1; S.P = 1; S.done = false; bar(); draw(); })); top.append(r);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const svg = fig(body, 340, 130);
+      const ok = S.done && S.T && S.P;
+      if (!ok) {
+        nuc(svg, 70, 62, 1, 1, 22); nuc(svg, 150, 62, 1, 2, 26);
+        txt(svg, 62, 115, '²H'); txt(svg, 142, 115, '³H'); txt(svg, 104, 66, '+', { 'font-size': 18, fill: '#1F3A5F' });
+      } else {
+        nuc(svg, 215, 62, 2, 2, 28); nuc(svg, 290, 40, 0, 1, 14);
+        txt(svg, 203, 115, '⁴He'); txt(svg, 283, 72, 'n'); txt(svg, 250, 66, '+', { 'font-size': 18, fill: '#1F3A5F' });
+        sv('path', { d: 'M40 62 h120', stroke: '#c9d2dd', 'stroke-width': 2, 'stroke-dasharray': '4 4' }, svg);
+        for (let i = 0; i < 6; i++) sv('path', { d: 'M' + (300 + i * 5) + ' ' + (85 + (i % 2) * 6) + ' l6 -8 l-3 0 l6 -9', fill: 'none', stroke: '#F2A900', 'stroke-width': 2 }, svg);
+        txt(svg, 40, 66, '²H + ³H', { 'font-size': 11, fill: '#9AA5B1' });
+      }
+      const lg = el('div', 'njlg', '<span><i style="background:#D62828"></i>بروتون</span><span><i style="background:#9AA5B1"></i>نيوترون</span>'); body.append(lg);
+      if (!S.done) { body.append(note('الديتيريوم نواته بروتون ونيوترون ، والتريتيوم بروتون ونيوترونان.')); return; }
+      if (!ok) {
+        body.append(verdict('acwarn', 'لم يحدث اندماج', (S.T ? '' : 'الحرارة غير كافية . ') + (S.P ? '' : 'الضغط غير كافٍ . ') + 'الاندماج يحتاج ضغوطًا هائلة ودرجات حرارة مرتفعة جدًّا معًا ، ولا يتوفّر ذلك إلّا في قلب النجم.'));
+        return;
+      }
+      body.append(verdict('acok', 'حدث الاندماج', 'اتّحدت نواتان خفيفتان فنتجت نواة هيليوم أثقل ونيوترون ، وانطلقت طاقة تصل الأرض حرارةً وضوءًا.'));
+      body.append(el('div', 'njbt', 'من أين الطاقة ؟ قارن الكتلتين ( رسم توضيحيّ مُبالَغ فيه ) :'));
+      const m = el('div', 'njbars');
+      m.append(el('div', 'njbrow', '<span>كتلة المتفاعلات</span><b style="width:100%"></b>'));
+      m.append(el('div', 'njbrow', '<span>كتلة النواتج</span><b style="width:93%"></b><em style="width:7%"></em>'));
+      body.append(m, note('الجزء الناقص من الكتلة ( البرتقاليّ ) هو الذي ظهر طاقةً : « نظرًا إلى فرق الكتلة بين المواد المتفاعلة والمادة الناتجة تنتج كميات كبيرة من الطاقة ».'));
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 3 · اللون والحرارة ======================= */
+  const planck = (lnm, T) => { const l = lnm * 1e-9; return 1 / (Math.pow(l, 5) * (Math.exp(0.014388 / (l * T)) - 1)); };
+  function njcolor(host) {
+    host.innerHTML = '';
+    const S = { T: 5800, m: 'ex', q: null, pick: [] };
+    const top = el('div'), ctl = el('div'), body = el('div'); host.append(top, ctl, body);
+    function bar() {
+      top.innerHTML = ''; top.append(seg([['ex', 'غيّر الحرارة'], ['q', 'رتّب النجوم']], S.m, v => { S.m = v; if (v === 'q') newQ(); bar(); draw(); }));
+      ctl.innerHTML = '';
+      if (S.m === 'ex') ctl.append(sld(v => 'درجة حرارة السطح : ' + L(v + ' K'), S.T, 3000, 30000, 100, v => { S.T = v; draw(); }));
+    }
+    function newQ() { const ts = shuffle([3300, 4500, 5800, 12000]).slice(0, 3); S.q = ts; S.pick = []; }
+    function draw() {
+      body.innerHTML = '';
+      if (S.m === 'ex') {
+        const c = catOf(S.T); const row = el('div', 'njrow'); row.append(disk(COLS[c][1], 64), el('div', 'njbig', 'لون النجم : <b>' + COLS[c][0] + '</b>')); body.append(row);
+        const svg = fig(body, 340, 170);
+        const x0 = 30, x1 = 330, y0 = 140, y1 = 15, lmax = 2000, X = l => x0 + (l / lmax) * (x1 - x0);
+        const vis = [[380, '#7b3fbf'], [450, '#3f6fd8'], [495, '#2fb5b5'], [530, '#3fb04a'], [580, '#e8d23a'], [620, '#f2963a'], [700, '#e0533b']];
+        vis.forEach((v, i) => { const nx = i < vis.length - 1 ? vis[i + 1][0] : 750; sv('rect', { x: X(v[0]), y: y1, width: X(nx) - X(v[0]), height: y0 - y1, fill: v[1], opacity: 0.13 }, svg); });
+        sv('path', { d: 'M' + x0 + ' ' + y0 + ' H' + x1 + ' M' + x0 + ' ' + y0 + ' V' + y1, stroke: '#1F3A5F', 'stroke-width': 1.2 }, svg);
+        [0, 500, 1000, 1500, 2000].forEach(l => txt(svg, X(l) - 8, y0 + 13, String(l)));
+        txt(svg, x1 - 22, y0 + 26, 'λ (nm)');
+        let mx = 0; for (let l = 50; l <= lmax; l += 10) mx = Math.max(mx, planck(l, S.T));
+        let d = ''; for (let l = 50; l <= lmax; l += 10) d += (l === 50 ? 'M' : 'L') + X(l).toFixed(1) + ' ' + (y0 - planck(l, S.T) / mx * (y0 - y1 - 6)).toFixed(1) + ' ';
+        sv('path', { d: d, fill: 'none', stroke: COLS[c][1], 'stroke-width': 3 }, svg);
+        const lp = 2.898e6 / S.T; if (lp <= lmax) { sv('path', { d: 'M' + X(lp) + ' ' + y0 + ' V' + (y1 + 6), stroke: '#1F3A5F', 'stroke-dasharray': '4 3' }, svg); txt(svg, X(lp) + 4, y1 + 14, 'λ ≈ ' + Math.round(lp) + ' nm', { fill: '#1F3A5F', 'font-weight': 700 }); }
+        const b = info(); b.row('موجة الذروة', L('λ ≈ ' + Math.round(lp) + ' nm') + ( lp < 380 ? ' — أقصر من الضوء المرئيّ' : lp > 750 ? ' — أطول من الضوء المرئيّ' : '')); b.row('القاعدة', 'حرارة أعلى ← موجة ذروة أقصر ← لون يميل إلى الأزرق'); body.append(b);
+        body.append(note('المنحنى مرسوم بقانون فيزيائيّ ومُطبَّع على قمّته ليُرى انزياح الذروة ؛ والأرقام توضيحية ، فالكتاب يكتفي بالعلاقة العكسية.'));
+      } else {
+        body.append(el('div', 'shint', 'اضغط النجوم من الأبرد إلى الأسخن :'));
+        const r = el('div', 'njrow njwrap');
+        S.q.forEach((T, i) => { const done = S.pick.includes(i); const b = el('button', 'njstarbtn' + (done ? ' njon' : '')); b.append(disk(COLS[catOf(T)][1], 46)); b.append(el('span', '', done ? (S.pick.indexOf(i) + 1) + '' : '؟')); b.onclick = () => { if (done || S.pick.length === 3) return; S.pick.push(i); draw(); }; r.append(b); }); body.append(r);
+        if (S.pick.length === 3) {
+          const ok = S.pick.every((k, j) => j === 0 || S.q[k] > S.q[S.pick[j - 1]]);
+          body.append(verdict(ok ? 'acok' : 'acwarn', ok ? 'ترتيب صحيح' : 'راجع الترتيب', 'الترتيب من الأبرد : ' + S.q.map((T, i) => i).sort((a, b) => S.q[a] - S.q[b]).map(i => COLS[catOf(S.q[i])][0]).join(' ← ') + ' . الأحمر أبرد النجوم والأزرق أسخنها.'));
+          const r2 = el('div', 'srow'); r2.append(btn('مجموعة أخرى', '', () => { newQ(); draw(); })); body.append(r2);
+        }
+      }
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 4 · عاملا السطوع والبُعد ======================= */
+  function njlum(host) {
+    host.innerHTML = '';
+    const S = { a: { T: 5800, R: 1, d: 10 }, b: { T: 5800, R: 1, d: 10 } };
+    const top = el('div'), ctl = el('div'), body = el('div'); host.append(top, ctl, body);
+    const lum = s => s.R * s.R * Math.pow(s.T / 5800, 4), app = s => lum(s) / (s.d * s.d);
+    function bar() {
+      top.innerHTML = ''; const r = el('div', 'srow');
+      r.append(btn('الشعرى اليمانية ورجل الجبار', '', () => { S.a = { T: 9900, R: 1.7, d: 1 }; S.b = { T: 12100, R: 79, d: 100 }; bar(); draw(); }), btn('حرارة واحدة وحجمان', 'gh', () => { S.a = { T: 5800, R: 1, d: 10 }; S.b = { T: 5800, R: 10, d: 10 }; bar(); draw(); }), btn('حجم واحد وحرارتان', 'gh', () => { S.a = { T: 3500, R: 5, d: 10 }; S.b = { T: 12000, R: 5, d: 10 }; bar(); draw(); }));
+      top.append(r);
+      ctl.innerHTML = ''; const g = el('div', 'njgrid');
+      [['a', 'النجم ( أ )'], ['b', 'النجم ( ب )']].forEach(k => {
+        const c = el('div', 'njcol'); c.append(el('b', '', k[1]));
+        c.append(sld(v => 'حرارة السطح ' + L(v + ' K'), S[k[0]].T, 3000, 30000, 100, v => { S[k[0]].T = v; draw(); }));
+        c.append(sld(v => 'الحجم ' + L('× ' + v) + ' الشمس', S[k[0]].R, 0.5, 100, 0.5, v => { S[k[0]].R = v; draw(); }));
+        c.append(sld(v => 'البُعد ' + L(v) + ' وحدة', S[k[0]].d, 1, 100, 1, v => { S[k[0]].d = v; draw(); }));
+        g.append(c);
+      });
+      ctl.append(g);
+    }
+    function draw() {
+      body.innerHTML = '';
+      const row = el('div', 'njrow njsp');
+      ['a', 'b'].forEach((k, i) => { const s = S[k]; const c = el('div', 'njcell'); c.append(disk(COLS[catOf(s.T)][1], Math.max(10, Math.min(70, 10 + Math.log10(s.R + 1) * 30)))); c.append(el('span', '', i ? '( ب )' : '( أ )')); row.append(c); });
+      body.append(row);
+      const la = lum(S.a), lb = lum(S.b), aa = app(S.a), ab = app(S.b);
+      const bars = (t, x, y) => { body.append(el('div', 'njbt', t)); const m = el('div', 'njbars'); const mx = Math.max(x, y), w = v => Math.max(3, 100 * Math.log10(1 + 9 * v / mx)); m.append(el('div', 'njbrow', '<span>( أ )</span><b style="width:' + w(x) + '%"></b>'), el('div', 'njbrow', '<span>( ب )</span><b style="width:' + w(y) + '%;background:#1F4E8C"></b>')); body.append(m); };
+      bars('السطوع الحقيقيّ : ما يُشعّه النجم في الثانية ( يعتمد على الحرارة والحجم ) :', la, lb);
+      bars('ما يصلنا منه على الأرض ( يدخل البُعد ) :', aa, ab);
+      const big = la > lb ? '( أ )' : '( ب )', seen = aa > ab ? '( أ )' : '( ب )';
+      const r = Math.max(la, lb) / Math.min(la, lb);
+      if (r < 1.05 && Math.max(aa, ab) / Math.min(aa, ab) < 1.05) { body.append(verdict('acok', 'متساويان', 'تساوت الحرارة والحجم فتساوى السطوع ، وتساوى البُعد فتساوى ما يصلنا . غيّر عاملًا واحدًا وراقب.')); body.append(note('الأرقام من نموذج فيزيائيّ توضيحيّ.')); return; }
+      body.append(verdict(big === seen ? 'acok' : 'acwarn', big === seen ? 'الأسطع هو الذي يبدو ألمع' : 'الأسطع ليس الذي يبدو ألمع !', 'السطوع الحقيقيّ أكبر في ' + big + ' بنحو ' + L(r < 10 ? r.toFixed(1) : Math.round(r)) + ' مرّة ، أمّا ما يبدو لنا ألمع فـ' + seen + (big === seen ? '.' : ' لأنّ ' + big + ' أبعد . البُعد يُغيّر ما نراه لا ما يُشعّه النجم.')));
+      body.append(note('الأرقام من نموذج فيزيائيّ توضيحيّ ( والقيم في مثال الشعرى ورجل الجبار تقريبية ) ؛ المطلوب من الكتاب : السطوع يتناسب طرديًّا مع الحرارة والحجم ، والبُعد يُغيّر ما نراه فقط.'));
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 5 · مخطّط السطوع والحرارة ======================= */
+  const HR = [
+    { n: 'السمّاك الأعزل', T: 25000, Lm: 20000, R: 'نحو 7 أضعاف الشمس — كبير جدًّا', why: 'شديد الحرارة وكبير جدًّا ، فاجتمع العاملان فصار سطوعه هائلًا.' },
+    { n: 'النسر الواقع', T: 9600, Lm: 40, R: 'نحو ضعفَي الشمس — كبير', why: 'أسخن من الشمس وأكبر منها ، فهو أسطع منها.' },
+    { n: 'الشمس', T: 5800, Lm: 1, R: 'متوسّطة الحجم', why: 'متوسّطة الحرارة والحجم ، وهي المرجع الذي يُقاس به سطوع غيرها.' },
+    { n: 'يد الجوزاء', T: 3600, Lm: 100000, R: 'مئات أضعاف الشمس — عملاق أحمر', why: 'سطحه بارد ( أحمر ) ، لكنّ حجمه العملاق جعل سطوعه هائلًا.' }
+  ];
+  function njhr(host) {
+    host.innerHTML = '';
+    const S = { c: 2, m: 'ex', q: null, ans: null };
+    const top = el('div'), body = el('div'); host.append(top, body);
+    function bar() { top.innerHTML = ''; top.append(seg([['ex', 'اقرأ المخطّط'], ['q', 'أيّهما أسطع ؟']], S.m, v => { S.m = v; S.q = shuffle([0, 1, 2, 3]).slice(0, 2); S.ans = null; bar(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      const svg = fig(body, 340, 200);
+      const x0 = 40, x1 = 325, y0 = 170, y1 = 12;
+      const X = T => x0 + (Math.log10(30000) - Math.log10(T)) / (Math.log10(30000) - Math.log10(3000)) * (x1 - x0);
+      const Y = Lm => y0 - (Math.log10(Lm) + 1) / 6.5 * (y0 - y1);
+      sv('path', { d: 'M' + x0 + ' ' + y0 + ' H' + x1 + ' M' + x0 + ' ' + y0 + ' V' + y1, stroke: '#1F3A5F', 'stroke-width': 1.2 }, svg);
+      [30000, 10000, 5000, 3000].forEach(T => txt(svg, X(T) - 14, y0 + 13, T + ''));
+      txt(svg, x1 - 30, y0 + 26, 'T (K)');
+      [0.1, 1, 100, 10000].forEach(v => txt(svg, 2, Y(v) + 3, v >= 1000 ? '10⁴' : String(v)));
+      txt(svg, 44, y1 + 4, 'L / L☉');
+      HR.forEach((h, i) => {
+        const on = S.m === 'ex' ? i === S.c : (S.q && S.q.includes(i));
+        const c = sv('circle', { cx: X(h.T), cy: Y(h.Lm), r: on ? 11 : 8, fill: COLS[catOf(h.T)][1], stroke: on ? '#1F3A5F' : '#fff', 'stroke-width': 2.5, style: 'cursor:pointer' }, svg);
+        txt(svg, X(h.T) - 3, Y(h.Lm) + 3.5, String(i + 1), { fill: '#1F3A5F', 'font-weight': 700, 'pointer-events': 'none' });
+        c.onclick = () => { if (S.m === 'ex') { S.c = i; draw(); } };
+      });
+      body.append(el('div', 'njlg', HR.map((h, i) => '<span><b>' + (i + 1) + '</b> ' + h.n + '</span>').join('')));
+      body.append(note('المحور الأفقيّ : الحرارة ، والأسخن إلى اليسار . المحور الرأسيّ : السطوع مقارنةً بالشمس . المواضع تقريبية للتوضيح.'));
+      if (S.m === 'ex') {
+        const h = HR[S.c]; const b = info();
+        b.row('النجم', h.n); b.row('اللون', COLS[catOf(h.T)][0]); b.row('الحجم', h.R); b.row('لماذا هو هنا ؟', h.why); body.append(b);
+        const r = el('div', 'njseg'); HR.forEach((x, i) => { const bb = el('button', 'njb' + (i === S.c ? ' njon' : ''), (i + 1) + ' · ' + x.n); bb.onclick = () => { S.c = i; draw(); }; r.append(bb); }); body.append(r);
+      } else {
+        const [a, b2] = S.q; body.append(el('div', 'shint', 'أيّ النجمين سطوعه أكبر ؟'));
+        const r = el('div', 'njseg'); [a, b2].forEach(i => { const bb = el('button', 'njb' + (S.ans === i ? ' njon' : ''), HR[i].n); bb.onclick = () => { if (S.ans === null) { S.ans = i; draw(); } }; r.append(bb); }); body.append(r);
+        if (S.ans !== null) {
+          const best = HR[a].Lm > HR[b2].Lm ? a : b2;
+          body.append(verdict(S.ans === best ? 'acok' : 'acwarn', S.ans === best ? 'صحيح' : 'الأسطع : ' + HR[best].n, HR[best].why));
+          const r2 = el('div', 'srow'); r2.append(btn('نجمان آخران', '', () => { S.q = shuffle([0, 1, 2, 3]).slice(0, 2); S.ans = null; draw(); })); body.append(r2);
+        }
+      }
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 6 · المصطلحات ======================= */
+  const TERMS = [
+    ['الأنظمة النجمية', 'مجموعات من النجوم ترتبط بقوى جذب تجعلها تدور حول بعضها.'],
+    ['النجوم الثنائية', 'نجمان اثنان فقط يدور أحدهما حول الآخر بقوى تجاذبية متبادلة.'],
+    ['النجوم المتعدّدة', 'من ثلاثة نجوم إلى سبعة ، مرتبطة بقوى تجاذب فتدور حول بعضها.'],
+    ['العناقيد النجمية', 'من مئة نجم إلى مئات الآلاف ، مرتبطة جذبيًّا فتتحرّك وحدةً واحدة في اتجاه واحد.'],
+    ['الكوكبات', 'مجموعات نجمية لا ترتبط نجومها جذبيًّا ، وتظهر بانعكاس الأشعة الواصلة منها ؛ مجموعات ظاهرية.'],
+    ['دائرة البروج', 'دائرة تصنعها الشمس في أثناء حركتها الظاهرية حول الأرض.'],
+    ['كوكبات البروج', 'الكوكبات التي تقطعها الشمس في مسارها الظاهريّ ، وعددها 12.']
+  ];
+  function njterm(host) {
+    host.innerHTML = '';
+    const S = { t: null, done: [], bad: null, ord: shuffle(TERMS.map((x, i) => i)) };
+    const body = el('div'); host.append(body);
+    function draw() {
+      body.innerHTML = '';
+      body.append(el('div', 'shint', 'اختر مصطلحًا ، ثمّ اختر تعريفه :'));
+      const r = el('div', 'njseg');
+      TERMS.forEach((t, i) => { const b = el('button', 'njb' + (S.done.includes(i) ? ' njok' : i === S.t ? ' njon' : ''), t[0]); b.onclick = () => { if (!S.done.includes(i)) { S.t = i; S.bad = null; draw(); } }; r.append(b); });
+      body.append(r);
+      const w = el('div', 'njcards');
+      S.ord.forEach(i => { const ok = S.done.includes(i); const c = el('button', 'njcard' + (ok ? ' njok' : '') + (S.bad === i ? ' njno' : ''), (ok ? '<b>' + TERMS[i][0] + '</b>' : '') + '<span>' + TERMS[i][1] + '</span>'); c.onclick = () => { if (ok || S.t === null) return; if (i === S.t) { S.done.push(i); S.t = null; S.bad = null; } else S.bad = i; draw(); }; w.append(c); });
+      body.append(w);
+      if (S.bad !== null) body.append(verdict('acwarn', 'ليس هذا', 'اسأل : هل ترتبط النجوم جذبيًّا ؟ وكم عددها ؟ أم أنّ الحديث عن مسار الشمس ؟'));
+      if (S.done.length === TERMS.length) { body.append(verdict('acok', 'أتممتَ المطابقة', 'المفتاح في كلّ مصطلح : هل ترتبط نجومه جذبيًّا ؟ الكوكبات وحدها لا ترتبط.')); const r2 = el('div', 'srow'); r2.append(btn('من جديد', 'gh', () => { S.done = []; S.t = null; S.ord = shuffle(S.ord); draw(); })); body.append(r2); }
+    }
+    draw();
+  }
+
+  /* ======================= 7 · تمييز الأنظمة ======================= */
+  const SYSC = [
+    { k: 'bin', n: 2, b: 1, d: 'نجمان مرتبطان بقوى تجاذبية متبادلة ، يدور أحدهما حول الآخر.' },
+    { k: 'mul', n: 4, b: 1, d: 'أربعة نجوم مرتبطة بقوى تجاذب تدور حول بعضها.' },
+    { k: 'mul', n: 6, b: 1, d: 'ستّة نجوم مرتبطة جذبيًّا تدور حول بعضها.' },
+    { k: 'clo', n: 300, b: 1, d: 'نحو ثلاثمئة نجم مرتبطة جذبيًّا ، المسافات بينها كبيرة فتبدو مبعثرة ، وتتحرّك معًا.' },
+    { k: 'clc', n: 100000, b: 1, d: 'نحو مئة ألف نجم مرتبطة جذبيًّا ، متراصّة تبدو كتلة مستديرة ، وتتحرّك وحدةً واحدة.' },
+    { k: 'con', n: 7, b: 0, d: 'سبعة نجوم لامعة تبدو متجاورة في السماء ، لكنّها متباعدة جدًّا ولا ترتبط جذبيًّا.' },
+    { k: 'con', n: 2, b: 0, d: 'نجمان يبدوان متجاورين من الأرض ، أحدهما أبعد من الآخر بكثير ولا رابط جذبيّ بينهما.' },
+    { k: 'one', n: 1, b: 0, d: 'نجم وحيد لا يرتبط بنجم آخر ، مثل الشمس.' }
+  ];
+  const SYSN = { bin: 'نجوم ثنائية', mul: 'نجوم متعدّدة', clo: 'عنقود نجميّ مفتوح', clc: 'عنقود نجميّ مغلق', con: 'كوكبة ( مجموعة ظاهرية )', one: 'نجم منفرد' };
+  function njsys(host) {
+    host.innerHTML = '';
+    const S = { q: shuffle(SYSC), k: 0, b: null, t: null, ok: 0 };
+    const body = el('div'); host.append(body);
+    function sky(c) {
+      const svg = fig(body, 300, 120); let pts = [];
+      const rnd = (s => () => (s = (s * 9301 + 49297) % 233280) / 233280)(c.n * 7 + c.k.length);
+      if (c.k === 'clc') for (let i = 0; i < 160; i++) { const a = rnd() * 6.283, r = Math.pow(rnd(), 1.8) * 48; pts.push([150 + r * Math.cos(a), 60 + r * Math.sin(a), 1.4]); }
+      else if (c.k === 'clo') for (let i = 0; i < 40; i++) pts.push([40 + rnd() * 220, 12 + rnd() * 96, 2]);
+      else if (c.k === 'con') { for (let i = 0; i < c.n; i++) pts.push([40 + i * (220 / Math.max(1, c.n - 1)), 30 + rnd() * 60, 3.4]); sv('path', { d: pts.map((p, i) => (i ? 'L' : 'M') + p[0] + ' ' + p[1]).join(' '), stroke: '#9AA5B1', 'stroke-dasharray': '3 4', fill: 'none' }, svg); }
+      else { const n = c.n; for (let i = 0; i < n; i++) { const a = i * 6.283 / n; pts.push([150 + (n > 1 ? 26 : 0) * Math.cos(a), 60 + (n > 1 ? 26 : 0) * Math.sin(a), 5]); } if (n > 1) sv('circle', { cx: 150, cy: 60, r: 26, fill: 'none', stroke: '#c9d2dd', 'stroke-dasharray': '3 3' }, svg); }
+      sv('rect', { x: 0, y: 0, width: 300, height: 120, fill: '#0f1e33' }, svg).parentNode.insertBefore(svg.lastChild, svg.firstChild);
+      pts.forEach(p => sv('circle', { cx: p[0], cy: p[1], r: p[2], fill: '#fdf6d8' }, svg));
+    }
+    function draw() {
+      body.innerHTML = '';
+      if (S.k >= S.q.length) { body.append(verdict('acok', 'النتيجة : ' + S.ok + ' من ' + S.q.length, 'السؤال الأوّل دائمًا : هل ترتبط جذبيًّا ؟ ثمّ العدد.')); const r = el('div', 'srow'); r.append(btn('من جديد', 'gh', () => { S.q = shuffle(SYSC); S.k = 0; S.ok = 0; S.b = S.t = null; draw(); })); body.append(r); return; }
+      const c = S.q[S.k]; body.append(el('div', 'shint', 'الحالة ' + (S.k + 1) + ' من ' + S.q.length)); sky(c); body.append(el('div', 'njq', c.d));
+      body.append(el('div', 'njbt', 'السؤال الأوّل : هل ترتبط نجومها جذبيًّا ؟'));
+      body.append(seg([[1, 'نعم ، مرتبطة'], [0, 'لا ترتبط']], S.b, v => { if (S.t === null) { S.b = +v; draw(); } }));
+      if (S.b !== null) {
+        if (S.b !== c.b) { body.append(verdict('acwarn', 'أعد القراءة', c.b ? 'الوصف يذكر ارتباطًا جذبيًّا.' : 'الوصف ينفي الارتباط الجذبيّ.')); S.b = null; const r = el('div', 'srow'); r.append(btn('حاول مجدّدًا', 'gh', () => draw())); body.append(r); return; }
+        body.append(el('div', 'njbt', 'السؤال الثاني : ما نوعها ؟'));
+        const opts = c.b ? ['bin', 'mul', 'clo', 'clc'] : ['con', 'one'];
+        body.append(seg(opts.map(k => [k, SYSN[k]]), S.t, v => { if (S.t === null) { S.t = v; if (v === c.k) S.ok++; draw(); } }));
+        if (S.t !== null) {
+          body.append(verdict(S.t === c.k ? 'acok' : 'acwarn', S.t === c.k ? 'صحيح' : 'الصواب : ' + SYSN[c.k], { bin: 'اثنان فقط.', mul: 'من ثلاثة إلى سبعة.', clo: 'مئة فأكثر ، مبعثرة لكبر المسافات بينها.', clc: 'مئة فأكثر ، متراصّة تبدو كتلة مستديرة.', con: 'لا ارتباط جذبيًّا مهما كان العدد.', one: 'نجم وحيد مثل الشمس.' }[c.k]));
+          const r = el('div', 'srow'); r.append(btn('التالي', '', () => { S.k++; S.b = S.t = null; draw(); })); body.append(r);
+        }
+      }
+    }
+    draw();
+  }
+
+  /* ======================= 8 · رسم الكوكبات ======================= */
+  const DIP = [[40, 250], [95, 222], [140, 212], [185, 218], [197, 268], [265, 290], [255, 225]];
+  const ZOD = ['الحمل', 'الثور', 'الجوزاء', 'السرطان', 'الأسد', 'العذراء', 'الميزان', 'العقرب', 'القوس', 'الجدي', 'الدلو', 'الحوت'];
+  function njdraw(host) {
+    host.innerHTML = '';
+    const S = { m: 'dip', k: 0, pol: false, z: [], zb: null, ord: shuffle(ZOD) };
+    const top = el('div'), body = el('div'); host.append(top, body);
+    function bar() { top.innerHTML = ''; top.append(seg([['dip', 'ارسم الدبّ الأكبر'], ['zod', 'رتّب كوكبات البروج']], S.m, v => { S.m = v; bar(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      if (S.m === 'dip') {
+        body.append(el('div', 'shint', S.k < 7 ? 'صِل النجوم بالترتيب : اضغط النجم رقم ' + (S.k + 1) : S.pol ? 'نجما حافّة الوعاء يُشيران إلى النجم القطبيّ.' : 'اكتمل الشكل . اضغط « أين النجم القطبيّ ؟ »'));
+        const svg = fig(body, 320, 310);
+        sv('rect', { x: 0, y: 0, width: 320, height: 310, fill: '#0f1e33' }, svg);
+        let d = ''; for (let i = 0; i < S.k; i++) d += (i ? 'L' : 'M') + DIP[i][0] + ' ' + DIP[i][1] + ' ';
+        if (S.k === 7) d += 'L' + DIP[3][0] + ' ' + DIP[3][1];
+        if (d) sv('path', { d: d, stroke: '#F5CF3F', 'stroke-width': 2.2, fill: 'none' }, svg);
+        if (S.pol) { const a = DIP[5], b = DIP[6], P = [b[0] + 3.2 * (b[0] - a[0]), b[1] + 3.2 * (b[1] - a[1])]; sv('path', { d: 'M' + a[0] + ' ' + a[1] + ' L' + P[0] + ' ' + P[1], stroke: '#9fc3ff', 'stroke-width': 1.6, 'stroke-dasharray': '5 4' }, svg); sv('circle', { cx: P[0], cy: P[1], r: 7, fill: '#fff', stroke: '#9fc3ff', 'stroke-width': 3 }, svg); txt(svg, P[0] + 12, P[1] + 4, 'N ↑', { fill: '#fff', 'font-size': 13, 'font-weight': 700 }); }
+        sv('circle', { cx: DIP[1][0] + 7, cy: DIP[1][1] - 9, r: 2, fill: '#fdf6d8' }, svg);
+        DIP.forEach((p, i) => { const c = sv('circle', { cx: p[0], cy: p[1], r: 7, fill: i < S.k ? '#F5CF3F' : '#fdf6d8', style: 'cursor:pointer' }, svg); txt(svg, p[0] - 3, p[1] + 20, String(i + 1), { fill: '#c9d2dd', 'font-size': 11 }); c.onclick = () => { if (i === S.k) { S.k++; draw(); } }; });
+        body.append(el('div', 'njlg', '<span>النجم <b>2</b> هو المئزر ، وبجانبه النجم الخافت السهى ( نجمان ثنائيان ).</span><span>النجوم <b>4 – 7</b> الوعاء ، و<b>1 – 3</b> المقبض.</span>'));
+        const r = el('div', 'srow');
+        if (S.k === 7 && !S.pol) r.append(btn('أين النجم القطبيّ ؟', '', () => { S.pol = true; draw(); }));
+        r.append(btn('من جديد', 'gh', () => { S.k = 0; S.pol = false; draw(); })); body.append(r);
+        if (S.pol) body.append(verdict('acok', 'وجدتَ الشمال', 'مُدّ الخطّ من النجم 6 إلى النجم 7 ( حافّة الوعاء ) واستمرّ ، فتصل إلى النجم القطبيّ الذي يدلّ على جهة الشمال . والمسافة في الرسم توضيحية.'));
+      } else {
+        body.append(el('div', 'shint', 'اضغط كوكبات البروج بترتيبها في الكتاب ، بدءًا بالحمل :'));
+        const ring = el('div', 'njring');
+        ZOD.forEach((z, i) => { const a = -Math.PI / 2 + i * Math.PI / 6; const s = el('span', 'njzs' + (i < S.z.length ? ' njon' : ''), i < S.z.length ? z : (i + 1) + ''); s.style.left = (50 + 40 * Math.cos(a)) + '%'; s.style.top = (50 + 40 * Math.sin(a)) + '%'; ring.append(s); });
+        ring.append(el('span', 'njsun', '☉')); body.append(ring);
+        const w = el('div', 'njseg'); S.ord.forEach(z => { if (S.z.includes(z)) return; const b = el('button', 'njb' + (S.zb === z ? ' njno' : ''), z); b.onclick = () => { if (z === ZOD[S.z.length]) { S.z.push(z); S.zb = null; } else S.zb = z; draw(); }; w.append(b); }); body.append(w);
+        if (S.zb) body.append(verdict('acwarn', 'ليست التالية', 'التالية بعد ' + (S.z.length ? S.z[S.z.length - 1] : 'البداية') + ' في ترتيب الكتاب غيرها.'));
+        if (S.z.length === 12) { body.append(verdict('acok', 'اكتملت دائرة البروج', 'اثنتا عشرة كوكبة من أصل 88 كوكبة ( 48 قديمة + 40 جديدة ) ، وهي وحدها التي يقطعها مسار الشمس الظاهريّ.')); const r = el('div', 'srow'); r.append(btn('من جديد', 'gh', () => { S.z = []; S.ord = shuffle(ZOD); draw(); })); body.append(r); }
+      }
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 9 · النجوم في حياتنا ======================= */
+  const USES = [
+    ['راعٍ ضلّ طريقه ليلًا ، فبحث عن الدبّ الأكبر ثمّ عن النجم القطبيّ.', 0, 'النجم القطبيّ يدلّ على جهة الشمال ، ويُعرف عن طريق الدبّ الأكبر.'],
+    ['لاحظ فلّاح قديمًا أنّ كوكبات معيّنة بدأت تظهر في السماء بعد غياب ، فعرف أنّ فصلًا جديدًا بدأ.', 1, 'تغيّر الكوكبات الظاهرة يدلّ على بداية الفصول الأربعة.'],
+    ['قرّر فلّاح أن يبذر القمح حين ظهرت كوكبات فصل معيّن.', 2, 'بمعرفة الفصول تمكّن القدماء من تحديد أوقات الزراعة.'],
+    ['قافلة عربية تسير ليلًا في الصحراء ، وتعرف بالنجوم كم مضى من الليل.', 3, 'كانت النجوم دليل العرب في ترحالهم ، وبها عرفوا الوقت.'],
+    ['بحّار يريد أن يتّجه شمالًا في ليلة صافية.', 0, 'النجم القطبيّ يدلّ على الشمال.'],
+    ['قوم ينتظرون ظهور كوكبة بعينها ليبدأوا موسم الحرث.', 2, 'هذه فائدة الزراعة ، وهي مبنيّة على معرفة الفصل.']
+  ];
+  function njuse(host) {
+    host.innerHTML = '';
+    const S = { m: 'orb', pos: 0 };
+    const top = el('div'), body = el('div'); host.append(top, body);
+    function bar() { top.innerHTML = ''; top.append(seg([['orb', 'لماذا تتبدّل الكوكبات ؟'], ['q', 'أيّ فائدة ؟']], S.m, v => { S.m = v; bar(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      if (S.m === 'q') { sorter(body, USES, ['تحديد الاتجاه', 'معرفة الفصل', 'وقت الزراعة', 'السفر والوقت'], 'أيّ فائدة من فوائد النجوم في هذا الموقف ؟', 'السلسلة : تغيّر الكوكبات ← معرفة الفصل ← وقت الزراعة ، والنجم القطبيّ ← الشمال.'); return; }
+      body.append(el('div', 'shint', 'حرّك الأرض في مدارها حول الشمس ( رسم توضيحيّ غير مُقاس ) :'));
+      body.append(seg([[0, 'الموضع 1'], [1, 'الموضع 2'], [2, 'الموضع 3'], [3, 'الموضع 4']], S.pos, v => { S.pos = +v; draw(); }));
+      const svg = fig(body, 300, 300); const cx = 150, cy = 150;
+      sv('circle', { cx: cx, cy: cy, r: 128, fill: 'none', stroke: '#e3e8ef', 'stroke-width': 18 }, svg);
+      sv('circle', { cx: cx, cy: cy, r: 58, fill: 'none', stroke: '#c9d2dd', 'stroke-dasharray': '4 4' }, svg);
+      sv('circle', { cx: cx, cy: cy, r: 16, fill: '#F5CF3F' }, svg);
+      const ang = -Math.PI / 2 + S.pos * Math.PI / 2, ex = cx + 58 * Math.cos(ang), ey = cy + 58 * Math.sin(ang);
+      const vis = [], hid = [];
+      for (let i = 0; i < 12; i++) { const a = -Math.PI / 2 + i * Math.PI / 6; const d = Math.cos(a - ang); const x = cx + 128 * Math.cos(a), y = cy + 128 * Math.sin(a); sv('circle', { cx: x, cy: y, r: 8, fill: d > 0.45 ? '#1F4E8C' : d < -0.45 ? '#e3e8ef' : '#9AA5B1' }, svg); txt(svg, x - 4, y + 3.5, String(i + 1), { fill: d > 0.45 ? '#fff' : '#5b6b80', 'font-size': 9 }); if (d > 0.45) vis.push(ZOD[i]); if (d < -0.45) hid.push(ZOD[i]); }
+      sv('path', { d: 'M' + ex + ' ' + ey + ' L' + (ex + 50 * Math.cos(ang)) + ' ' + (ey + 50 * Math.sin(ang)), stroke: '#1F4E8C', 'stroke-width': 2, 'stroke-dasharray': '3 3' }, svg);
+      sv('circle', { cx: ex, cy: ey, r: 9, fill: '#2f7fcf' }, svg);
+      body.append(el('div', 'njlg', '<span><i style="background:#2f7fcf"></i>الأرض ، والخطّ المتقطّع : جهة سماء الليل</span><span><i style="background:#1F4E8C"></i>كوكبات تُرى ليلًا</span><span><i style="background:#e3e8ef"></i>كوكبات خلف الشمس لا تُرى</span>'));
+      const b = info(); b.row('تظهر ليلًا', vis.join(' ، ')); b.row('تختفي ( خلف الشمس )', hid.join(' ، ')); body.append(b);
+      body.append(verdict('acok', 'الكوكبات لم تتحرّك', 'الذي تغيّر موضع الأرض حول الشمس ، فصار الجانب الليليّ يواجه كوكبات أخرى . وبهذا عرف القدماء بداية الفصول ، ومنها أوقات الزراعة.'));
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 10 · الفلك والتنجيم ======================= */
+  const SCI = [
+    ['النجم الأزرق أعلى حرارةً من النجم الأحمر.', 0, 'يمكن قياسها بتحليل أطياف الأشعّة : حقيقة فلكية.'],
+    ['مواليد برج الحمل سيكونون محظوظين هذا الشهر.', 1, 'ربط الأبراج بالحظّ تخمين لا يمكن التحقّق منه : تنجيم.'],
+    ['عدد كوكبات البروج اثنتا عشرة كوكبة.', 0, 'حقيقة يمكن رصدها : الكوكبات التي يقطعها مسار الشمس الظاهريّ.'],
+    ['ستنجح تجارتك لأنّ برجك في أفضل أحواله.', 1, 'توقّع مستقبل شخص من برجه : تنجيم.'],
+    ['النجم القطبيّ يدلّ على جهة الشمال.', 0, 'معلومة يمكن التحقّق منها بالرصد : علم فلك.'],
+    ['من وُلد تحت برج الأسد قائد بطبعه.', 1, 'ربط الطباع بالأبراج تخمين : تنجيم.'],
+    ['يجمع مقراب فاست موجات الراديو القادمة من الفضاء.', 0, 'رصد بأداة علمية : علم فلك.'],
+    ['ظهور كوكبة معيّنة يعني أنّ مصيبة ستقع.', 1, 'ربط الكوكبات بالأحداث والأقدار : تنجيم ، ومن المعتقدات غير الصحيحة.'],
+    ['تتناسب كتلة النجم عكسيًّا مع مدّة حياته.', 0, 'نتيجة توصّل إليها العلماء بدراسة النجوم : علم فلك.']
+  ];
+  function njsci(host) { host.innerHTML = ''; const b = el('div'); host.append(b); sorter(b, SCI, ['علم الفلك', 'التنجيم'], 'إلى أيّهما تنتمي العبارة ؟', 'المعيار : هل يمكن رصد العبارة وقياسها والتحقّق منها ؟ والإيمان بالأبراج وتوقّع المستقبل من المعتقدات غير الصحيحة.'); }
+
+  /* ======================= 11 · دورة الحياة بحسب الكتلة ======================= */
+  const PATH = {
+    mid: [['السديم', '#c98bd6', 60, 'سحابة غبار كونيّ وغاز ، معظمها هيدروجين وهيليوم.'], ['نجم أوّليّ', '#F2963A', 34, 'ينكمش الجزء الأكثف بالجاذبية فترتفع حرارة القلب.'], ['نجم تتابع رئيس', '#F5CF3F', 30, 'يبدأ الاندماج ، ويقضي النجم هنا معظم حياته.'], ['عملاق أحمر', '#E0533B', 62, 'ينفد الوقود من القلب ، فيكبر النجم ويبرد سطحه.'], ['سديم كوكبيّ', '#7fc8c8', 52, 'يفقد العملاق الأحمر الوقود فيتكوّن سديم كرويّ كثيف.'], ['قزم أبيض', '#e8eef7', 14, 'بقايا قلب السديم الكوكبيّ : كحجم الأرض وكتلة كالشمس.'], ['قزم أسود', '#33393f', 14, 'القزم الأبيض بعد أن يتوقّف عن التوهّج بمليارات السنين.']],
+    big: [['السديم', '#c98bd6', 60, 'سحابة غبار كونيّ وغاز ، معظمها هيدروجين وهيليوم.'], ['نجم أوّليّ', '#F2963A', 38, 'ينكمش الجزء الأكثف بالجاذبية فترتفع حرارة القلب.'], ['نجم تتابع رئيس كبير', '#5B8DEF', 40, 'يبدأ الاندماج ، ويستنفد وقوده أسرع بكثير من النجم المتوسّط.'], ['نجم فوق عملاق أحمر', '#C0392B', 76, 'ينفد الوقود فيكبر كبرًا هائلًا ، مثل قلب العقرب.'], ['نجم فوق مُستعِر', '#fff3a8', 70, 'انفجار عظيم خلال زمن قصير يُطلق طاقة تعادل ما تُصدره الشمس طوال حياتها.'], ['نجم نيوترونيّ أو ثقب أسود', '#1b1f24', 14, 'بحسب الكتلة المتبقّية في القلب.']]
+  };
+  const ML = [[0.75, 15], [1, 10], [2, 4], [3, 1]];
+  function njlife(host) {
+    host.innerHTML = '';
+    const S = { m: 'mid', k: 0, g: null };
+    const top = el('div'), body = el('div'); host.append(top, body);
+    function bar() { top.innerHTML = ''; top.append(seg([['mid', 'نجم متوسّط الكتلة'], ['big', 'نجم كبير الكتلة'], ['gr', 'الكتلة ومدّة الحياة']], S.m, v => { S.m = v; S.k = 0; bar(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      if (S.m === 'gr') {
+        body.append(el('div', 'shint', 'من الرسم البيانيّ في مراجعة الوحدة : اضغط نقطة لتقرأها.'));
+        const svg = fig(body, 320, 190); const x0 = 40, x1 = 305, y0 = 160, y1 = 14, X = m => x0 + (m / 3.2) * (x1 - x0), Y = t => y0 - (t / 16) * (y0 - y1);
+        sv('path', { d: 'M' + x0 + ' ' + y0 + ' H' + x1 + ' M' + x0 + ' ' + y0 + ' V' + y1, stroke: '#1F3A5F', 'stroke-width': 1.2 }, svg);
+        [0.5, 1, 1.5, 2, 2.5, 3].forEach(m => txt(svg, X(m) - 7, y0 + 13, String(m)));
+        [0, 4, 8, 12, 16].forEach(t => txt(svg, 18, Y(t) + 3, String(t)));
+        txt(svg, x1 - 40, y0 + 26, 'M / M☉'); txt(svg, 44, y1 + 2, '×10⁹ y');
+        sv('path', { d: ML.map((p, i) => (i ? 'L' : 'M') + X(p[0]) + ' ' + Y(p[1])).join(' '), stroke: '#5B8DEF', 'stroke-width': 2.5, fill: 'none' }, svg);
+        ML.forEach((p, i) => { const c = sv('circle', { cx: X(p[0]), cy: Y(p[1]), r: S.g === i ? 9 : 7, fill: S.g === i ? '#1F3A5F' : '#5B8DEF', stroke: '#fff', 'stroke-width': 2, style: 'cursor:pointer' }, svg); c.onclick = () => { S.g = i; draw(); }; });
+        if (S.g !== null) { const p = ML[S.g]; const b = info(); b.row('الكتلة', L(p[0]) + ' من كتلة الشمس' + (p[0] === 1 ? ' ( الشمس )' : '')); b.row('مدّة الحياة قبل نفاد الوقود', 'نحو ' + L(p[1]) + ' بليون سنة'); body.append(b); }
+        body.append(verdict('acok', 'العلاقة عكسية', 'كلّما زادت الكتلة قصرت الحياة : النجوم الكبيرة تستنفد وقودها النوويّ أسرع بكثير.'));
+        return;
+      }
+      const P = PATH[S.m];
+      const row = el('div', 'njstages');
+      P.forEach((p, i) => { const c = el('button', 'njst' + (i === S.k ? ' njon' : '') + (i > S.k ? ' njfut' : '')); const d = disk(p[1], Math.round(p[2] * 0.55)); c.append(d, el('span', '', p[0])); c.onclick = () => { S.k = i; draw(); }; row.append(c); if (i < P.length - 1) row.append(el('i', 'njarr', '←')); });
+      body.append(row);
+      const b = info(); b.row('المرحلة ' + (S.k + 1) + ' من ' + P.length, '<b>' + P[S.k][0] + '</b>'); b.row('ما يحدث', P[S.k][3]); body.append(b);
+      const r = el('div', 'srow'); if (S.k < P.length - 1) r.append(btn('التالي', '', () => { S.k++; draw(); })); r.append(btn('من البداية', 'gh', () => { S.k = 0; draw(); })); body.append(r);
+      if (S.k === P.length - 1) body.append(verdict('acok', 'انتهى المسار', S.m === 'mid' ? 'مسار الشمس ويد الجوزاء . والبداية ( سديم ← أوّليّ ← تتابع رئيس ) مشتركة بين المسارين.' : 'مسار قلب العقرب . والكتلة الأكبر تعني حياة أقصر ونهاية أعنف.'));
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 12 · التوازن والاندماج ======================= */
+  const BAL = [
+    ['سديم ينكمش', 3, 0, 70, '#c98bd6', 'الجاذبية وحدها تعمل : المادّة تنكمش نحو المركز ، ولا ضغط حراريّ يُذكر بعد.'],
+    ['نجم أوّليّ', 3, 2, 46, '#F2963A', 'الانكماش رفع الطاقة الحركية وحرارة القلب ، فتولّد ضغط حراريّ يُعاكس الانكماش ، لكنّه أضعف منه ، ولا اندماج بعد.'],
+    ['تتابع رئيس', 3, 3, 40, '#F5CF3F', 'عند 1.5 مليون كلفن بدأ الاندماج : الضغط الحراريّ يساوي الانكماش الجذبيّ ، فيستقرّ النجم معظم حياته.'],
+    ['نفاد وقود القلب', 3, 4, 70, '#E0533B', 'يسخن الغلاف المحيط بالقلب ويبدأ فيه اندماج الهيدروجين ، فيغلب الضغط الحراريّ : يكبر النجم عملاقًا أحمر ويبرد سطحه.'],
+    ['توقّف الاندماج', 3, 0.5, 18, '#e8eef7', 'لم يبقَ ما يولّد الضغط الحراريّ ، فتغلب الجاذبية : ينتهي النجم قزمًا ( أو ينفجر إن كان كبير الكتلة ).']
+  ];
+  function njbal(host) {
+    host.innerHTML = '';
+    const S = { k: 2 };
+    const top = el('div'), body = el('div'); host.append(top, body);
+    function bar() { top.innerHTML = ''; top.append(seg(BAL.map((b, i) => [i, (i + 1) + ' · ' + b[0]]), S.k, v => { S.k = +v; bar(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      const B = BAL[S.k]; const svg = fig(body, 300, 220); const cx = 150, cy = 110, R = B[3];
+      sv('circle', { cx: cx, cy: cy, r: R, fill: B[4], opacity: S.k === 0 ? 0.55 : 1 }, svg);
+      if (S.k >= 2 && S.k <= 3) sv('circle', { cx: cx, cy: cy, r: Math.min(14, R * 0.3), fill: '#fff8d0' }, svg);
+      for (let i = 0; i < 8; i++) {
+        const a = i * Math.PI / 4, a2 = a + Math.PI / 8;
+        const gL = B[1] * 9, pL = B[2] * 9;
+        const ox = cx + (R + 34) * Math.cos(a), oy = cy + (R + 34) * Math.sin(a);
+        sv('path', { d: 'M' + ox + ' ' + oy + ' L' + (ox - gL * Math.cos(a)) + ' ' + (oy - gL * Math.sin(a)), stroke: '#1F4E8C', 'stroke-width': 3, 'marker-end': 'url(#njah)' }, svg);
+        if (pL > 0) { const ix = cx + (R + 4) * Math.cos(a2), iy = cy + (R + 4) * Math.sin(a2); sv('path', { d: 'M' + ix + ' ' + iy + ' L' + (ix + pL * Math.cos(a2)) + ' ' + (iy + pL * Math.sin(a2)), stroke: '#D62828', 'stroke-width': 3, 'marker-end': 'url(#njah2)' }, svg); }
+      }
+      const defs = sv('defs', {}, svg);
+      [['njah', '#1F4E8C'], ['njah2', '#D62828']].forEach(m => { const mk = sv('marker', { id: m[0], markerWidth: 6, markerHeight: 6, refX: 3, refY: 3, orient: 'auto' }, defs); sv('path', { d: 'M0 0 L6 3 L0 6 z', fill: m[1] }, mk); });
+      body.append(el('div', 'njlg', '<span><i style="background:#1F4E8C"></i>الانكماش الجذبيّ نحو الداخل</span><span><i style="background:#D62828"></i>الضغط الحراريّ نحو الخارج</span>'));
+      const b = info(); b.row('المقارنة', B[2] === 0 ? 'لا ضغط حراريّ يُذكر' : B[2] < B[1] ? 'الانكماش الجذبيّ أكبر' : B[2] === B[1] ? 'متساويان : اتّزان' : 'الضغط الحراريّ أكبر'); b.row('ما يحدث', B[5]); body.append(b);
+      const r = el('div', 'srow'); if (S.k < BAL.length - 1) r.append(btn('المرحلة التالية', '', () => { S.k++; bar(); draw(); })); body.append(r);
+      if (S.k === 2) body.append(verdict('acok', 'الاندماج يُبقي النجم حيًّا', 'هو مصدر الضوء والحرارة ، وهو مصدر الضغط الذي يمنع الانهيار . فإذا توقّف انتهت حياة النجم.'));
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 13 · عمر الشمس ======================= */
+  function njsun(host) {
+    host.innerHTML = '';
+    const S = { t: 4.6, m: 'tl', p: null, ans: '', res: null };
+    const top = el('div'), ctl = el('div'), body = el('div'); host.append(top, ctl, body);
+    const ST = [[0, 'الولادة ( نجم أوّليّ )'], [4.6, 'الشمس اليوم'], [10.1, 'عملاق أحمر'], [12.1, 'قزم أبيض']];
+    function bar() {
+      top.innerHTML = ''; top.append(seg([['tl', 'الخطّ الزمنيّ'], ['pr', 'احسب']], S.m, v => { S.m = v; if (v === 'pr') newP(0); bar(); draw(); }));
+      ctl.innerHTML = ''; if (S.m === 'tl') ctl.append(sld(v => 'العمر : ' + L(v.toFixed(1)) + ' مليار سنة', S.t, 0, 14, 0.1, v => { S.t = v; draw(); }));
+    }
+    function stage(t) { return t < 0.05 ? 'الولادة من السديم : نجم أوّليّ' : t < 10.1 ? 'تتابع رئيس : تُولّد الطاقة بالاندماج' + (Math.abs(t - 4.6) < 0.06 ? ' ( الآن )' : t < 4.6 ? ' ( في الماضي )' : ' ( في المستقبل )') : t < 12.1 ? 'عملاق أحمر ثمّ سديم كوكبيّ : حرارته تجعل الحياة على الأرض مستحيلة' : 'قزم أبيض ، ثمّ يبرد بعد مليارات السنين قزمًا أسود'; }
+    function newP(k) {
+      const book = k === 0, a = book ? 4.6 : +(3 + Math.random() * 3).toFixed(1), b = book ? 5.5 : +(4 + Math.random() * 3).toFixed(1), c = book ? 2 : [1, 2, 3][Math.floor(Math.random() * 3)];
+      const kind = book ? 0 : Math.floor(Math.random() * 3);
+      const ask = [['عمره عند صيرورته عملاقًا أحمر', +(a + b).toFixed(1), L(a + ' + ' + b + ' = ' + (a + b).toFixed(1))], ['عمره الكلّيّ', +(a + b + c).toFixed(1), L(a + ' + ' + b + ' + ' + c + ' = ' + (a + b + c).toFixed(1))], ['كم بقي له من الآن حتّى يصير قزمًا أبيض', +(b + c).toFixed(1), L(b + ' + ' + c + ' = ' + (b + c).toFixed(1))]][kind];
+      S.p = { book: book, a: a, b: b, c: c, ask: ask, n: (S.p ? S.p.n : 0) + 1 }; S.ans = ''; S.res = null;
+    }
+    function draw() {
+      body.innerHTML = '';
+      if (S.m === 'tl') {
+        const svg = fig(body, 340, 90); const x0 = 15, x1 = 325, X = t => x0 + t / 14 * (x1 - x0);
+        sv('rect', { x: 0, y: 0, width: 340, height: 90, fill: '#0f1e33' }, svg);
+        sv('path', { d: 'M' + x0 + ' 60 H' + x1, stroke: '#9AA5B1', 'stroke-width': 1.5 }, svg);
+        for (let t = 0; t <= 14; t += 2) { sv('path', { d: 'M' + X(t) + ' 56 v8', stroke: '#9AA5B1' }, svg); txt(svg, X(t) - 3, 78, String(t), { fill: '#c9d2dd' }); }
+        sv('rect', { x: X(0), y: 52, width: X(10.1) - X(0), height: 5, fill: '#F5CF3F' }, svg);
+        sv('rect', { x: X(10.1), y: 52, width: X(12.1) - X(10.1), height: 5, fill: '#E0533B' }, svg);
+        sv('rect', { x: X(12.1), y: 52, width: X(14) - X(12.1), height: 5, fill: '#e8eef7' }, svg);
+        ST.forEach(s => sv('circle', { cx: X(s[0]), cy: 54, r: 4, fill: '#fff' }, svg));
+        const c = S.t < 10.1 ? '#F5CF3F' : S.t < 12.1 ? '#E0533B' : '#e8eef7', r = S.t < 10.1 ? 12 : S.t < 12.1 ? 22 : 6;
+        sv('circle', { cx: X(S.t), cy: 26, r: r, fill: c }, svg);
+        txt(svg, x1 - 60, 14, '×10⁹ years', { fill: '#c9d2dd' });
+        const b = info(); b.row('المرحلة', stage(S.t)); ST.forEach(s => b.row(s[1], 'عند ' + L(s[0]) + ' مليار سنة')); body.append(b);
+        body.append(note('عملاق أحمر : ' + L('4.6 + 5.5 = 10.1') + ' ، ثمّ قزم أبيض : ' + L('10.1 + 2 = 12.1') + ' مليار سنة.'));
+      } else {
+        const p = S.p;
+        body.append(el('div', 'njq', (p.book ? 'الشمس : ' : 'نجم افتراضيّ متوسّط الكتلة : ') + 'عمره الآن ' + L(p.a) + ' مليار سنة ، ويستمرّ إشراقه ' + L(p.b) + ' مليار سنة أخرى ثمّ يصير عملاقًا أحمر ، ويموت قزمًا أبيض بعد ' + L(p.c) + ' مليار سنة من ذلك . احسب <b>' + p.ask[0] + '</b> بمليارات السنين.'));
+        const r = el('div', 'srow'); const inp = document.createElement('input'); inp.type = 'number'; inp.step = '0.1'; inp.className = 'njinp'; inp.value = S.ans; inp.oninput = () => S.ans = inp.value;
+        r.append(inp, btn('تحقّق', '', () => { const v = parseFloat(S.ans); S.res = isNaN(v) ? null : Math.abs(v - p.ask[1]) < 0.051; draw(); })); body.append(r);
+        if (S.res !== null) {
+          const wrong = [+(p.a + p.b).toFixed(1), +(p.a + p.b + p.c).toFixed(1), +(p.b + p.c).toFixed(1), p.b].filter(x => x !== p.ask[1]);
+          const v = parseFloat(S.ans), hint = wrong.includes(+v.toFixed(1)) ? ' ناتجك يجيب عن سؤال آخر : اقرأ « من أين إلى أين ؟ ».' : '';
+          body.append(verdict(S.res ? 'acok' : 'acwarn', S.res ? 'صحيح' : 'ليس صحيحًا', p.ask[2] + ' مليار سنة.' + (S.res ? '' : hint)));
+          const r2 = el('div', 'srow'); r2.append(btn('مسألة أخرى', '', () => { newP(1); draw(); })); body.append(r2);
+        }
+      }
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 14 · بقايا النجوم ======================= */
+  const REM = [
+    ['قزم أبيض', 'حجمه كحجم الأرض ، وكتلته تُقارب كتلة الشمس ، ويتوهّج توهّجًا ضعيفًا بالطاقة المتبقّية في قلبه.', 0],
+    ['قزم أسود', 'القزم الأبيض بعد أن توقّف عن التوهّج بمرور مليارات السنين.', 1],
+    ['نجم نيوترونيّ', 'قطره نحو 25 كيلومترًا ، وكثافته أكبر بمليون مرّة من كثافة الأقزام البيض.', 2],
+    ['ثقب أسود', 'جاذبيته هائلة لا تسمح للضوء بالإفلات ، فلا يُرى مباشرةً.', 3],
+    ['نجم فوق مُستعِر', 'انفجار عظيم خلال زمن قصير يُطلق طاقة تعادل ما تُصدره الشمس طوال حياتها.', 4]
+  ];
+  function njdead(host) {
+    host.innerHTML = '';
+    const S = { m: 'ex', path: 'big', M: 2 };
+    const top = el('div'), ctl = el('div'), body = el('div'); host.append(top, ctl, body);
+    function bar() {
+      top.innerHTML = ''; top.append(seg([['ex', 'ماذا يبقى من النجم ؟'], ['q', 'تعرّف الجِرم']], S.m, v => { S.m = v; bar(); draw(); }));
+      ctl.innerHTML = ''; if (S.m !== 'ex') return;
+      ctl.append(seg([['mid', 'نجم متوسّط الكتلة'], ['big', 'نجم كبير الكتلة']], S.path, v => { S.path = v; bar(); draw(); }));
+      if (S.path === 'big') ctl.append(sld(v => 'الكتلة المتبقّية في القلب : ' + L(v.toFixed(1)) + ' من كتلة الشمس', S.M, 1, 6, 0.1, v => { S.M = v; draw(); }));
+    }
+    function draw() {
+      body.innerHTML = '';
+      if (S.m === 'q') { sorter(body, REM.map(r => [r[1], r[2], r[0] + '.']), REM.map(r => r[0]), 'ما الجِرم الموصوف ؟', 'الحجم والكثافة والتوهّج تكفي للتمييز : الأبيض كالأرض ، والنيوترونيّ 25 كيلومترًا ، والثقب لا يُرى.'); return; }
+      let k, why;
+      if (S.path === 'mid') { k = 0; why = 'العملاق الأحمر يفقد وقوده فيتكوّن سديم كوكبيّ ، ومادّة قلبه المتبقّية تُكوّن قزمًا أبيض ، ثمّ قزمًا أسود حين يبرد.'; }
+      else if (S.M > 3) { k = 3; why = 'زادت الكتلة المتبقّية في القلب على ثلاثة أضعاف كتلة الشمس ، فتكوّن ثقب أسود بعد الانفجار فوق المُستعِر.'; }
+      else { k = 2; why = 'لم تزد الكتلة المتبقّية على ثلاثة أضعاف كتلة الشمس ، فتكوّن نجم نيوترونيّ ممّا بقي من القلب بعد الانفجار.'; }
+      const row = el('div', 'njrow njsp');
+      [['قزم أبيض', 0, '#e8eef7', 40], ['نجم نيوترونيّ', 2, '#9fb6d8', 10], ['ثقب أسود', 3, '#111', 26]].forEach(x => { const c = el('div', 'njcell' + (x[1] === k ? ' njon' : ' njdim')); const d = disk(x[2], x[3]); if (x[1] === 3) { d.style.background = '#000'; d.style.boxShadow = '0 0 0 3px #F2963A'; } c.append(d, el('span', '', x[0])); row.append(c); });
+      body.append(row);
+      const b = info(); b.row('النتيجة', '<b>' + REM[k][0] + '</b>'); b.row('خصائصه', REM[k][1]); b.row('لماذا ؟', why); body.append(b);
+      body.append(note('الأحجام في الرسم غير مُقاسة : القزم الأبيض كحجم الأرض ، والنيوترونيّ قطره نحو 25 كيلومترًا ، أي أصغر بكثير.'));
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 15 · النجوم أصل العناصر ======================= */
+  const CH = [
+    ['اندماج في قلب نجم', 'نَوى خفيفة تتّحد فتُنتج نَوى أثقل : الهيدروجين ← الهيليوم . فالنجم يصنع عناصر لم تكن.'],
+    ['النجم يحوي عناصر أثقل', 'إلى جانب الهيدروجين والهيليوم : نِسب قليلة من الكربون والنيتروجين والأكسجين والحديد.'],
+    ['موت النجم', 'سديم كوكبيّ في المسار المتوسّط ، أو انفجار فوق مُستعِر في المسار الكبير ، فتعود مادّته إلى الفضاء.'],
+    ['سديم جديد', 'غبار كونيّ وغاز ، ومنه تبدأ حياة النجوم جميعًا.'],
+    ['الشمس والأرض', 'انكمش سديم فتجمّعت معظم كتلته في المركز شمسًا ، وتكوّنت الكواكب ومنها الأرض ممّا حولها.']
+  ];
+  function njorig(host) {
+    host.innerHTML = '';
+    const S = { ord: shuffle([0, 1, 2, 3, 4]), done: [], bad: null };
+    const body = el('div'); host.append(body);
+    function draw() {
+      body.innerHTML = '';
+      body.append(el('div', 'shint', 'رتّب حلقات السلسلة من الاندماج إلى الأرض :'));
+      const chain = el('div', 'njchain');
+      CH.forEach((c, i) => { const ok = i < S.done.length; chain.append(el('div', 'njlink' + (ok ? ' njon' : ''), '<b>' + (i + 1) + '</b><span>' + (ok ? c[0] : '؟') + '</span>')); });
+      body.append(chain);
+      const w = el('div', 'njcards');
+      S.ord.forEach(i => { if (S.done.includes(i)) return; const c = el('button', 'njcard' + (S.bad === i ? ' njno' : ''), '<b>' + CH[i][0] + '</b><span>' + CH[i][1] + '</span>'); c.onclick = () => { if (i === S.done.length) { S.done.push(i); S.bad = null; } else S.bad = i; draw(); }; w.append(c); });
+      body.append(w);
+      if (S.bad !== null) body.append(verdict('acwarn', 'ليست الحلقة التالية', 'فكّر : لا موت قبل اندماج ، ولا نجم جديد قبل سديم.'));
+      if (S.done.length === 5) { body.append(verdict('acok', 'اكتملت السلسلة', 'المادّة التي بُنيت منها الأرض مرّت بقلوب النجوم ؛ ولهذا « يرتبط وجودنا على سطح الأرض بالاندماجات النووية في قلب النجم ».')); const r = el('div', 'srow'); r.append(btn('من جديد', 'gh', () => { S.done = []; S.ord = shuffle(S.ord); draw(); })); body.append(r); }
+    }
+    draw();
+  }
+
+  Object.assign(window.SIMS, { njdef, njfuse, njcolor, njlum, njhr, njterm, njsys, njdraw, njuse, njsci, njlife, njbal, njsun, njdead, njorig });
+})();
+
+/* ===== محاكاة تصنيف الكائنات الحيّة ( أحياء العاشر — الوحدة الثالثة ) — البادئة kz ===== */
+(function () {
+  const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
+  const btn = (txt, cls, fn) => { const b = el('button', 'sb ' + (cls || ''), txt); b.onclick = fn; return b; };
+  const L = s => '<span class="ltr">' + s + '</span>';
+  const I = s => '<span class="ltr"><i>' + s + '</i></span>';
+  const info = () => { const b = el('div', 'cyinfo'); b.row = (k, v) => b.append(el('div', 'cyrow', '<span class="cyk">' + k + '</span><span class="cyv">' + v + '</span>')); return b; };
+  const verdict = (cls, b, s) => el('div', 'acv' + (cls ? ' ' + cls : ''), '<b>' + b + '</b><span>' + s + '</span>');
+  const seg = (opts, val, fn) => { const w = el('div', 'kzseg'); opts.forEach(o => { const b = el('button', 'kzb' + (String(o[0]) === String(val) ? ' kzon' : ''), o[1]); b.onclick = () => fn(o[0]); w.append(b); }); return w; };
+  const NS = 'http://www.w3.org/2000/svg';
+  const sv = (t, a, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); if (p) p.append(e); return e; };
+  const txt = (svg, x, y, s, a) => { const t = sv('text', Object.assign({ x: x, y: y, 'font-size': 11, fill: '#1F3A5F', direction: 'ltr', 'font-weight': 700 }, a || {}), svg); t.textContent = s; return t; };
+  const fig = (body, w, h) => { const s = sv('svg', { viewBox: '0 0 ' + w + ' ' + h, class: 'kzsvg', preserveAspectRatio: 'xMidYMid meet' }); const f = el('div', 'kzfig'); f.append(s); body.append(f); return s; };
+  const shuffle = a => { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
+  const note = s => el('div', 'kznote', s);
+  function sorter(body, pool, cats, intro, done) {
+    const S = { q: shuffle(pool), k: 0, ok: 0, ans: null };
+    function draw() {
+      body.innerHTML = '';
+      if (S.k >= S.q.length) { body.append(verdict('acok', 'النتيجة : ' + S.ok + ' من ' + S.q.length, done)); const r = el('div', 'srow'); r.append(btn('من جديد', 'gh', () => { S.q = shuffle(pool); S.k = 0; S.ok = 0; S.ans = null; draw(); })); body.append(r); return; }
+      const it = S.q[S.k];
+      body.append(el('div', 'shint', intro + ' ( ' + (S.k + 1) + ' / ' + S.q.length + ' )'));
+      body.append(el('div', 'kzq', it[0]));
+      const r = el('div', 'kzseg');
+      cats.forEach((c, i) => { const b = el('button', 'kzb' + (S.ans !== null && i === it[1] ? ' kzon' : '') + (S.ans === i && i !== it[1] ? ' kzno' : ''), c); b.onclick = () => { if (S.ans !== null) return; S.ans = i; if (i === it[1]) S.ok++; draw(); }; r.append(b); });
+      body.append(r);
+      if (S.ans !== null) { body.append(verdict(S.ans === it[1] ? 'acok' : 'acwarn', S.ans === it[1] ? 'صحيح' : 'الصواب : ' + cats[it[1]], it[2])); const r2 = el('div', 'srow'); r2.append(btn('التالي', '', () => { S.k++; S.ans = null; draw(); })); body.append(r2); }
+    }
+    draw();
+  }
+  /* لعبة ترتيب : بطاقات تُضغط بترتيبها الصحيح */
+  function orderer(body, items, intro, wrongMsg, doneTitle, doneMsg, show) {
+    const S = { ord: shuffle(items.map((x, i) => i)), done: [], bad: null };
+    function draw() {
+      body.innerHTML = '';
+      body.append(el('div', 'shint', intro));
+      const ch = el('div', 'kzchain'); items.forEach((x, i) => ch.append(el('div', 'kzlink' + (i < S.done.length ? ' kzon' : ''), '<b>' + (i + 1) + '</b><span>' + (i < S.done.length ? x[0] : '؟') + '</span>'))); body.append(ch);
+      const w = el('div', 'kzcards');
+      S.ord.forEach(i => { if (S.done.includes(i)) return; const c = el('button', 'kzcard' + (S.bad === i ? ' kzno' : ''), (show ? '<b>' + items[i][0] + '</b>' : '') + '<span>' + items[i][1] + '</span>'); c.onclick = () => { if (i === S.done.length) { S.done.push(i); S.bad = null; } else S.bad = i; draw(); }; w.append(c); });
+      body.append(w);
+      if (S.bad !== null) body.append(verdict('acwarn', 'ليس الآن', wrongMsg));
+      if (S.done.length === items.length) { body.append(verdict('acok', doneTitle, doneMsg)); const r = el('div', 'srow'); r.append(btn('من جديد', 'gh', () => { S.done = []; S.ord = shuffle(S.ord); draw(); })); body.append(r); }
+    }
+    draw();
+  }
+  const modes = (host, list, cur) => { host.innerHTML = ''; const S = { m: cur || list[0][0] }; const top = el('div'), body = el('div'); host.append(top, body); const go = () => { top.innerHTML = ''; top.append(seg(list.map(x => [x[0], x[1]]), S.m, v => { S.m = v; go(); })); body.innerHTML = ''; list.find(x => x[0] === S.m)[2](body); }; go(); };
+
+  /* ======================= 1 · المجموعة تتبع المعيار ======================= */
+  const ANI = [['حمامة', 'هوائية', 'تطير'], ['خفّاش', 'هوائية', 'تطير'], ['سمكة', 'مائية', 'تسبح'], ['حوت', 'مائية', 'تسبح'], ['قطّة', 'برّية', 'تمشي'], ['جمل', 'برّية', 'تمشي'], ['نسر', 'هوائية', 'تطير']];
+  const PLA = [['نخلة', 'أشجار'], ['زيتون', 'أشجار'], ['ورد', 'شجيرات'], ['نعناع', 'أعشاب'], ['قمح', 'أعشاب']];
+  function kzgroup(host) {
+    host.innerHTML = '';
+    const S = { c: 'place' };
+    const top = el('div'), body = el('div'); host.append(top, body);
+    function bar() { top.innerHTML = ''; top.append(el('div', 'shint', 'اختر معيار التصنيف ، وراقب كيف تتغيّر المجموعات :')); top.append(seg([['place', 'الحيوانات : مكان المعيشة'], ['move', 'الحيوانات : طريقة الحركة'], ['size', 'النباتات : الحجم']], S.c, v => { S.c = v; bar(); draw(); })); }
+    function draw() {
+      body.innerHTML = '';
+      const groups = {};
+      if (S.c === 'size') PLA.forEach(p => (groups[p[1]] = groups[p[1]] || []).push(p[0]));
+      else ANI.forEach(a => { const k = S.c === 'place' ? a[1] : a[2]; (groups[k] = groups[k] || []).push(a[0]); });
+      const g = el('div', 'kzgroups');
+      Object.keys(groups).forEach(k => { const c = el('div', 'kzgcol'); c.append(el('b', '', k)); groups[k].forEach(n => c.append(el('span', 'kzchip' + ((n === 'حوت' || n === 'خفّاش') ? ' kzhl' : ''), n))); g.append(c); });
+      body.append(g);
+      const who = { place: 'أرسطو ( الحيوانات بحسب مكان المعيشة )', move: 'الجاحظ والقزوينيّ ( الحيوانات بحسب طريقة الحركة )', size: 'أرسطو ( النباتات بحسب الحجم )' }[S.c];
+      const b = info(); b.row('هذا معيار', who); b.row('تابع الحوت والخفّاش', S.c === 'place' ? 'الحوت مع السمكة ( مائية ) ، والخفّاش مع الحمامة ( هوائية ).' : S.c === 'move' ? 'الحوت مع السمكة ( تسبح ) ، والخفّاش مع الطيور ( تطير ).' : 'غيّر إلى معيار للحيوانات لتتبّعهما.'); body.append(b);
+      body.append(verdict('acok', 'المجموعة تتبع المعيار', 'تغيّر المعيار فتغيّرت المجموعات ؛ ولهذا يسأل العالِم أوّلًا : ما المعيار ؟ والتصنيف الحديث يختار معايير تكشف التشابه الحقيقيّ في الخلية والمادّة الوراثية.'));
+    }
+    bar(); draw();
+  }
+
+  /* ======================= 2 · تطوّر الأنظمة ======================= */
+  const HIST = [
+    ['أرسطو', 'صنّف النباتات بحسب الحجم ، والحيوانات بحسب مكان المعيشة.'],
+    ['الجاحظ والقزوينيّ', 'صنّفوا الحيوانات بناءً على طريقة حركتها.'],
+    ['لينيوس', 'أوّل من استعمل النظام الهرميّ بحسب أوجه التشابه والاختلاف ، ووضع التسمية الثنائية.'],
+    ['وتكر ( 1969 م )', 'خمس ممالك بحسب صفات الخلية : شكلها وعضيّاتها ونمط تغذيتها والغلاف النوويّ.'],
+    ['ووز', 'بمقارنة المادّة الوراثية : قسّم البدائيات إلى بكتيريا وأثريات ، ورتّب الكائنات في ثلاثة نطاقات.']
+  ];
+  function kzhist(host) {
+    modes(host, [
+      ['ord', 'رتّب زمنيًّا', b => orderer(b, HIST, 'اضغط الإسهامات من الأقدم إلى الأحدث :', 'فكّر في المعيار : الشكل الظاهر أوّلًا ، ثمّ الخلية ، ثمّ المادّة الوراثية.', 'رتّبتَ التطوّر كاملًا', 'المعيار انتقل من الشكل الظاهر ( الحجم ، المكان ، الحركة ) إلى أوجه التشابه ، ثمّ إلى الخلية ، ثمّ إلى المادّة الوراثية.', false)],
+      ['who', 'من صاحب هذا ؟', b => sorter(b, [
+        ['قسّم الكائنات إلى خمس ممالك عام 1969 م.', 3, 'وتكر.'], ['قسّم البدائيات إلى بكتيريا وأثريات.', 4, 'ووز بمقارنة المادّة الوراثية.'], ['أوّل من صنّف الكائنات الحيّة.', 0, 'أرسطو.'],
+        ['صنّف الحيوانات بحسب طريقة حركتها.', 1, 'الجاحظ والقزوينيّ.'], ['وضع نظام التسمية الثنائية.', 2, 'لينيوس.'], ['رتّب الكائنات في ثلاثة نطاقات.', 4, 'ووز.'], ['أوّل من استعمل النظام الهرميّ.', 2, 'لينيوس.']
+      ], ['أرسطو', 'الجاحظ والقزوينيّ', 'لينيوس', 'وتكر', 'ووز'], 'لمن هذا الإسهام ؟', 'الخطأ الأشهر : نسبة النطاقات إلى وتكر ، وهي لووز.')]
+    ]);
+  }
+
+  /* ======================= 3 · المستويات السبعة ======================= */
+  const LV = [['المملكة', 'Kingdom', 'Plantae', 'Animalia'], ['القبيلة', 'Phylum', 'Angiospermae', 'Chordata'], ['الصفّ', 'Class', 'Dicotyledonae', 'Mammalia'], ['الرتبة', 'Order', 'Rosales', 'Primates'], ['العائلة', 'Family', 'Rosaceae', 'Hominidae'], ['الجنس', 'Genus', 'Rosa', 'Homo'], ['النوع', 'Species', 'gallica', 'sapiens']];
+  function kzlevels(host) {
+    modes(host, [
+      ['lad', 'السلّم', b => {
+        const S = { k: 0, ex: 2 };
+        const draw = () => {
+          b.innerHTML = '';
+          b.append(seg([[2, 'الورد الفرنسيّ'], [3, 'الإنسان']], S.ex, v => { S.ex = +v; draw(); }));
+          const w = el('div', 'kzladder');
+          LV.forEach((l, i) => { const r = el('button', 'kzrung' + (i === S.k ? ' kzon' : '')); r.style.width = (100 - i * 9) + '%'; r.innerHTML = '<b>' + l[0] + '</b>' + L(l[1]) + ' · ' + I(l[S.ex]); r.onclick = () => { S.k = i; draw(); }; w.append(r); });
+          b.append(w);
+          const inf = info(); inf.row('المستوى ' + (S.k + 1) + ' من 7', LV[S.k][0]); inf.row('عدد الأفراد', ['الأكثر', 'كثير جدًّا', 'كثير', 'أقلّ', 'قليل', 'أقلّ كثيرًا', 'الأقلّ'][S.k]); inf.row('التشابه بينهم', ['الأقلّ', 'قليل', 'أكثر', 'أكثر', 'كبير', 'كبير جدًّا', 'الأكبر'][S.k]);
+          if (S.k >= 5) inf.row('الاسم العلميّ', I(LV[5][S.ex] + ' ' + LV[6][S.ex]) + ' — من آخر مستويين'); b.append(inf);
+          b.append(note('العرض المتناقص للدرجات يمثّل نقص عدد الأفراد كلّما نزلنا ، وهو تمثيل لا مقياس.'));
+        }; draw();
+      }],
+      ['ord', 'رتّب المستويات', b => orderer(b, LV.map(l => [l[0], l[0] + ' ' + L(l[1])]), 'اضغط المستويات من الأعمّ إلى الأخصّ :', 'تذكّر : م ق ص ر ع ج ن.', 'سبعة مستويات بالترتيب', 'مملكة ← قبيلة ← صفّ ← رتبة ← عائلة ← جنس ← نوع . والنزول يعني أفرادًا أقلّ وتشابهًا أكبر.', false)]
+    ]);
+  }
+
+  /* ======================= 4 · الاسم العلميّ ======================= */
+  const NAMES = [['Homo', 'sapiens', 'الإنسان'], ['Olea', 'europaea', 'الزيتون'], ['Apis', 'mellifera', 'نحل العسل'], ['Salvia', 'officinalis', 'الميرمية'], ['Artemisia', 'herba-alba', 'الشيح'], ['Panthera', 'leo', 'الأسد'], ['Panthera', 'tigris', 'النمر'], ['Rosa', 'gallica', 'الورد الفرنسيّ']];
+  const cap = s => s[0].toUpperCase() + s.slice(1), low = s => s[0].toLowerCase() + s.slice(1);
+  function kzname(host) {
+    host.innerHTML = '';
+    const S = { it: null, ans: null, ok: 0, n: 0 };
+    const body = el('div'); host.append(body);
+    function next() {
+      const [g, sp, ar] = NAMES[Math.floor(Math.random() * NAMES.length)];
+      const kind = Math.floor(Math.random() * 5);
+      let html, err;
+      if (kind === 0) { html = I(g + ' ' + sp); err = 0; }
+      else if (kind === 1) { html = '<span class="ltr"><u>' + g + '</u> <u>' + sp + '</u></span>'; err = 0; }
+      else if (kind === 2) { html = I(g + ' ' + cap(sp)); err = 1; }
+      else if (kind === 3) { html = I(low(g) + ' ' + sp); err = 2; }
+      else { html = L(g + ' ' + sp); err = 3; }
+      S.it = { html: html, err: err, ar: ar, right: g + ' ' + sp }; S.ans = null;
+    }
+    const OPTS = ['صحيح', 'النوع بحرف كبير', 'الجنس بحرف صغير', 'لا مائل ولا تحته خطّ'];
+    function draw() {
+      body.innerHTML = '';
+      body.append(el('div', 'shint', 'افحص كتابة الاسم العلميّ : هل هو صحيح ؟ وإن لم يكن فأيّ قاعدة خُولفت ؟'));
+      body.append(el('div', 'kzname', '<small>' + S.it.ar + '</small>' + S.it.html));
+      const r = el('div', 'kzseg'); OPTS.forEach((o, i) => { const b = el('button', 'kzb' + (S.ans !== null && i === S.it.err ? ' kzon' : '') + (S.ans === i && i !== S.it.err ? ' kzno' : ''), o); b.onclick = () => { if (S.ans !== null) return; S.ans = i; S.n++; if (i === S.it.err) S.ok++; draw(); }; r.append(b); }); body.append(r);
+      if (S.ans !== null) {
+        body.append(verdict(S.ans === S.it.err ? 'acok' : 'acwarn', S.ans === S.it.err ? 'صحيح' : 'الصواب : ' + OPTS[S.it.err], 'الكتابة الصحيحة : ' + I(S.it.right) + ' ، أو بخطّ تحت كلّ كلمة . الجنس بحرف كبير ، والنوع بحرف صغير ، بالّلاتينية.'));
+        const r2 = el('div', 'srow'); r2.append(btn('اسم آخر', '', () => { next(); draw(); })); body.append(r2);
+      }
+      const b = info(); b.row('القواعد الأربع', 'لاتينية · كلمتان : جنس ثمّ نوع · الجنس بحرف كبير والنوع بحرف صغير · مائل أو تحت كلّ كلمة خطّ'); b.row('نتيجتك', L(S.ok + ' / ' + S.n)); body.append(b);
+    }
+    next(); draw();
+  }
+
+  /* ======================= 5 · النطاقات والممالك ======================= */
+  const DOM = [
+    ['الأميبا', 2, 'حقيقية النَّوى ، تتغذّى بغيرها : طلائعيات.'], ['فطر المشروم', 3, 'حقيقيّ النَّوى ، جداره من الكايتين : فطريات.'], ['بكتيريا القولون', 0, 'بدائية النَّوى وجدارها فيه ببتيدوغلايكان : البكتيريا.'],
+    ['كائن بدائيّ النواة يعيش في البحر الميت', 1, 'بيئة مالحة قاسية : الأثريات.'], ['شجرة الزيتون', 4, 'حقيقية النَّوى ذاتية التغذية : النباتات.'], ['نحل العسل', 5, 'حقيقيّ النَّوى : الحيوانات.'],
+    ['اليوغلينا', 2, 'حقيقية النَّوى ، طلائعية شبيهة بالنباتات.'], ['الخميرة', 3, 'فطر وحيد الخلية.'], ['الرايزوبيوم', 0, 'بكتيريا العقد الجذرية.'], ['كائن بدائيّ النواة في ينبوع ساخن', 1, 'محبّ للحرارة : الأثريات.']
+  ];
+  const DN = ['نطاق البكتيريا', 'نطاق الأثريات', 'الطلائعيات', 'الفطريات', 'النباتات', 'الحيوانات'];
+  function kzdomain(host) {
+    modes(host, [
+      ['tree', 'المخطّط', b => {
+        const t = el('div', 'kztree');
+        t.append(el('div', 'kztop', 'الكائنات الحيّة'));
+        const row = el('div', 'kzdoms');
+        row.append(el('div', 'kzdom kzpro', '<b>نطاق البكتيريا</b><span>بدائية النَّوى</span>'), el('div', 'kzdom kzpro', '<b>نطاق الأثريات</b><span>بدائية النَّوى</span>'));
+        const eu = el('div', 'kzdom kzeu', '<b>نطاق حقيقيات النَّوى</b>'); const ks = el('div', 'kzks'); ['الطلائعيات', 'الفطريات', 'النباتات', 'الحيوانات'].forEach(k => ks.append(el('span', '', k))); eu.append(ks); row.append(eu);
+        t.append(row); b.append(t);
+        b.append(verdict('acok', '3 نطاقات · 4 ممالك · 7 مستويات', 'مملكة البدائيات عند وتكر انقسمت نطاقين ، والممالك الأربع الباقية اجتمعت في نطاق حقيقيات النَّوى.'));
+      }],
+      ['q', 'أين يقع ؟', b => sorter(b, DOM, DN, 'في أيّ نطاق أو مملكة يقع ؟', 'السؤال الأوّل : هل خلاياه حقيقية النَّوى ؟ لا ← بكتيريا أو أثريات . نعم ← إحدى الممالك الأربع.')]
+    ]);
+  }
+
+  /* ======================= 6 · البكتيريا والأثريات ======================= */
+  const ARC = [
+    ['جدارها الخلويّ يحتوي الببتيدوغلايكان.', 0, 'في البكتيريا وحدها ، وبه تُصنَّف بصبغة غرام.'], ['تعيش في الينابيع الساخنة ومياه البحر الميت.', 1, 'البيئات القاسية للأثريات.'],
+    ['خلية بدائية النَّوى بلا نواة ولا عضيّات غشائية.', 2, 'صفة مشتركة.'], ['مادّتها الوراثية شريط مزدوج حلقيّ محاط بالسيتوبلازم.', 2, 'صفة مشتركة.'],
+    ['تُقسَّم إلى محبّة للحرارة ومحبّة للملوحة ومنتجة للميثان.', 1, 'تقسيم الأثريات بحسب البيئة.'], ['تُقسَّم إلى كروية وعصوية وحلزونية.', 0, 'تقسيم البكتيريا بحسب الشكل.'],
+    ['تتحرّك بالانزلاق أو بالأسواط.', 2, 'صفة مشتركة.'], ['تستعمل الأمونيا وغاز الهيدروجين مصدرًا للطاقة.', 1, 'من مصادر طاقة الأثريات في الكتاب.'],
+    ['تُسمّى البكتيريا القديمة أو العتائق.', 1, 'اسم آخر للأثريات.'], ['قد تحتوي البلازميد.', 2, 'الكتاب يذكره في الخصائص المشتركة.']
+  ];
+  function kzarch(host) {
+    modes(host, [
+      ['q', 'لمن هذه الصفة ؟', b => sorter(b, ARC, ['البكتيريا', 'الأثريات', 'كلاهما'], 'لمن هذه الصفة ؟', 'الفروق أربعة : الجدار ( الببتيدوغلايكان ) ، والغشاء البلازميّ ، والبيئة ، ومصادر الطاقة . وما عداها مشترك.')],
+      ['tb', 'جدول المقارنة', b => {
+        const rows = [['نوع الخلية', 'بدائية النَّوى', 'بدائية النَّوى', 0], ['المادّة الوراثية', 'شريط مزدوج حلقيّ', 'شريط مزدوج حلقيّ', 0], ['الجدار الخلويّ', 'فيه الببتيدوغلايكان', 'بلا ببتيدوغلايكان', 1], ['الغشاء البلازميّ', 'تركيب كيميائيّ مختلف', 'تركيب كيميائيّ مختلف', 1], ['الحركة', 'انزلاق أو أسواط', 'انزلاق أو أسواط', 0], ['البيئة', 'متنوّعة', 'قاسية : ينابيع ساخنة ، مياه مالحة', 1], ['مصادر الطاقة', 'متنوّعة', 'أمونيا ، هيدروجين ، مركّبات عضوية ، شمس ، تثبيت CO₂', 1], ['التقسيم', 'بحسب الشكل', 'بحسب البيئة', 1]];
+        const t = el('div', 'kztable'); t.append(el('div', 'kztr kzth', '<span>وجه المقارنة</span><span>البكتيريا</span><span>الأثريات</span>'));
+        rows.forEach(r => t.append(el('div', 'kztr' + (r[3] ? ' kzdiff' : ''), '<span>' + r[0] + '</span><span>' + r[1] + '</span><span>' + r[2] + '</span>')));
+        b.append(t, note('الصفوف الملوّنة هي الفروق ، والبقية مشترك.'));
+      }]
+    ]);
+  }
+
+  /* ======================= 7 · الخلية البكتيرية ======================= */
+  const PARTS = [['المحفظة', 'غلاف خارجيّ يحيط بالجدار الخلويّ.'], ['الجدار الخلويّ', 'يحمي الخلية ويحدّد شكلها ، وفيه الببتيدوغلايكان.'], ['الغشاء البلازميّ', 'يحيط بالسيتوبلازم وينظّم دخول المواد وخروجها.'], ['السيتوبلازم', 'الوسط الذي تسبح فيه مكوّنات الخلية.'], ['المادّة الوراثية DNA', 'شريط مزدوج حلقيّ في السيتوبلازم مباشرةً ، لعدم وجود نواة.'], ['البلازميد', 'قطعة صغيرة حلقية منفصلة عن المادّة الوراثية الرئيسة.'], ['الرايبوسومات', 'مواقع بناء البروتين.'], ['السوط', 'تركيب تتحرّك به الخلية.']];
+  function bacterium(svg, hi) {
+    const on = i => hi === i;
+    sv('rect', { x: 50, y: 40, width: 230, height: 110, rx: 55, fill: '#F7F1D9', stroke: on(0) ? '#D62828' : '#C9B87A', 'stroke-width': on(0) ? 6 : 4 }, svg);
+    sv('rect', { x: 60, y: 50, width: 210, height: 90, rx: 45, fill: 'none', stroke: on(1) ? '#D62828' : '#6A8F3A', 'stroke-width': on(1) ? 6 : 4 }, svg);
+    sv('rect', { x: 67, y: 57, width: 196, height: 76, rx: 38, fill: on(3) ? '#E8F3FF' : '#EEF6E8', stroke: on(2) ? '#D62828' : '#1F4E8C', 'stroke-width': on(2) ? 3.5 : 1.8 }, svg);
+    sv('path', { d: 'M110 95 q15 -22 30 0 t30 0 t30 0 q-10 20 -30 10 t-30 0 t-30 -10', fill: 'none', stroke: on(4) ? '#D62828' : '#1F3A5F', 'stroke-width': on(4) ? 4 : 2.4 }, svg);
+    sv('circle', { cx: 232, cy: 78, r: 9, fill: 'none', stroke: on(5) ? '#D62828' : '#8E44AD', 'stroke-width': on(5) ? 4 : 2.4 }, svg);
+    [[95, 72], [100, 118], [200, 120], [240, 108], [180, 70], [150, 122]].forEach(p => sv('circle', { cx: p[0], cy: p[1], r: on(6) ? 4.5 : 3, fill: on(6) ? '#D62828' : '#2D6A4F' }, svg));
+    sv('path', { d: 'M280 95 q20 -18 35 0 t25 6', fill: 'none', stroke: on(7) ? '#D62828' : '#7a5c2e', 'stroke-width': on(7) ? 4 : 2.5 }, svg);
+    [[52, 34, 1], [60, 160, 2], [262, 160, 3], [150, 82, 4], [118, 72, 5], [232, 60, 6], [96, 112, 7], [318, 84, 8]].forEach(p => { sv('circle', { cx: p[0], cy: p[1], r: 9, fill: '#fff', stroke: '#1F3A5F', 'stroke-width': 1.5 }, svg); txt(svg, p[0] - 3.5, p[1] + 4, String(p[2])); });
+  }
+  function kzcell(host) {
+    modes(host, [
+      ['ex', 'استكشف الأجزاء', b => {
+        const S = { k: 0 };
+        const draw = () => {
+          b.innerHTML = ''; const svg = fig(b, 350, 190); bacterium(svg, S.k);
+          const r = el('div', 'kzseg'); PARTS.forEach((p, i) => { const x = el('button', 'kzb' + (i === S.k ? ' kzon' : ''), (i + 1) + ' · ' + p[0]); x.onclick = () => { S.k = i; draw(); }; r.append(x); }); b.append(r);
+          const inf = info(); inf.row(PARTS[S.k][0], PARTS[S.k][1]); b.append(inf);
+          b.append(note('لا نواة ولا عضيّات غشائية ؛ والرايبوسومات غير غشائية ولذلك توجد . الرسم تخطيطيّ.'));
+        }; draw();
+      }],
+      ['q', 'اختبر نفسك', b => sorter(b, PARTS.map((p, i) => [p[1], i, p[0] + '.']), PARTS.map(p => p[0]), 'أيّ جزء هذا ؟', 'من الخارج إلى الداخل : محفظة ← جدار ← غشاء بلازميّ ← سيتوبلازم فيه المادّة الوراثية والبلازميد والرايبوسومات.')]
+    ]);
+  }
+
+  /* ======================= 8 · الأشكال والهيئات والحجم ======================= */
+  function kzshape(host) {
+    modes(host, [
+      ['sh', 'الشكل والهيئة', b => {
+        const S = { s: 0, a: 0 };
+        const SH = ['كروية', 'عصوية', 'حلزونية'], SL = ['Coccus', 'Bacillus', 'Spirillum'], AR = ['منفردة', 'ثنائيات', 'سلاسل', 'عنقودية'];
+        const draw = () => {
+          b.innerHTML = '';
+          b.append(el('div', 'shint', 'الشكل :')); b.append(seg(SH.map((x, i) => [i, x]), S.s, v => { S.s = +v; draw(); }));
+          b.append(el('div', 'shint', 'الهيئة :')); b.append(seg(AR.map((x, i) => [i, x]), S.a, v => { S.a = +v; draw(); }));
+          const svg = fig(b, 320, 140);
+          let pts = [];
+          if (S.a === 0) pts = [[160, 70]]; else if (S.a === 1) pts = [[142, 70], [178, 70]]; else if (S.a === 2) for (let i = 0; i < 6; i++) pts.push([60 + i * 40, 70]); else { [[0, 0], [1, 0], [2, 0], [0.5, 0.86], [1.5, 0.86], [1, 1.72], [0.5, -0.86], [1.5, -0.86], [-0.5, 0.86]].forEach(p => pts.push([125 + p[0] * 26, 60 + p[1] * 26])); }
+          pts.forEach(p => {
+            if (S.s === 0) sv('circle', { cx: p[0], cy: p[1], r: 13, fill: '#9CCB86', stroke: '#4E8B3A', 'stroke-width': 2.5 }, svg);
+            else if (S.s === 1) sv('rect', { x: p[0] - 17, y: p[1] - 9, width: 34, height: 18, rx: 9, fill: '#9CCB86', stroke: '#4E8B3A', 'stroke-width': 2.5 }, svg);
+            else sv('path', { d: 'M' + (p[0] - 18) + ' ' + p[1] + ' q6 -14 12 0 t12 0 t12 0', fill: 'none', stroke: '#4E8B3A', 'stroke-width': 4.5, 'stroke-linecap': 'round' }, svg);
+          });
+          const inf = info(); inf.row('الوصف', '<b>' + SH[S.s] + ' ' + AR[S.a] + '</b>'); inf.row('اسم الشكل', L(SL[S.s])); b.append(inf);
+          b.append(note('الشكل صورة الخلية الواحدة ، والهيئة طريقة تجمّع الخلايا.'));
+        }; draw();
+      }],
+      ['calc', 'قارن الأحجام', b => {
+        const S = { p: null, v: '', r: null };
+        const newP = first => { const um = first ? 6 : [2, 3, 4, 5, 8, 9][Math.floor(Math.random() * 6)], nm = first ? 150 : [50, 100, 150, 200, 300][Math.floor(Math.random() * 5)]; S.p = { um: um, nm: nm, ans: um * 1000 / nm }; S.v = ''; S.r = null; };
+        const draw = () => {
+          b.innerHTML = ''; const p = S.p;
+          b.append(el('div', 'kzq', 'طول خلية بكتيرية ' + L(p.um + ' µm') + ' ، وطول فيروس ' + L(p.nm + ' nm') + ' . كم مرّة يزيد طول البكتيريا على طول الفيروس ؟'));
+          const r = el('div', 'srow'); const inp = document.createElement('input'); inp.type = 'number'; inp.step = 'any'; inp.className = 'kzinp'; inp.value = S.v; inp.oninput = () => S.v = inp.value;
+          r.append(inp, btn('تحقّق', '', () => { const v = parseFloat(S.v); S.r = isNaN(v) ? null : Math.abs(v - p.ans) < 0.01 * p.ans + 0.001; draw(); })); b.append(r);
+          if (S.r !== null) {
+            const v = parseFloat(S.v), raw = p.um / p.nm, hint = Math.abs(v - raw) < 0.01 ? ' قسمتَ قبل توحيد الوحدة.' : '';
+            b.append(verdict(S.r ? 'acok' : 'acwarn', S.r ? 'صحيح' : 'ليس صحيحًا', L(p.um + ' µm = ' + (p.um * 1000) + ' nm') + ' ثمّ ' + L((p.um * 1000) + ' ÷ ' + p.nm + ' = ' + (+p.ans.toFixed(2))) + ' مرّة.' + (S.r ? '' : hint)));
+            const r2 = el('div', 'srow'); r2.append(btn('مسألة أخرى', '', () => { newP(false); draw(); })); b.append(r2);
+          }
+          b.append(note('القاعدة : ' + L('1 µm = 1000 nm') + ' ؛ وحّد الوحدة ثمّ اقسم الأكبر على الأصغر.'));
+        }; newP(true); draw();
+      }]
+    ]);
+  }
+
+  /* ======================= 9 · الانشطار الثنائيّ ======================= */
+  const FIS = ['تضاعف المادّة الوراثية وازدياد حجم الخلية ، وتحرّك نسخة إلى كلّ طرف.', 'انغماد الغشاء البلازميّ وترسّب مكوّنات الجدار الخلويّ في الوسط.', 'انفصال الخليتين.', 'خليتان بكتيريتان متطابقتان.'];
+  function kzfiss(host) {
+    modes(host, [
+      ['st', 'المراحل', b => {
+        const S = { k: 0 };
+        const draw = () => {
+          b.innerHTML = ''; const svg = fig(b, 320, 130); const k = S.k;
+          const cell = (x, w, pinch) => { const h = 60, y = 35; if (!pinch) sv('rect', { x: x, y: y, width: w, height: h, rx: 30, fill: '#9CCB86', stroke: '#4E8B3A', 'stroke-width': 3 }, svg); else { sv('path', { d: 'M' + (x + 30) + ' ' + y + ' H' + (x + w / 2 - 6) + ' Q' + (x + w / 2) + ' ' + (y + 22) + ' ' + (x + w / 2 + 6) + ' ' + y + ' H' + (x + w - 30) + ' A30 30 0 0 1 ' + (x + w - 30) + ' ' + (y + h) + ' H' + (x + w / 2 + 6) + ' Q' + (x + w / 2) + ' ' + (y + h - 22) + ' ' + (x + w / 2 - 6) + ' ' + (y + h) + ' H' + (x + 30) + ' A30 30 0 0 1 ' + (x + 30) + ' ' + y, fill: '#9CCB86', stroke: '#4E8B3A', 'stroke-width': 3 }, svg); sv('path', { d: 'M' + (x + w / 2) + ' ' + (y + 20) + ' V' + (y + h - 20), stroke: '#4E8B3A', 'stroke-width': 3 }, svg); } };
+          const chrom = (cx) => sv('circle', { cx: cx, cy: 65, r: 13, fill: 'none', stroke: '#D62828', 'stroke-width': 2.5 }, svg);
+          if (k === 0) { cell(70, 180); chrom(125); chrom(195); }
+          else if (k === 1) { cell(60, 200, true); chrom(115); chrom(205); }
+          else if (k === 2) { cell(40, 110); cell(170, 110); chrom(95); chrom(225); }
+          else { cell(30, 115); cell(175, 115); chrom(87); chrom(232); }
+          const r = el('div', 'kzseg'); FIS.forEach((f, i) => { const x = el('button', 'kzb' + (i === k ? ' kzon' : ''), 'المرحلة ' + (i + 1)); x.onclick = () => { S.k = i; draw(); }; r.append(x); }); b.append(r);
+          const inf = info(); inf.row('المرحلة ' + (k + 1), FIS[k]); b.append(inf);
+          if (k === 3) b.append(verdict('acok', 'تكاثر لاجنسيّ', 'خليتان متطابقتان ؛ لأنّ كلًّا منهما أخذت نسخة من الكروموسوم الحلقيّ المضاعَف ، ولا اتّحاد بين خليتين.'));
+        }; draw();
+      }],
+      ['cnt', 'تضاعف العدد', b => {
+        const S = { n: 0 };
+        const draw = () => {
+          b.innerHTML = ''; const N = Math.pow(2, S.n);
+          const w = el('div', 'kzdots'); for (let i = 0; i < N; i++) w.append(el('i')); b.append(w);
+          const inf = info(); inf.row('مرّات الانشطار', L(String(S.n))); inf.row('عدد الخلايا', L('2' + (S.n ? '<sup>' + S.n + '</sup>' : '⁰') + ' = ' + N)); b.append(inf);
+          const r = el('div', 'srow'); if (S.n < 7) r.append(btn('انشطار', '', () => { S.n++; draw(); })); r.append(btn('من البداية', 'gh', () => { S.n = 0; draw(); })); b.append(r);
+          b.append(note('كلّ انشطار يُضاعف العدد ولا يزيده واحدًا : بعد ثلاث مرّات 8 خلايا لا 6.'));
+        }; draw();
+      }]
+    ]);
+  }
+
+  /* ======================= 10 · الانتقال الجينيّ ======================= */
+  const GT = {
+    con: ['الاقتران', ['تمتدّ شعيرة جنسية من الخلية المُعطية.', 'ترتبط بالمستقبلات البروتينية على سطح المستقبِلة فيتكوّن جسر اقتران.', 'تُنقل نسخة من البلازميد عبر الجسر.', 'يتضاعف البلازميد في الخليتين ، فتنفصلان معطيتين معًا.']],
+    tra: ['التحوّل', ['تموت خلية بكتيرية فتتحرّر قطع من مادّتها الوراثية في البيئة.', 'ترتبط قطعة DNA بالخلية المستقبِلة.', 'تنقلها الخلية إلى داخلها عن طريق الغشاء البلازميّ.', 'تندمج في الحمض النوويّ الأصليّ فتنشأ صفات جديدة.']],
+    trd: ['النقل', ['يُصيب فيروس آكل البكتيريا خلية بكتيرية.', 'تنتج فيروسات يحمل بعضها جزءًا من DNA البكتيريا.', 'يهاجم أحدها خلية بكتيرية جديدة فينقل إليها هذا الجزء.', 'يندمج الجزء المنقول في المادّة الوراثية للخلية الجديدة.']]
+  };
+  function gtDraw(svg, m, k) {
+    const C = (x, dead) => sv('rect', { x: x, y: 45, width: 110, height: 60, rx: 30, fill: dead ? '#ECE7DA' : '#9CCB86', stroke: dead ? '#B8A98A' : '#4E8B3A', 'stroke-width': 3, 'stroke-dasharray': dead ? '6 5' : '' }, svg);
+    const pl = (cx, cy, c) => sv('circle', { cx: cx, cy: cy, r: 7, fill: 'none', stroke: c || '#8E44AD', 'stroke-width': 3 }, svg);
+    const piece = (x, y) => sv('path', { d: 'M' + x + ' ' + y + ' q6 -8 12 0 t12 0', fill: 'none', stroke: '#D62828', 'stroke-width': 3 }, svg);
+    if (m === 'con') { C(20); C(190); pl(60, 75); if (k >= 1) sv('rect', { x: 128, y: 70, width: 66, height: 10, fill: '#C9E3B5', stroke: '#4E8B3A' }, svg); else if (k === 0) sv('path', { d: 'M130 75 h35', stroke: '#4E8B3A', 'stroke-width': 3 }, svg); if (k >= 2) pl(k === 2 ? 160 : 245, 75); if (k === 3) pl(85, 75); txt(svg, 50, 125, 'donor', { 'font-size': 10, fill: '#5b6b80', 'font-weight': 400 }); txt(svg, 215, 125, 'recipient', { 'font-size': 10, fill: '#5b6b80', 'font-weight': 400 }); }
+    else if (m === 'tra') { C(20, true); C(190); if (k >= 0) piece(k === 0 ? 60 : k === 1 ? 170 : 225, k === 0 ? 75 : k === 1 ? 50 : 75); if (k === 3) sv('path', { d: 'M215 82 q8 -10 16 0 t16 0 t16 0', fill: 'none', stroke: '#1F3A5F', 'stroke-width': 2 }, svg); }
+    else { C(20); C(190); const ph = (x, y) => { sv('polygon', { points: (x) + ',' + (y - 12) + ' ' + (x + 9) + ',' + (y - 6) + ' ' + (x + 9) + ',' + (y + 4) + ' ' + x + ',' + (y + 10) + ' ' + (x - 9) + ',' + (y + 4) + ' ' + (x - 9) + ',' + (y - 6), fill: '#E8DDF5', stroke: '#6A4C93', 'stroke-width': 2 }, svg); sv('path', { d: 'M' + x + ' ' + (y + 10) + ' v12', stroke: '#6A4C93', 'stroke-width': 3 }, svg); }; const px = k === 0 ? 75 : k === 1 ? 75 : k === 2 ? 245 : 245; ph(px, k >= 2 ? 30 : 30); if (k >= 1) piece(px - 12, 30); if (k === 3) piece(232, 78); }
+  }
+  function kzgene(host) {
+    modes(host, [
+      ['ex', 'الطرائق الثلاث', b => {
+        const S = { m: 'con', k: 0 };
+        const draw = () => {
+          b.innerHTML = '';
+          b.append(seg([['con', 'الاقتران'], ['tra', 'التحوّل'], ['trd', 'النقل']], S.m, v => { S.m = v; S.k = 0; draw(); }));
+          const svg = fig(b, 320, 135); gtDraw(svg, S.m, S.k);
+          const inf = info(); inf.row(GT[S.m][0] + ' — الخطوة ' + (S.k + 1) + ' من 4', GT[S.m][1][S.k]); b.append(inf);
+          const r = el('div', 'srow'); if (S.k < 3) r.append(btn('الخطوة التالية', '', () => { S.k++; draw(); })); r.append(btn('من البداية', 'gh', () => { S.k = 0; draw(); })); b.append(r);
+          b.append(el('div', 'kzlg', '<span><i style="background:#8E44AD"></i>بلازميد</span><span><i style="background:#D62828"></i>قطعة DNA</span><span><i style="background:#6A4C93"></i>فيروس آكل البكتيريا</span>'));
+        }; draw();
+      }],
+      ['q', 'أيّ طريقة ؟', b => sorter(b, [
+        ['خلية بكتيرية التقطت قطعة DNA من بقايا بكتيريا ميتة في الوسط.', 1, 'المصدر البيئة ، ولا وسيط : تحوّل.'], ['امتدّت شعيرة من خلية إلى أخرى وانتقل بلازميد عبر جسر.', 0, 'جسر وبلازميد : اقتران.'],
+        ['حمل فيروس جزءًا من DNA بكتيريا إلى بكتيريا أخرى.', 2, 'الوسيط فيروس : نقل.'], ['خليتان انفصلتا بعد الانتقال وكلتاهما صارت معطية.', 0, 'هذه نهاية الاقتران.'],
+        ['قطعة DNA دخلت عبر الغشاء البلازميّ واندمجت في الحمض النوويّ.', 1, 'دخول من البيئة عبر الغشاء : تحوّل.'], ['بكتيريا اكتسبت صفة بعد أن أصابها فيروس آكل البكتيريا.', 2, 'نقل.']
+      ], ['الاقتران', 'التحوّل', 'النقل'], 'أيّ طرائق الانتقال الجينيّ هذه ؟', 'اسأل : من أين جاءت المادّة الوراثية ؟ وما الوسيط ؟')]
+    ]);
+  }
+
+  /* ======================= 11 · علاقات البكتيريا ======================= */
+  function kzrel(host) {
+    modes(host, [
+      ['rel', 'نوع العلاقة', b => sorter(b, [
+        ['الرايزوبيوم في العقد الجذرية للفول : يثبّت النيتروجين ، والنبات يمنحه الغذاء والمأوى.', 0, 'منفعة متبادلة : تقايض.'], ['السالمونيلا في جسم الإنسان تُسبّب له المرض.', 2, 'ضرر لأحد الطرفين : تطفّل.'],
+        ['بكتيريا تعيش على جلد كائن دون أن تؤذيه.', 1, 'بلا أذًى : تعايش.'], ['بكتيريا القولون في الأمعاء : تساعد على الهضم وتُنتج فيتامينات ، وتجد الغذاء والمأوى.', 0, 'منفعة للطرفين.'],
+        ['بكتيريا تُسبّب الجمرة الخبيثة للماشية.', 2, 'تطفّل.'], ['بكتيريا تُسبّب سلّ الزيتون.', 2, 'تطفّل على النبات.']
+      ], ['تقايض', 'تعايش', 'تطفّل'], 'ما نوع العلاقة ؟', 'تقايض = منفعة للطرفين ، تعايش = بلا أذًى ، تطفّل = ضرر ومرض.')],
+      ['use', 'نافعة أم ضارّة ؟', b => sorter(b, [
+        ['تحليل البقع النفطية في مياه البحار.', 0, 'معالجة حيوية : نافعة.'], ['الكزاز : تشنّجات وتصلّب في عضلات الفكّ.', 1, 'ضارّة : بكتيريا Clostridium tetani.'], ['إعادة المواد العضوية إلى التربة بتحليل بقايا الكائنات الميتة.', 0, 'نافعة.'],
+        ['اللفحة النارية في النباتات.', 1, 'ضارّة للنبات.'], ['إنتاج فيتامين K والبيوتين في الأمعاء.', 0, 'بكتيريا القولون : نافعة.'], ['حبّ الشباب بسبب انسداد بصيلات الشعر بالدهون.', 1, 'ضارّة : Cutibacterium acnes.'], ['معالجة مياه التصريف الصحّيّ.', 0, 'نافعة.']
+      ], ['نافعة', 'ضارّة'], 'هل هذا الأثر نافع أم ضارّ ؟', 'في البكتيريا نافع كثير وضارّ كثير ؛ والحكم على المثال لا على المجموعة.')]
+    ]);
+  }
+
+  /* ======================= 12 · مقاومة المضادات ======================= */
+  const RD = [['آسيا', 4700000], ['إفريقيا', 4200000], ['أمريكا اللاتينية', 392000], ['أوروبا', 390000], ['أمريكا الشمالية', 317000], ['أستراليا', 22000]];
+  const fmtN = n => n >= 1e6 ? (n / 1e6).toString().replace(/\.0$/, '') + ' مليون' : Math.round(n / 1000) + ' ألف';
+  function kzres(host) {
+    modes(host, [
+      ['data', 'البيانات', b => {
+        b.append(el('div', 'kzbt', 'الوفيات المتوقّعة سنويًّا بسبب البكتيريا المقاوِمة حتّى 2050 م :'));
+        const m = el('div', 'kzbars'); const mx = RD[0][1]; RD.forEach(r => m.append(el('div', 'kzbrow', '<span>' + r[0] + '</span><b style="width:' + Math.max(1.5, 100 * r[1] / mx) + '%"></b><em>' + fmtN(r[1]) + '</em>'))); b.append(m);
+        b.append(el('div', 'kzbt', 'المقارنة التي تجعل الرقم دليلًا :'));
+        const m2 = el('div', 'kzbars'); [['الوفيات 2016 م', 700000, '#9AA5B1'], ['وفيات السرطان الحالية', 8200000, '#F2963A'], ['المتوقّع 2050 م', 10000000, '#C0392B']].forEach(r => m2.append(el('div', 'kzbrow', '<span>' + r[0] + '</span><b style="width:' + (100 * r[1] / 1e7) + '%;background:' + r[2] + '"></b><em>' + fmtN(r[1]) + '</em>'))); b.append(m2);
+        b.append(verdict('acok', 'دليلان', 'الزيادة من 700 ألف إلى عشرة ملايين نحو ' + L('14') + ' ضعفًا ، والرقم المتوقّع أكبر من وفيات السرطان الحالية.'));
+        b.append(note('الأرقام من تحليل البيانات في الكتاب ص 55.'));
+      }],
+      ['mech', 'طرائق المقاومة', b => sorter(b, [
+        ['تُفرز البكتيريا إنزيمًا يُحطّم المضادّ قبل أن يؤثّر.', 0, 'إفراز إنزيمات.'], ['تنقل البكتيريا جزء المقاومة إلى بكتيريا أخرى عبر جسر.', 1, 'الانتقال بالاقتران.'],
+        ['تُغيّر البكتيريا المُستقبِل الذي يعمل عليه المضادّ.', 2, 'تغيير الموقع.'], ['تُعيد البكتيريا نشر المضادّ إلى خارج جسمها.', 3, 'الطرد إلى الخارج.']
+      ], ['إفراز إنزيمات', 'الاقتران', 'تغيير الموقع', 'الطرد'], 'أيّ طرائق المقاومة الأربع ؟', 'أربع طرائق في الشكل ( 14 ) ، وإساءة استعمال المضادات تُسرّع ظهور السلالات المقاوِمة.')],
+      ['mod', 'لماذا تُكمل الجرعة ؟', b => {
+        const S = { pop: null, log: [] };
+        const reset = () => { S.pop = []; for (let i = 0; i < 40; i++) S.pop.push(i < 2 ? 'r' : 's'); S.log = []; };
+        const dose = full => { const k = full ? 1 : 0.6; S.pop = S.pop.filter(c => c === 'r' ? true : Math.random() > k); const n = S.pop.length; for (let i = 0; i < n && S.pop.length < 40; i++) S.pop.push(S.pop[i]); S.log.push(full ? 'جرعة كاملة' : 'جرعة ناقصة'); };
+        const draw = () => {
+          b.innerHTML = '';
+          const w = el('div', 'kzdots kzpop'); S.pop.forEach(c => w.append(el('i', c === 'r' ? 'kzr' : ''))); b.append(w);
+          const r = S.pop.filter(c => c === 'r').length;
+          b.append(el('div', 'kzlg', '<span><i style="background:#9CCB86"></i>حسّاسة للمضادّ</span><span><i style="background:#C0392B"></i>مقاوِمة</span>'));
+          const inf = info(); inf.row('نسبة المقاوِمة', L(Math.round(100 * r / Math.max(1, S.pop.length)) + ' %')); inf.row('ما فعلتَه', S.log.join(' ← ') || '—'); b.append(inf);
+          const rr = el('div', 'srow'); rr.append(btn('جرعة ناقصة / غير لازمة', '', () => { dose(false); draw(); }), btn('جرعة كاملة', 'gh', () => { dose(true); draw(); }), btn('من البداية', 'gh', () => { reset(); draw(); })); b.append(rr);
+          b.append(note('نموذج توضيحيّ مُبسَّط لا أرقام فيه من الكتاب : كلّ جرعة تقتل الحسّاسة وتُبقي المقاوِمة لتتكاثر ، فيكثر المقاوِم مع تكرار الاستعمال غير الضروريّ — وهذا معنى « الإفراط يُسرّع المقاومة ».'));
+        }; reset(); draw();
+      }]
+    ]);
+  }
+
+  /* ======================= 13 · الطلائعيات والطحالب ======================= */
+  const ALG = [['الطحالب الخضراء', 'كلوروفيل a و b ، كاروتينويدات', '#3FA34D', 'وحيدة أو عديدة الخلايا'], ['اليوغلينات', 'كلوروفيل a و b ، كاروتينويدات', '#5BB85B', 'وحيدة الخلية'], ['الدياتومات', 'كلوروفيل a و c ، كاروتينويدات', '#B8A04A', 'وحيدة الخلية'], ['الطحالب الحمراء', 'كلوروفيل a ، الفايكوإريثرين', '#C0392B', 'عديدة الخلايا'], ['الطحالب البنّية', 'كلوروفيل a و c ، الفيوكوزانثين', '#7A5230', 'عديدة الخلايا ، وفيها أعشاب البحر']];
+  function kzalgae(host) {
+    modes(host, [
+      ['grp', 'المجموعات الثلاث', b => sorter(b, [
+        ['كائن حقيقيّ النواة فيه كلوروفيل ويصنع غذاءه.', 0, 'ذاتيّ التغذية : شبيه بالنباتات ( طحلب ).'], ['كائن حقيقيّ النواة يلتهم كائنات أخرى ولا أجهزة متخصّصة فيه.', 1, 'شبيه بالحيوانات ( أوليّ ).'],
+        ['كائن يحلّل المواد العضوية ، وجداره من السليلوز.', 2, 'شبيه بالفطريات.'], ['اليوغلينا.', 0, 'ذاتية التغذية : من الطحالب.'], ['الأميبا.', 1, 'أوليات.'], ['الفطريات الغروية.', 2, 'شبيهة بالفطريات.'], ['الدياتومات.', 0, 'طحالب.'], ['البراميسيوم.', 1, 'أوليات.']
+      ], ['شبيهة بالنباتات', 'شبيهة بالحيوانات', 'شبيهة بالفطريات'], 'إلى أيّ مجموعة من الطلائعيات ؟', 'المعيار : طريقة التغذية . يصنع غذاءه ← طحلب ، يلتهم ← أوليّ ، يحلّل وجداره سليلوز ← شبيه بالفطريات.')],
+      ['pig', 'صبغات الطحالب', b => {
+        const S = { k: 0 };
+        const draw = () => {
+          b.innerHTML = '';
+          const r = el('div', 'kzseg'); ALG.forEach((a, i) => { const x = el('button', 'kzb' + (i === S.k ? ' kzon' : ''), a[0]); x.onclick = () => { S.k = i; draw(); }; r.append(x); }); b.append(r);
+          const a = ALG[S.k]; const sw = el('div', 'kzswatch'); sw.style.background = a[2]; sw.textContent = a[0]; b.append(sw);
+          const inf = info(); inf.row('الصبغات', a[1].replace(/ ([abc])(?= |$)/g, ' <span class="ltr">$1</span>')); inf.row('عدد الخلايا', a[3]); b.append(inf);
+          b.append(note('اللون الظاهر لون الصبغة الغالبة : الفايكوإريثرين أحمر ، والفيوكوزانثين بنّيّ . الألوان في الرسم تقريبية.'));
+        }; draw();
+      }]
+    ]);
+  }
+
+  /* ======================= 14 · الأوليات والحركة ======================= */
+  function kzmove(host) {
+    modes(host, [
+      ['mv', 'وسيلة الحركة', b => sorter(b, [
+        ['البراميسيوم : تغطّي جسمه تراكيب قصيرة كثيرة.', 0, 'الأهداب : هدبيات.'], ['الأميبا : تمدّ بروزات مؤقّتة من جسمها.', 1, 'الأقدام الكاذبة : جذريات القدم.'],
+        ['البلازموديوم : لا تراكيب للحركة فيه ، ينزلق مع سوائل جسم العائل.', 2, 'بوغيات.'], ['الليشمانيا : لها سوط.', 3, 'سوطيات حيوانية.'],
+        ['البالانتيديوم كولاي : متطفّل يتحرّك بالأهداب.', 0, 'هدبيات.'], ['الإنتاميبا هيستوليتيكا : متطفّلة بالأقدام الكاذبة.', 1, 'جذريات القدم.'], ['الجيارديا : بالأسواط.', 3, 'سوطيات حيوانية.']
+      ], ['الهدبيات', 'جذريات القدم', 'البوغيات', 'السوطيات الحيوانية'], 'إلى أيّ مجموعة من الأوليات ؟', 'الأوليات وحدها تُفرز بالحركة ، أمّا الطلائعيات كلّها فبالتغذية.')],
+      ['ph', 'البلعمة في الأميبا', b => orderer(b, [['الإحاطة', 'تُحيط الأقدام الكاذبة بالطعام.'], ['الهضم', 'يُهضم الطعام بمساعدة اللايسوسوم مكوّنًا جسمًا حالًّا.'], ['الامتصاص', 'تُمتصّ المواد المهضومة وتُطرح الفضلات.']], 'رتّب خطوات البلعمة ( الشكل 24 ) :', 'لا هضم قبل الإحاطة ، ولا طرح قبل الهضم.', 'هكذا تتغذّى الأميبا', 'الأقدام الكاذبة أداة حركة وأداة تغذية معًا.', true)],
+      ['par', 'البراميسيوم', b => {
+        const P = [['الأهداب', 'تغطّي الجسم كاملًا : للحركة والتغذية.'], ['النواة الكبيرة', 'مسؤولة عن العمليات الحيوية.'], ['النواة الصغيرة', 'مسؤولة عن التكاثر.'], ['الفجوات الغذائية', 'يُهضم فيها الطعام.'], ['الفجوة المنقبضة', 'من أجزاء البراميسيوم في الشكل ( 22 ).'], ['التجويف الفمويّ', 'يدخل منه الطعام.']];
+        const S = { k: 0 };
+        const draw = () => {
+          b.innerHTML = ''; const svg = fig(b, 320, 150);
+          sv('ellipse', { cx: 160, cy: 75, rx: 120, ry: 48, fill: '#EAF4FB', stroke: S.k === 0 ? '#D62828' : '#1F4E8C', 'stroke-width': S.k === 0 ? 4 : 2 }, svg);
+          for (let i = 0; i < 40; i++) { const a = i * Math.PI / 20; const x = 160 + 120 * Math.cos(a), y = 75 + 48 * Math.sin(a); sv('path', { d: 'M' + x + ' ' + y + ' l' + 7 * Math.cos(a) + ' ' + 7 * Math.sin(a), stroke: S.k === 0 ? '#D62828' : '#1F4E8C', 'stroke-width': 1.3 }, svg); }
+          sv('ellipse', { cx: 150, cy: 72, rx: 26, ry: 16, fill: S.k === 1 ? '#F5B7B1' : '#D6C9E8', stroke: '#6A4C93' }, svg);
+          sv('circle', { cx: 183, cy: 62, r: 6, fill: S.k === 2 ? '#D62828' : '#6A4C93' }, svg);
+          [[95, 60], [110, 95], [215, 95]].forEach(p => sv('circle', { cx: p[0], cy: p[1], r: 8, fill: S.k === 3 ? '#F5B7B1' : '#FCE8C8', stroke: '#B07A2A' }, svg));
+          sv('circle', { cx: 245, cy: 70, r: 10, fill: 'none', stroke: S.k === 4 ? '#D62828' : '#1F4E8C', 'stroke-width': 2, 'stroke-dasharray': '3 2' }, svg);
+          sv('path', { d: 'M160 120 q20 -25 45 -18', fill: 'none', stroke: S.k === 5 ? '#D62828' : '#1F3A5F', 'stroke-width': 3 }, svg);
+          const r = el('div', 'kzseg'); P.forEach((p, i) => { const x = el('button', 'kzb' + (i === S.k ? ' kzon' : ''), p[0]); x.onclick = () => { S.k = i; draw(); }; r.append(x); }); b.append(r);
+          const inf = info(); inf.row(P[S.k][0], P[S.k][1]); b.append(inf); b.append(note('رسم تخطيطيّ ، والجزء المختار ملوّن بالأحمر.'));
+        }; draw();
+      }]
+    ]);
+  }
+
+  /* ======================= 15 · أثر الطلائعيات ======================= */
+  const LEI = [['أقلّ من سنة', 73, 49], ['سنة واحدة', 31, 17], ['من سنة إلى سنتين', 96, 48], ['من سنتين إلى ثلاث', 28, 35], ['من ثلاث إلى أربع', 22, 8], ['خمس سنوات فأكثر', 11, 1]];
+  function kzprot(host) {
+    modes(host, [
+      ['dis', 'المرض ومسبّبه', b => sorter(b, [
+        ['الملاريا : تنتقل بلدغة أنثى بعوضة الأنوفلس.', 2, 'البلازموديوم ( بوغيات ).'], ['الزحار الأميبيّ : إسهال شديد يخالطه الدم والمخاط.', 1, 'الإنتاميبا هيستوليتيكا ( جذريات القدم ).'],
+        ['الزحار البالانتيديوميّ : إسهال يخالطه الدم والمخاط.', 0, 'البالانتيديوم كولاي ( هدبيات ).'], ['الليشمانيا الجلدية : تنتقل بذبابة الرمل.', 3, 'الليشمانيا ( سوطيات ).'], ['حُمّى القُندُس : عدوى معوية.', 4, 'الجيارديا ( سوطيات ).']
+      ], ['البالانتيديوم كولاي', 'الإنتاميبا هيستوليتيكا', 'البلازموديوم', 'الليشمانيا', 'الجيارديا'], 'ما الطلائعيّ المسبّب ؟', 'الزحاران متشابهان في العَرَض ، ويختلفان في المسبّب : هدبيّ ( بالانتيديوم ) أو جذريّ القدم ( إنتاميبا ).')],
+      ['use', 'نافع أم ضارّ ؟', b => sorter(b, [
+        ['الطحالب مُنتِج أساسيّ تتغذّى به الأسماك الصغيرة والعوالق.', 0, 'نافع.'], ['الطحالب تُنتج الأكسجين لتنفّس الكائنات المائية.', 0, 'نافع.'], ['فطريات مائية تتطفّل على خياشيم الأسماك.', 1, 'ضارّ.'],
+        ['أنواع من الطحالب تُستعمل تجاريًّا لإنتاج البروتينات والفيتامينات.', 0, 'نافع.'], ['البلازموديوم في دم الإنسان.', 1, 'ضارّ : الملاريا.']
+      ], ['نافع', 'ضارّ'], 'هل هذا الأثر نافع أم ضارّ ؟', 'الطلائعيات ليست ضارّة كلّها : الطحالب أساس الحياة في البحار.')],
+      ['data', 'بيانات الليشمانيا', b => {
+        const S = { y: 0 };
+        const draw = () => {
+          b.innerHTML = ''; b.append(seg([[0, 'بحسب العمر'], [1, 'بحسب الجنس']], S.y, v => { S.y = +v; draw(); }));
+          if (S.y === 0) {
+            const m = el('div', 'kzbars'); LEI.forEach(r => m.append(el('div', 'kzbrow kz2', '<span>' + r[0] + '</span><b style="width:' + (r[1] / 96 * 26) + '%"></b><em>' + r[1] + '</em><b class="kzb8" style="width:' + (r[2] / 96 * 26) + '%"></b><em>' + r[2] + '</em>'))); b.append(m);
+            b.append(el('div', 'kzlg', '<span><i style="background:#F2963A"></i>2007 م</span><span><i style="background:#1F4E8C"></i>2008 م</span>'));
+            b.append(verdict('acok', 'الأكثر عُرضة : من سنة إلى سنتين', 'وانخفضت الإصابات عام 2008 م في كلّ الفئات تقريبًا . والتفسير فرضيات تُصاغ بحذر : مكافحة ذبابة الرمل ، أو تحسّن الوعي والوقاية ، أو ظروف السكن والمناخ.'));
+          } else {
+            const m = el('div', 'kzbars'); [['2007 م — ذكور', 120], ['2007 م — إناث', 110], ['2008 م — ذكور', 89], ['2008 م — إناث', 69]].forEach(r => m.append(el('div', 'kzbrow', '<span>' + r[0] + '</span><b style="width:' + (r[1] / 1.2) + '%"></b><em>' + r[1] + '</em>'))); b.append(m);
+            b.append(verdict('acok', 'الذكور أكثر في العامين', 'فرضية مقبولة : نشاط الذكور خارج المنزل أكبر ، فيزيد تعرّضهم للدغ ذبابة الرمل.'));
+          }
+          b.append(note('الأرقام من مراجعة الدرس في الكتاب ص 64.'));
+        }; draw();
+      }]
+    ]);
+  }
+
+  /* ======================= 16 · الفطريات : التركيب والتغذية والتكاثر ======================= */
+  function kzfungi(host) {
+    modes(host, [
+      ['str', 'التركيب', b => {
+        const P = [['الخيوط الفطرية', 'خيوط دقيقة يتكوّن منها جسم الفطر ، وتتجمّع في الغزل الفطريّ.'], ['أشباه الجذور', 'تثبّت الفطر في مصدر غذائه وتمتصّ منه.'], ['الحامل', 'ساق قائمة يحمل في نهايته الكيس البوغيّ.'], ['الكيس البوغيّ', 'يحتوي الأبواغ التي يتكاثر بها الفطر لاجنسيًّا.'], ['الحاجز الخلويّ', 'يقسّم الخيط إلى خلايا ، ويغيب في المدمج الخلويّ.']];
+        const S = { k: 0 };
+        const draw = () => {
+          b.innerHTML = ''; const svg = fig(b, 320, 170); const c = i => S.k === i ? '#D62828' : '#6B5B3E';
+          sv('path', { d: 'M20 130 H300', stroke: c(0), 'stroke-width': S.k === 0 ? 5 : 3.5 }, svg);
+          [[70, 130], [170, 130], [260, 130]].forEach(p => { sv('path', { d: 'M' + p[0] + ' ' + p[1] + ' l-12 22 M' + p[0] + ' ' + p[1] + ' l0 26 M' + p[0] + ' ' + p[1] + ' l12 22', stroke: c(1), 'stroke-width': S.k === 1 ? 3 : 2 }, svg); sv('path', { d: 'M' + p[0] + ' ' + p[1] + ' V45', stroke: c(2), 'stroke-width': S.k === 2 ? 4.5 : 3 }, svg); sv('circle', { cx: p[0], cy: 35, r: 14, fill: S.k === 3 ? '#F5B7B1' : '#3a3a3a', stroke: c(3), 'stroke-width': 2 }, svg); });
+          [120, 215].forEach(x => sv('path', { d: 'M' + x + ' 124 V136', stroke: c(4), 'stroke-width': S.k === 4 ? 4 : 2 }, svg));
+          const r = el('div', 'kzseg'); P.forEach((p, i) => { const x = el('button', 'kzb' + (i === S.k ? ' kzon' : ''), p[0]); x.onclick = () => { S.k = i; draw(); }; r.append(x); }); b.append(r);
+          const inf = info(); inf.row(P[S.k][0], P[S.k][1]); b.append(inf);
+          b.append(note('رسم تخطيطيّ بأجزاء الشكل ( 31 ) . وعفن الخبز خيوطه في الحقيقة مدمجة خلويًّا بلا حواجز ، والحواجز مرسومة هنا لتعرّف الجزء فقط.'));
+        }; draw();
+      }],
+      ['nut', 'نوع التغذية', b => sorter(b, [
+        ['فطر المشروم ينمو على بقايا عضوية في التربة.', 0, 'رمّية.'], ['فطر صدأ القمح يعيش على نبات القمح ويُمرضه.', 1, 'طفيلية.'], ['الأشنات : فطر يمدّ الطحلب بالماء والأملاح ، والطحلب يمدّه بالغذاء.', 2, 'تقايضية.'],
+        ['فطر ينمو على جذع شجرة ميتة.', 0, 'رمّية : الشجرة ميتة.'], ['فطر يتطفّل على حشرة حيّة.', 1, 'طفيلية.'], ['المايكورايزا على جذور النبات تُحسّن امتصاص الماء والأملاح.', 2, 'تقايضية.']
+      ], ['رمّية', 'طفيلية', 'تقايضية'], 'ما نوع تغذية الفطر ؟', 'كلّها غير ذاتية : تهضم خارج خلاياها ثمّ تمتصّ . ويختلف المصدر : ميّت ( رمّية ) ، حيّ يتضرّر ( طفيلية ) ، شريك ينتفع ( تقايضية ).')],
+      ['rep', 'التكاثر', b => orderer(b, [['اتّحاد نواتين', 'تتّحد نواتا خيطين فطريّين.'], ['نواة 2n', 'تنتج نواة ثنائية المجموعة الكروموسومية.'], ['انقسام منصّف', 'تنقسم النواة انقسامًا منصّفًا.'], ['أبواغ 1n', 'تنتج أبواغ أحادية المجموعة الكروموسومية.'], ['غزل فطريّ', 'تنمو الأبواغ عند توفّر الحرارة والرطوبة والمواد العضوية إلى خيوط وغزل.']], 'رتّب مراحل التكاثر الجنسيّ في الفطريات :', 'الأبواغ لا تكون ثنائية : المنصّف يُنصّف العدد.', 'اكتملت الدورة', 'والتكاثر اللاجنسيّ أقصر : أبواغ 1n تنمو مباشرة ، أو تبرعم في الخمائر.', true)]
+    ]);
+  }
+
+  /* ======================= 17 · مجموعات الفطريات ======================= */
+  function kzfgroup(host) {
+    host.innerHTML = ''; const b = el('div'); host.append(b);
+    sorter(b, [
+      ['أبسط الفطريات تركيبًا ، وأبواغها تتحرّك بالأسواط.', 0, 'الأصيصية.'], ['يُعتقد أنّها سبب تناقص أعداد الضفادع عالميًّا.', 0, 'الأصيصية.'],
+      ['فطر عفن الخبز.', 1, 'الاقترانية ( الزيجوتية ).'], ['فطريات تتطفّل على الحشرات ومعظمها رمّيّ.', 1, 'الاقترانية.'],
+      ['تعيش على جذور النباتات وتُحسّن امتصاص الماء والأملاح.', 2, 'الكبيبية ( المايكورايزا ).'],
+      ['الخمائر والكمأ.', 3, 'الكيسية.'], ['أكبر مجموعات الفطريات.', 3, 'الكيسية.'], ['مسبّبة البياض الدقيقيّ في العنب وقدم الرياضيّ.', 3, 'الكيسية.'],
+      ['فطر المشروم ، وبعض أنواعه سامّة رغم جمال مظهرها.', 4, 'القمعية.'], ['واسعة الانتشار ، رمّية ، متباينة الحجوم والألوان ، خيوطها مقسّمة بحواجز.', 4, 'القمعية.']
+    ], ['الأصيصية', 'الاقترانية', 'الكبيبية', 'الكيسية', 'القمعية'], 'إلى أيّ مجموعة ينتمي ؟', 'علامة لكلّ مجموعة : أصيصية سبّاحة ، اقترانية عفن الخبز ، كبيبية صديقة الجذور ، كيسية الأكبر ( خميرة وكمأ ) ، قمعية المشروم.');
+  }
+
+  /* ======================= 18 · أهمّية الفطريات وتهديدها ======================= */
+  function kzfimp(host) {
+    modes(host, [
+      ['imp', 'مجالات الأهمّية', b => sorter(b, [
+        ['المشروم يحلّل المواد العضوية ويُعيد العناصر إلى البيئة.', 0, 'بيئية.'], ['الأشنات تفتّت الصخور وتزيد خصوبة التربة.', 0, 'بيئية.'], ['فطر المحار يُزيل الملوّثات من الماء والتربة.', 0, 'بيئية : معالجة حيوية.'],
+        ['البنيسيليوم يُنتج البنسلين.', 1, 'طبّية وزراعية.'], ['مركّبات من الفطريات للمكافحة الحيوية للحشرات.', 1, 'طبّية وزراعية.'],
+        ['خميرة الخبز والمشروم والكمأ غذاءً.', 2, 'اقتصادية.'], ['مزارع ومصانع للفطر وإنتاج الغاز الحيويّ.', 2, 'اقتصادية.'],
+        ['إنتاج مواد مضادّة للسرطان والفيروسات.', 3, 'رؤى مستقبلية.'], ['مركّبات حيوية بالهندسة الجينية.', 3, 'رؤى مستقبلية.']
+      ], ['بيئية', 'طبّية وزراعية', 'اقتصادية', 'رؤى مستقبلية'], 'في أيّ مجال من جدول الأهمّية ؟', 'جدول ص 73 أربعة أعمدة ؛ والمثال الواحد قد يخدم أكثر من مجال ، والمطلوب أقربها.')],
+      ['eco', 'دليل اقتصاديّ', b => {
+        const c = el('div', 'kzcase');
+        c.append(el('b', '', 'الأسكدنيا في راجب — لواء كفرنجة — عجلون'));
+        const inf = info(); inf.row('المحصول ومكانه', 'الأسكدنيا ، أحد أهمّ مصادر دخل مزارعي راجب'); inf.row('الحجم', 'نحو ألف دونم'); inf.row('الضرر', 'أضرار كبيرة بالفطريات والآفات ، وخسائر مادية كبيرة للمزارعين'); c.append(inf);
+        b.append(c);
+        b.append(verdict('acok', 'بناء الدليل : مكان + حجم + ضرر', 'هكذا يصير المثال دليلًا على تهديد الاقتصاد الوطنيّ . ومثال ثانٍ في الكتاب : صدأ القمح الطفيليّ يُلحق خسائر كبيرة بالاقتصاد.'));
+      }],
+      ['rel', 'نوع العلاقة', b => sorter(b, [
+        ['الأشنات : فطر وطحلب.', 0, 'تقايض.'], ['المايكورايزا وجذور النبات.', 0, 'تقايض.'], ['الفطريات الاقترانية والحشرات.', 1, 'تطفّل.'], ['صدأ القمح ونبات القمح.', 1, 'تطفّل.'], ['البياض الدقيقيّ ونبات العنب.', 1, 'تطفّل.']
+      ], ['تقايض', 'تطفّل'], 'ما نوع العلاقة ؟', 'الأنماط نفسها التي رأيتها في البكتيريا.')]
+    ]);
+  }
+
+  Object.assign(window.SIMS, { kzgroup, kzhist, kzlevels, kzname, kzdomain, kzarch, kzcell, kzshape, kzfiss, kzgene, kzrel, kzres, kzalgae, kzmove, kzprot, kzfungi, kzfgroup, kzfimp });
+})();

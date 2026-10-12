@@ -1,0 +1,52 @@
+.njseg{display:flex;flex-wrap:wrap;gap:.3rem;margin:.35rem 0}
+.njb{font:inherit;font-size:.82rem;padding:.36rem .66rem;border:1px solid var(--line);border-radius:999px;background:#fff;color:#5b6b80;cursor:pointer}
+.njb.njon{background:var(--navy);border-color:var(--navy);color:#fff}
+.njb.njok{background:#E6F4EA;border-color:#9ccfae;color:#14603f}
+.njb.njno{background:#FFF1F0;border-color:#E8A39B;color:#9b2c22}
+.njfig{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:.5rem 0;background:#fff}
+.njsvg{display:block;width:100%;height:auto;max-height:340px}
+.njnote{font-size:.76rem;color:#8894a6;margin:.35rem 0;line-height:1.6}
+.njdisk{display:inline-block;border-radius:50%;flex:none}
+.njq{background:#f6f8fb;border:1px solid var(--line);border-radius:10px;padding:.55rem .7rem;margin:.4rem 0;font-size:.9rem;color:var(--navy);line-height:1.75}
+.njlg{display:flex;flex-wrap:wrap;gap:.3rem .9rem;font-size:.76rem;color:#5b6b80;margin:.1rem 0 .4rem}
+.njlg i{display:inline-block;width:.7rem;height:.7rem;border-radius:3px;margin-inline-end:.25rem;vertical-align:-1px}
+.njlg b{color:var(--navy)}
+.njbt{font-size:.84rem;color:var(--navy);margin:.55rem 0 .25rem}
+.njbars{display:flex;flex-direction:column;gap:.3rem}
+.njbrow{display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:#5b6b80}
+.njbrow span{flex:0 0 6.5rem}
+.njbrow b{display:block;height:1rem;border-radius:4px;background:#F2963A;min-width:3px}
+.njbrow em{display:block;height:1rem;border-radius:4px;background:repeating-linear-gradient(45deg,#F2A900,#F2A900 3px,#fff3c4 3px,#fff3c4 6px)}
+.njrow{display:flex;align-items:center;gap:.8rem;margin:.5rem 0}
+.njwrap{flex-wrap:wrap}
+.njsp{justify-content:space-around}
+.njbig{font-size:1rem;color:var(--navy)}
+.njstarbtn{display:flex;flex-direction:column;align-items:center;gap:.3rem;background:#0f1e33;border:2px solid transparent;border-radius:12px;padding:.6rem .8rem;cursor:pointer;color:#fff;font:inherit}
+.njstarbtn.njon{border-color:#F5CF3F}
+.njgrid{display:grid;grid-template-columns:1fr 1fr;gap:.3rem .6rem;margin:.4rem 0}
+.njcol{display:flex;flex-direction:column;gap:.25rem;min-width:0}
+.njcol>b{font-size:.85rem;color:var(--navy)}
+.njgrid .sf{font-size:.74rem;min-width:0}
+.njgrid .sf input[type=range]{min-width:0;width:100%}
+.njcell{display:flex;flex-direction:column;align-items:center;gap:.3rem;font-size:.8rem;color:#5b6b80;min-width:4.5rem}
+.njcell.njon{color:var(--navy);font-weight:700}
+.njcell.njdim{opacity:.35}
+.njcards{display:grid;grid-template-columns:1fr;gap:.35rem;margin:.45rem 0}
+.njcard{font:inherit;text-align:start;border:1px solid var(--line);border-radius:10px;background:#fafbfd;padding:.5rem .65rem;cursor:pointer;color:#40506a;font-size:.84rem;line-height:1.65}
+.njcard b{display:block;color:var(--navy);margin-bottom:.1rem}
+.njcard.njok{background:#F4FBF6;border-color:#9ccfae}
+.njcard.njno{background:#FFF1F0;border-color:#E8A39B}
+.njring{position:relative;width:100%;max-width:300px;aspect-ratio:1;margin:.4rem auto;border-radius:50%;background:radial-gradient(circle,#fff 0 46%,#eef2f8 47% 100%)}
+.njzs{position:absolute;transform:translate(-50%,-50%);font-size:.72rem;background:#fff;border:1px solid var(--line);border-radius:999px;padding:.12rem .4rem;color:#8894a6;white-space:nowrap}
+.njzs.njon{background:var(--navy);color:#fff;border-color:var(--navy)}
+.njsun{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-size:2rem;color:#F2A900}
+.njstages{display:flex;flex-wrap:wrap;align-items:center;gap:.25rem;margin:.5rem 0}
+.njst{font:inherit;display:flex;flex-direction:column;align-items:center;gap:.25rem;border:2px solid transparent;border-radius:10px;background:#0f1e33;color:#e8eef7;padding:.4rem .45rem;cursor:pointer;font-size:.7rem;min-width:3.6rem}
+.njst.njon{border-color:#F5CF3F}
+.njst.njfut{opacity:.45}
+.njarr{font-style:normal;color:#9AA5B1;font-size:.8rem}
+.njinp{font:inherit;width:7rem;padding:.4rem .5rem;border:1px solid var(--line);border-radius:9px;direction:ltr}
+.njchain{display:flex;flex-wrap:wrap;gap:.3rem;margin:.4rem 0}
+.njlink{display:flex;align-items:center;gap:.3rem;border:1px dashed var(--line);border-radius:999px;padding:.2rem .55rem;font-size:.76rem;color:#8894a6}
+.njlink b{color:var(--navy)}
+.njlink.njon{border-style:solid;border-color:#9ccfae;background:#F4FBF6;color:#14603f}
