@@ -1,7 +1,7 @@
-const CACHE = 'dosiati-v32';
+const CACHE = 'dosiati-v33';
 /* خزانة مستقلّة للأشكال لا يمسّها تحديث الإصدار ، فلا يفقد الطالب ما نزّله */
 const FIGC = 'dosiati-fig';
-const FILES = ['./', 'index.html', 'app.js', 'data.json', 'extras.json', 'learn.json', 'figs.json', 'sims.js', 'logo.png', 'manifest.webmanifest', 'icon.svg'];
+const FILES = ['./', 'index.html', 'app.js', 'data.json', 'extras.json', 'learn.json', 'figs.json', 'sims.js', 'logo.png', 'manifest.webmanifest', 'icon.svg', 'fonts/plex-arabic-400.woff2', 'fonts/plex-arabic-700.woff2', 'fonts/plex-latin-400.woff2', 'fonts/plex-latin-700.woff2'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()

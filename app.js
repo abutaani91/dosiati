@@ -1,5 +1,6 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '32';
+const APP_VER = '33';
+const BRAND = 'نشامى العلم', TAGLINE = 'تعلّم بإتقان .. واترك أثرك';
 const APP_DATE = '2026/10/14';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
 const $ = s => document.querySelector(s);
@@ -504,7 +505,7 @@ function route() {
   if (S.unit && !isTeacher()) {
     if (S.unit.gno !== (S.user || {}).grade || !uset(S.unit.id).on) S.unit = null;
   }
-  S.tab = tab || 'aims';
+  S.tab = tab || (S.unit && lrnOf(S.unit.id) ? 'lrn' : 'aims');
   render();
   window.scrollTo(0, 0);
 }
@@ -544,9 +545,11 @@ function render() {
 
 function bar() {
   const who = $('#who'), out = $('#out'), pb = $('#pbtn');
-  const br = document.querySelector('#bar .brand'); if (br) br.textContent = (SET.org && SET.org.title) || 'دوسياتي';
-  const sb = $('#sbtn'); if (sb) { const off = localStorage.getItem('dosiati-snd') === '0'; sb.textContent = off ? '🔇' : '🔊'; sb.title = off ? 'تشغيل الأصوات' : 'كتم الأصوات'; sb.style.display = (SET.snd && SET.snd.on === false && !isTeacher()) ? 'none' : ''; }
-  const tb = $('#tbtn'); if (tb) tb.textContent = document.body.classList.contains('dark') ? '☀' : '🌙';
+  const bs = $('#bsub'); if (bs) bs.textContent = SET.school || '';
+  const bl = $('#blogo'); if (bl) bl.src = window.__LOGO__ || LOGO;
+  const cr = $('#mcred'); if (cr) cr.textContent = SET.teacherName ? 'إعداد : ' + SET.teacherName : '';
+  const sb = $('#sbtn'); if (sb) { const off = localStorage.getItem('dosiati-snd') === '0'; sb.textContent = off ? 'تشغيل الأصوات' : 'كتم الأصوات'; sb.style.display = (SET.snd && SET.snd.on === false && !isTeacher()) ? 'none' : ''; }
+  const tb = $('#tbtn'); if (tb) tb.textContent = document.body.classList.contains('dark') ? 'الوضع النهاري' : 'الوضع الليلي';
   pb.style.display = (S.user && !isTeacher() && !SET.perm.present) ? 'none' : '';
   if (!S.user) { who.textContent = ''; out.style.display = 'none'; return; }
   who.textContent = isTeacher() ? 'المعلّم' : ((S.user.name ? S.user.name.split(' ')[0] + ' · ' : '') + GRADES[S.user.grade] + ' · ' + S.user.no);
@@ -556,11 +559,11 @@ function bar() {
 const LOGO = 'logo.png';
 function orgHead() {
   const o = SET.org || {};
-  return el('div', 'ohead', `<img class="olog" src="${window.__LOGO__ || LOGO}" alt="">
+  return el('div', 'ohead', `<img class="olog" src="${window.__LOGO__ || LOGO}" alt="شعار وزارة التربية والتعليم">
     <div class="d1">${esc(o.dir || '')}</div>
     <div class="d2">${esc(SET.school || '')}</div>
-    <div class="d3">${esc(o.title || 'صفحة التعلّم الذاتي')}</div>
-    <div class="d4">إعداد : ${esc(SET.teacherName || '')}</div>`);
+    <div class="d3">${BRAND}</div>
+    <div class="d4">${TAGLINE}</div>`);
 }
 
 /* ---------- شاشة الدخول ---------- */
@@ -569,7 +572,6 @@ function loginView() {
   const w = el('div', 'wrap');
   const head = orgHead();
   w.append(head);
-  nasheed(head);
   const g = el('div', 'gate big');
   const teacherMode = !!S.loginTeacher;
   g.append(el('p', '', teacherMode ? 'دخول المعلّم : أدخل رمزك.' : 'أدخل رمز الدخول الخاص بك.'));
@@ -602,7 +604,7 @@ function loginView() {
   tb.onclick = () => { S.loginTeacher = !teacherMode; render(); };
   g.append(tb);
   w.append(g);
-  w.append(el('p', 'foot', 'يعمل بدون إنترنت بعد أوّل فتح · الإصدار ' + APP_VER));
+  w.append(el('p', 'foot', 'الإصدار ' + APP_VER));
   setTimeout(() => i.focus(), 50);
   return w;
 }
@@ -615,11 +617,11 @@ function continueCard() {
   const u = S.units.find(x => x.id === L.id);
   if (!u || u.gno !== (S.user || {}).grade || !uset(u.id).on) return null;
   const names = {}; ST_ALL.forEach(([k, t]) => names[k] = t);
-  const c = el('div', 'box mint');
-  c.append(el('div', 'bt', 'تابِع من حيث توقفت'));
-  c.append(el('p', '', `${fmt(u.unit.unitTitle)}  —  ${esc(names[L.k] || '')}`));
+  const c = el('div', 'box nscont');
+  c.append(el('div', 'bt', 'أكمل رحلتك'));
+  c.append(el('p', '', `${fmt(u.unit.unitTitle)}`));
   const b = el('button', 'btn', 'أكمل الآن');
-  b.onclick = () => { location.hash = `#${u.id}/${L.k}`; };
+  b.onclick = () => { location.hash = '#' + (L.h || `${u.id}/${L.k}`); };
   c.append(b);
   return c;
 }
@@ -678,8 +680,7 @@ function home() {
   const sub = isTeacher() ? 'وضع المعلّم — جميع الصفوف والاختبارات'
     : GRADES[S.user.grade] + (S.user.sec ? ' · الشعبة ' + S.user.sec : '') + ' · ' + (TERMS[S.user.term] || '') + ' · رقمك ' + S.user.no;
   const head = isTeacher() ? 'وضع المعلّم' : (S.user.name ? 'أهلًا ' + S.user.name : 'أهلًا بك');
-  w.append(orgHead());
-  w.append(el('div', 'hero', `<h1>${esc(head)}</h1><p>${esc(sub)}</p>`));
+  w.append(el('div', 'hero', `<h1>${esc(head)}</h1>` + (isTeacher() ? `<p>${esc(sub)}</p>` : '')));
   if (!isTeacher()) { const cn = continueCard(); if (cn) w.append(cn); const rv = spacedCard(); if (rv) w.append(rv); }
   if (isTeacher()) {
     const row = el('div', 'btns2');
@@ -719,7 +720,7 @@ function home() {
         const pc = Math.round(sts2.filter(s2 => pp.done.includes(s2[0])).length / Math.max(1, sts2.length) * 100);
         c.innerHTML = `<div class="crow">${ringSvg(pc, 48)}<div><span class="sub">${esc(u.meta.subject)}</span>
           <strong>${fmt(u.unit.unitTitle)}</strong>
-          <span class="meta">ص ${fmt(u.unit.pages)} · ${pc ? pc + ' % منجز' : 'لم تبدأ بعد'}</span>
+          <span class="meta">${pc ? pc + ' % منجز' : 'لم تبدأ بعد'}</span>
           ${hid ? '<span class="tag">مخفيّة عن الطلبة</span>' : ''}</div></div>`;
         row.append(c);
       });
@@ -1397,7 +1398,7 @@ const ST_ALL = [
   ['aims', 'أهداف الوحدة', null],
   ['lrn', 'مسار الإتقان', null],
   ['lab', 'تجارب ومحاكاة', 'lab'],
-  ['learn', 'الشرح والأشكال', 'sum'],
+  ['learn', 'الشرح', 'sum'],
   ['ex', 'أمثلة تفاعلية', 'ex'],
   ['q', 'أسئلة أحلّها', 'q'],
   ['book', 'حلول أسئلة الكتاب', 'book'],
@@ -1442,26 +1443,29 @@ function unitView(u) {
   const learn = keys.filter(k => k !== 't' && k !== 'print');
   const pct = Math.round(learn.filter(k => p.done.includes(k)).length / Math.max(1, learn.length) * 100);
 
+  const focus = !live && S.tab === 'lrn' && ((S.lp[0] === 'seg' && S.lp[1]) || (S.lp[0] === 'p' && S.lp[1]));
   const head = el('div', 'uhead uhead2');
   head.innerHTML = `<div style="flex:1">
-      ${live ? '' : '<a class="back" href="#">‹ كل الوحدات</a>'}
+      ${live ? '' : '<a class="back" href="#">‹ الرئيسية</a>'}
       <strong>${fmt(u.unit.unitTitle)}</strong>
-      <span>${esc(u.meta.subject)} — ${esc(u.meta.grade)} · ص ${fmt(u.unit.pages)}</span></div>${ringSvg(pct)}`;
-  w.append(head);
+      <span>${esc(u.meta.subject)}</span></div>${ringSvg(pct)}`;
+  if (!focus) w.append(head);
 
   const nav = el('div', 'steps');
+  nav.setAttribute('role', 'tablist');
   sts.forEach(([k, t], i) => {
     const prev = i > 0 ? sts[i - 1][0] : null;
     const locked = !isTeacher() && SET.perm.seq && k !== 't' && k !== 'lrn' && prev && prev !== 't' && prev !== 'lrn' && !p.done.includes(prev) && !p.done.includes(k);
     const b = el('button', 'st' + (S.tab === k ? ' on' : '') + (p.done.includes(k) ? ' done' : '') + (locked ? ' lock' : ''));
+    b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', S.tab === k ? 'true' : 'false');
     b.innerHTML = `<b>${p.done.includes(k) ? '✓' : (k === 't' ? '★' : i + 1)}</b>${esc(t)}`;
     b.onclick = () => { if (locked) { flash('أكمل المحطّة السابقة أوّلًا.'); return; } location.hash = `#${u.id}/${k}`; };
     if (live && k !== 'test') b.style.display = 'none';
     nav.append(b);
   });
-  w.append(nav);
+  if (!focus) w.append(nav);
 
-  if (!isTeacher() && !(S.user || {}).prev) { logEvent('open', u.id, S.tab); try { localStorage.setItem('dosiati-last', JSON.stringify({ id: u.id, k: S.tab, t: Date.now() })); } catch (e) {} }
+  if (!isTeacher() && !(S.user || {}).prev) { logEvent('open', u.id, S.tab); try { const hh = (S.tab === 'lrn' && (S.lp[0] === 'seg' || (S.lp[0] === 'p' && S.lp[1]))) ? location.hash.slice(1) : undefined; localStorage.setItem('dosiati-last', JSON.stringify({ id: u.id, k: S.tab, t: Date.now(), h: hh })); } catch (e) {} }
   const body = el('div', 'tabbody');
   const R = { aims: stAims, lrn: stLrn, lab: stLab, learn: stLearn, ex: stEx, q: stQ, book: stBook, quiz: stQuiz, test: stTest, print: stPrint, t: stTeacher };
   (R[S.tab] || stAims)(body, u);
@@ -2257,10 +2261,21 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#zin').onclick = () => zoom(1);
   $('#zout').onclick = () => zoom(-1);
   $('#out').onclick = () => { if (confirm('تسجيل الخروج ؟')) logout(); };
+  initMenu();
   setZoom(+(localStorage.getItem('dosiati-zoom') || 0));
   boot();
   if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.__DATA__) navigator.serviceWorker.register('sw.js');
 });
+function initMenu() {
+  const mb = $('#mbtn'), mn = $('#menu');
+  if (!mb || !mn) return;
+  const close = () => { mn.hidden = true; mb.setAttribute('aria-expanded', 'false'); };
+  mb.onclick = e => { e.stopPropagation(); const open = mn.hidden; mn.hidden = !open; mb.setAttribute('aria-expanded', open ? 'true' : 'false'); };
+  document.addEventListener('click', e => { if (!mn.hidden && !mn.contains(e.target) && e.target !== mb) close(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && !mn.hidden) { close(); mb.focus(); } });
+  ['sbtn', 'tbtn', 'pbtn', 'out'].forEach(id => { const b = $('#' + id); if (b) b.addEventListener('click', close); });
+  window.addEventListener('hashchange', close);
+}
 function zoom(d) { setZoom((+(localStorage.getItem('dosiati-zoom') || 0)) + d); }
 function setZoom(z) {
   z = Math.max(-2, Math.min(6, z));
@@ -2445,27 +2460,23 @@ function lrHome(w, u, L) {
   const done = lDoneCount(u), cur = lCur(u);
   const h = el('div', 'lrhead');
   h.innerHTML = `<strong>مسار الإتقان</strong>
-    <span>${L.segments.length} مقطعًا · ${L.items.length} فقرة · ${ns.length} نتاجات</span>
     <div class="lbar"><i style="width:${ok / ns.length * 100}%"></i><i class="m" style="width:${mid / ns.length * 100}%"></i></div>
-    <span class="sm">أتقنتَ ${ok} من ${ns.length} نتاجات · ${mid} تحتاج مراجعة · أنهيتَ ${done} من ${L.segments.length} مقاطع</span>`;
+    <span class="sm">أنهيتَ ${done} من ${L.segments.length} مقاطع</span>`;
   w.append(h);
 
-  w.append(el('h3', 'lsec', 'ماذا تريد أن تفعل الآن ؟'));
-  w.append(el('p', 'hint', 'أنت تختار ، ولكلّ مدخل شرط إغلاق مختلف.'));
   const g = el('div', 'lentry');
-  const mk = (t, s, tag, cls, fn) => {
-    const x = el('button', '', `<b>${t}</b><i>${s}</i><em class="${cls}">${tag}</em>`);
-    x.onclick = fn; g.append(x);
+  const mk = (t, s, tag, cls, fn, first) => {
+    const x = el('button', '', `<b>${t}</b>` + (s ? `<i>${s}</i>` : ''));
+    x.onclick = fn; if (first) g.prepend(x); else g.append(x);
   };
-  mk('درس فاتني أو لم أفهمه', 'الشرح والمثال المحلول ، ثمّ إثبات الإتقان', 'يُغلق بالإتقان', 'gate', () => lGo(u, 'les', 'catch'));
-  mk('أُحضّر لحصّة قادمة', 'النتاجات والشرح والمحاكاة قبل الحصّة', 'بلا شرط إتقان', 'nogate', () => lGo(u, 'les', 'prep'));
-  mk('أُراجع', 'فقرات على النتاجات التي لم تُتقنها فقط', 'يُغلق بالإتقان', 'gate', () => lGo(u, 'rev'));
-  mk('أتعلّم الوحدة وحدي من الصفر', done ? ('وصلتَ إلى المقطع ' + (cur || L.segments.length) + ' من ' + L.segments.length) : (L.segments.length + ' مقاطع متتابعة ، لا يُفتح مقطع إلّا بإتقان ما قبله'), 'مسار مُقفل', 'gate', () => lGo(u, 'p'));
+  mk('درس فاتني أو لم أفهمه', '', '', 'gate', () => lGo(u, 'les', 'catch'));
+  mk('أُحضّر لحصّة قادمة', '', '', 'nogate', () => lGo(u, 'les', 'prep'));
+  mk('أُراجع', '', '', 'gate', () => lGo(u, 'rev'));
+  mk(done ? 'أكمل رحلتي في الوحدة' : 'أبدأ رحلتي في الوحدة', done ? ('المقطع ' + (cur || L.segments.length) + ' من ' + L.segments.length) : '', '', 'gate', () => lGo(u, 'p'), true);
   w.append(g);
 
   const tc = el('div', 'box mint');
   tc.append(el('div', 'bt', 'اختبار الوحدة الذاتي'));
-  tc.append(el('p', 'hint', L.selftest.n + ' فقرة بجدول مواصفات . لا تُعرض الإجابات أثناءه ، وينتهي بخريطة نتاجاتك وقرار بما تفعله بعده.'));
   const tb = el('button', 'btn', 'ابدأ الاختبار');
   tb.onclick = () => lrStartTest(u, L);
   tc.append(tb);
@@ -2481,7 +2492,6 @@ function lrHome(w, u, L) {
   ns.forEach(n => { const s = lOst(u, n); const p = lPct(u, n);
     ch.append(el('span', 'lchip ' + s, 'نتاج ' + n + ' · ' + lStName(s) + (p !== null ? ' · ' + p + '%' : ''))); });
   w.append(ch);
-  w.append(el('p', 'hint', 'النسبة هي الصحّة من المحاولة الأولى — وهي المؤشّر الصادق ، لأنّ النسبة بعد الإعادة تتحسّن حتمًا.'));
 }
 
 /* ---------- قائمة الدروس ---------- */
@@ -2523,7 +2533,6 @@ function lrPath(w, u, L) {
     <div class="lbar"><i style="width:${done / L.segments.length * 100}%"></i></div>
     <span class="sm">${cur ? 'المقطع التالي : ' + cur : 'أتممتَ المسار كلّه'}</span>`;
   w.append(h);
-  w.append(el('p', 'hint', 'هذا المسار لمن لم يحضر الشرح أصلًا . المقاطع متتابعة ومُقفلة : لا يُفتح مقطع إلّا بإتقان الذي قبله ، حتى لا تبني على أساس ناقص.'));
   if (cur) { const g = el('button', 'btn ok wide'); g.textContent = (P.seg[cur].tries ? 'أكمل من المقطع ' : 'ابدأ من المقطع ') + cur; g.onclick = () => lGo(u, 'p', cur); w.append(g); }
   L.lessons.forEach(le => {
     w.append(el('h3', 'lsec', fmt(le.t)));
@@ -2531,7 +2540,7 @@ function lrPath(w, u, L) {
       const st = P.seg[s.i], lock = !lUnlocked(u, s.i);
       const c = el('div', 'lrow' + (lock ? ' off' : ''));
       c.innerHTML = `<div class="num">${st.done ? '✓' : lock ? '🔒' : s.i}</div>
-        <div><strong>${fmt(s.t)}</strong><span>المقطع ${s.i} · نتاج ${s.o}${st.fail ? ' · تعثّر ' + st.fail + ' مرّة' : ''}</span></div>
+        <div><strong>${fmt(s.t)}</strong><span>المقطع ${s.i}${st.fail ? ' · تعثّر ' + st.fail + ' مرّة' : ''}</span></div>
         <span class="lchip ${st.done ? 'ok' : lock ? 'no' : 'mid'}">${st.done ? 'أتقنته' : lock ? 'مُقفل' : 'متاح الآن'}</span>`;
       if (!lock) c.onclick = () => lGo(u, 'p', s.i);
       w.append(c);
@@ -2546,7 +2555,7 @@ function lrSeg(w, u, L, i, path) {
   const P = lp(u), st = P.seg[s.i];
   w.append(backLink(() => (path ? lGo(u, 'p') : lGo(u, 'les', 'catch', s.les))));
   const hd = el('div', 'card2');
-  hd.innerHTML = `<span class="hint">المقطع ${s.i} من ${L.segments.length} · ${fmt(L.lessons.find(x => +x.n === +s.les).t)} · نتاج ${s.o}</span>
+  hd.innerHTML = `<span class="hint">${s.i} / ${L.segments.length}</span>
     <strong class="lt">${fmt(s.t)}</strong>`;
   w.append(hd);
 
@@ -2568,13 +2577,14 @@ function lrSeg(w, u, L, i, path) {
 
   if (s.before || (s.after || []).length) {
     const th = el('div', 'lthread');
+    const more = el('details', 'nsmore'); more.append(el('summary', '', 'المزيد عن هذه الفكرة')); more.append(th);
     if (s.before) th.append(el('div', 'th1', '<b>من أين جاءت هذه الفكرة</b>' + ftxtP(s.before)));
     if ((s.after || []).length) {
       const d = el('div', 'th2'); d.innerHTML = '<b>وإلى أين تمضي بك</b>' +
         s.after.map(a => '<p><span class="tu">' + esc(a.t) + '</span> ' + fmt(a.x) + '</p>').join('');
       th.append(d);
     }
-    w.append(th);
+    w.append(more);
   }
 
   if (st.fail) { w.append(el('h3', 'lsec', 'شرح بطريقة أخرى')); w.append(el('div', 'box gold', ftxtP(s.alt))); }
@@ -2586,12 +2596,33 @@ function lrSeg(w, u, L, i, path) {
     c.append(a); w.append(c);
   }
 
-  const go = el('button', 'btn ok wide');
-  go.textContent = st.done ? 'أعد تذكرة الخروج' : 'ابدأ تذكرة الخروج · ثلاث صحيحة متتالية';
-  go.onclick = () => lrStartTk(u, L, { seg: s.i, path: !!path });
-  w.append(go);
-  w.append(el('p', 'hint ctr', st.done ? 'أتقنتَ هذا المقطع ، والإعادة اختيارية.'
-    : (path && s.i < L.segments.length ? 'بإتقانها يُفتح المقطع ' + (s.i + 1) + ' .' : 'بإتقانها يُسجَّل النتاج مُتقَنًا.')));
+  const mode = path ? 'p' : 'seg';
+  const hasNext = s.i < L.segments.length;
+  const nextOpen = hasNext && (!path || lUnlocked(u, s.i + 1));
+  const startTk = () => lrStartTk(u, L, { seg: s.i, path: !!path });
+  if (!path) {
+    const go = el('button', 'btn ok wide');
+    go.textContent = st.done ? 'أعد تذكرة الخروج' : 'ابدأ تذكرة الخروج';
+    go.onclick = startTk;
+    w.append(go);
+  }
+  /* شريط التنقّل السفلي : الرئيسية · السابق · ( تذكرة الخروج أو التالي ) */
+  w.append(el('div', 'nsfspace'));
+  const bar2 = el('div', 'nsfbar');
+  const ico = d => `<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+  const hm = el('a', 'nsi', ico('<path d="M4 11l8-7 8 7v9a1 1 0 01-1 1h-4v-6H9v6H5a1 1 0 01-1-1v-9z"/>'));
+  hm.href = '#'; hm.setAttribute('aria-label', 'الرئيسية');
+  const pv = el('button', 'nsi', ico('<path d="M9 6l6 6-6 6"/>'));
+  pv.type = 'button'; pv.setAttribute('aria-label', 'المقطع السابق');
+  if (s.i > 1) pv.onclick = () => lGo(u, mode, s.i - 1); else pv.disabled = true;
+  const pr = el('button', 'nsp');
+  pr.type = 'button';
+  const arrow = ico('<path d="M15 6l-6 6 6 6"/>');
+  if (path && !st.done) { pr.innerHTML = 'تذكرة الخروج ' + arrow; pr.onclick = startTk; }
+  else if (nextOpen) { pr.innerHTML = 'التالي ' + arrow; pr.classList.add('ok'); pr.onclick = () => lGo(u, mode, s.i + 1); }
+  else { pr.innerHTML = 'إنهاء ' + arrow; pr.classList.add('ok'); pr.onclick = () => { if (path) lGo(u, 'p'); else lGo(u); }; }
+  bar2.append(hm, pv, pr);
+  w.append(bar2);
 }
 function waAsk(u, s) {
   const t = 'السلام عليكم أستاذ . أنا في وحدة ' + u.unit.unitTitle.replace(/<[^>]*>/g, '') +
