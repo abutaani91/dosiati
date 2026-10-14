@@ -1,4 +1,4 @@
-const CACHE = 'dosiati-v30';
+const CACHE = 'dosiati-v32';
 /* خزانة مستقلّة للأشكال لا يمسّها تحديث الإصدار ، فلا يفقد الطالب ما نزّله */
 const FIGC = 'dosiati-fig';
 const FILES = ['./', 'index.html', 'app.js', 'data.json', 'extras.json', 'learn.json', 'figs.json', 'sims.js', 'logo.png', 'manifest.webmanifest', 'icon.svg'];

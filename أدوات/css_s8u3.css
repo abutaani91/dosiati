@@ -1,0 +1,12 @@
+.fmseg{display:flex;flex-wrap:wrap;gap:.3rem;margin:.35rem 0}
+.fmb{font:inherit;font-size:.82rem;padding:.36rem .66rem;border:1px solid var(--line);border-radius:999px;background:#fff;color:#5b6b80;cursor:pointer}
+.fmb.fmon{background:var(--navy);border-color:var(--navy);color:#fff}
+.fmb.fmno{background:#FFF1F0;border-color:#E8A39B;color:#9b2c22}
+.fmfig{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:.5rem 0;background:#fff}
+.fmsvg{display:block;width:100%;height:auto;max-height:300px}
+.fmnote{font-size:.76rem;color:#8894a6;margin:.35rem 0;line-height:1.6}
+.fmq{background:#f6f8fb;border:1px solid var(--line);border-radius:10px;padding:.55rem .7rem;margin:.4rem 0;font-size:.9rem;color:var(--navy);line-height:1.75}
+.fminp{font:inherit;width:8rem;padding:.4rem .5rem;border:1px solid var(--line);border-radius:9px;direction:ltr}
+.fmunit{align-self:center;color:#5b6b80;font-size:.85rem}
+.fmlg{display:flex;flex-wrap:wrap;gap:.3rem .9rem;font-size:.76rem;color:#5b6b80;margin:.1rem 0 .4rem}
+.fmlg i{display:inline-block;width:.7rem;height:.7rem;border-radius:3px;margin-inline-end:.25rem;vertical-align:-1px}

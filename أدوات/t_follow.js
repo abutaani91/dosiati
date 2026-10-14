@@ -1,0 +1,10 @@
+const {chromium}=require('/home/claude/.npm-global/lib/node_modules/playwright-core');
+(async()=>{const b=await chromium.launch({executablePath:'/opt/pw-browsers/chromium-1194/chrome-linux/chrome'});
+const p=await (await b.newContext({viewport:{width:430,height:2000},serviceWorkers:'block'})).newPage();
+const errs=[],reqs=[];p.on('pageerror',e=>errs.push(String(e)));p.on('request',r=>{if(/script\.google|stub/.test(r.url()))reqs.push(r.url().slice(0,60))});
+await p.route('**/stub*',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({rows:[{t:Date.now(),code:'X',g:'8',type:'login'}]})}));
+await p.goto('http://localhost:8799/',{waitUntil:'networkidle'});await p.waitForTimeout(800);
+await p.evaluate(()=>{SET.log={url:'http://localhost:8799/stub',key:'k',on:true};setUser({teacher:true});openStore();S.screenLogin=false;S.adminPage=true;S.admin='follow';location.hash='';render()});
+await p.waitForTimeout(1500);
+const t=await p.evaluate(()=>[...document.querySelectorAll('p.hint')].map(x=>x.textContent).filter(x=>/تحديث|سحب/.test(x)).join(' | '));
+console.log('requests',reqs.length,reqs[0]||'', '| info:',t);console.log('ERRORS',errs);await b.close();})();

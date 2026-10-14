@@ -1,6 +1,6 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '30';
-const APP_DATE = '2026/10/11';
+const APP_VER = '32';
+const APP_DATE = '2026/10/14';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
 const $ = s => document.querySelector(s);
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
@@ -978,6 +978,9 @@ function adminView() {
     row.append(rf, xl, js);
     const info = el('p', 'hint', '');
     b.append(info);
+    /* سحب تلقائي من الجدول عند فتح الصفحة ( مرّة كلّ دقيقتين ) — كان المعلّم يرى نسخة قديمة ما لم يضغط « تحديث » */
+    if (SET.log && SET.log.url && (!window.__fpull || Date.now() - window.__fpull > 120000)) { window.__fpull = Date.now(); setTimeout(() => pullRows(true), 0); }
+    else if (window.__fpull) info.textContent = 'آخر سحب من الجدول : ' + new Date(window.__fpull).toLocaleTimeString('ar-EG');
 
     const list = rosterOf(g);
     if (!list.length) { b.append(el('p', 'empty', 'لا توجد أسماء لهذا الصف . أضفها من تبويب « قائمة الطلبة ».')); return; }
