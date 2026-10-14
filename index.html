@@ -1114,6 +1114,16 @@ body.dark .nsfbar .nsp{background:#2B5CA8;color:#fff}
 body.present .nsfbar{max-width:70rem}
 :focus-visible{outline:3px solid #E6AB2E;outline-offset:2px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+.hubg{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem;margin-top:.7rem}
+.hubt{position:relative;min-height:92px;background:#fff;border:1px solid var(--line);border-radius:16px;padding:.8rem;display:flex;flex-direction:column;gap:.4rem;color:var(--ink);text-decoration:none}
+.hubt .hi{font-size:1.5rem;line-height:1}.hubt .ht{font-size:.95rem;font-weight:600}
+.hubt .hd{position:absolute;top:.5rem;inset-inline-end:.6rem;font-size:.85rem;color:#1E6B3B}
+.hubt.done{border-color:#9AD0B0}.hubt.lock{opacity:.55}
+@media(min-width:700px){.hubg{grid-template-columns:repeat(3,minmax(0,1fr))}}
+body.dark .hubt{background:#16202F;color:var(--ink);border-color:var(--line)}
+#vfoot{text-align:center;font-size:.78rem;color:#5b6b80;padding:.8rem 1rem 1.2rem}
+body:has(.nsfbar) #vfoot{padding-bottom:6.2rem}
+@media print{#vfoot{display:none}}
 </style>
 </head>
 <body>
@@ -1132,6 +1142,7 @@ body.present .nsfbar{max-width:70rem}
   </div>
 </div>
 <div id="app"></div>
+<footer id="vfoot"></footer>
 <script src="sims.js"></script>
 <script src="app.js"></script>
 </body>

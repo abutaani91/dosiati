@@ -1,5 +1,5 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '33';
+const APP_VER = '34', APP_SHOW = '3.4';
 const BRAND = 'نشامى العلم', TAGLINE = 'تعلّم بإتقان .. واترك أثرك';
 const APP_DATE = '2026/10/14';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
@@ -505,7 +505,7 @@ function route() {
   if (S.unit && !isTeacher()) {
     if (S.unit.gno !== (S.user || {}).grade || !uset(S.unit.id).on) S.unit = null;
   }
-  S.tab = tab || (S.unit && lrnOf(S.unit.id) ? 'lrn' : 'aims');
+  S.tab = tab || (S.unit ? 'hub' : 'aims');
   render();
   window.scrollTo(0, 0);
 }
@@ -548,6 +548,7 @@ function bar() {
   const bs = $('#bsub'); if (bs) bs.textContent = SET.school || '';
   const bl = $('#blogo'); if (bl) bl.src = window.__LOGO__ || LOGO;
   const cr = $('#mcred'); if (cr) cr.textContent = SET.teacherName ? 'إعداد : ' + SET.teacherName : '';
+  const vf = $('#vfoot'); if (vf) vf.textContent = 'نسخة تجريبية · الإصدار ' + APP_SHOW;
   const sb = $('#sbtn'); if (sb) { const off = localStorage.getItem('dosiati-snd') === '0'; sb.textContent = off ? 'تشغيل الأصوات' : 'كتم الأصوات'; sb.style.display = (SET.snd && SET.snd.on === false && !isTeacher()) ? 'none' : ''; }
   const tb = $('#tbtn'); if (tb) tb.textContent = document.body.classList.contains('dark') ? 'الوضع النهاري' : 'الوضع الليلي';
   pb.style.display = (S.user && !isTeacher() && !SET.perm.present) ? 'none' : '';
@@ -604,7 +605,6 @@ function loginView() {
   tb.onclick = () => { S.loginTeacher = !teacherMode; render(); };
   g.append(tb);
   w.append(g);
-  w.append(el('p', 'foot', 'الإصدار ' + APP_VER));
   setTimeout(() => i.focus(), 50);
   return w;
 }
@@ -1328,7 +1328,7 @@ function adminView() {
   function filePage() {
     const vb = sec('إصدار التطبيق');
     const nIn = (D.roster || []).filter(r => !r.out).length, nOutAll = (D.roster || []).filter(r => r.out).length;
-    vb.append(el('div', 'box mint', '<div class="bt">الإصدار ' + APP_VER + ' · ' + APP_DATE + '</div>' +
+    vb.append(el('div', 'box mint', '<div class="bt">الإصدار ' + APP_SHOW + ' ( ' + APP_VER + ' ) · ' + APP_DATE + '</div>' +
       '<p style="margin:0;font-size:.88rem">عدد الوحدات : ' + S.units.length + ' · الطلبة : ' + nIn + ' على رأس عملهم و' + nOutAll + ' منقولون.<br>' +
       'رقم الإصدار يظهر أيضًا أسفل شاشة الدخول . فإن رأيتَ على جهاز طالب رقمًا أقدم فنسخته من الكاش قديمة : يُغلق الصفحة ويفتحها ثانية مع إنترنت.</p>'));
     if (SET.stale) vb.append(el('div', 'box gold', '<div class="bt">حُدّثت الإعدادات من الملفّ المنشور</div>' +
@@ -1437,7 +1437,7 @@ function unitView(u) {
   const live = liveNow(u);
   const sts = stations(u);
   const keys = sts.map(s => s[0]);
-  if (!keys.includes(S.tab)) S.tab = keys[0];
+  if (S.tab !== 'hub' && !keys.includes(S.tab)) S.tab = 'hub';
   if (live && S.tab !== 'test') { location.hash = `#${u.id}/test`; S.tab = 'test'; }
   const p = pathP(u);
   const learn = keys.filter(k => k !== 't' && k !== 'print');
@@ -1446,7 +1446,7 @@ function unitView(u) {
   const focus = !live && S.tab === 'lrn' && ((S.lp[0] === 'seg' && S.lp[1]) || (S.lp[0] === 'p' && S.lp[1]));
   const head = el('div', 'uhead uhead2');
   head.innerHTML = `<div style="flex:1">
-      ${live ? '' : '<a class="back" href="#">‹ الرئيسية</a>'}
+      ${live ? '' : (S.tab === 'hub' ? '<a class="back" href="#">‹ الرئيسية</a>' : `<a class="back" href="#${u.id}/hub">‹ ${esc(fmt(u.unit.unitTitle))}</a>`)}
       <strong>${fmt(u.unit.unitTitle)}</strong>
       <span>${esc(u.meta.subject)}</span></div>${ringSvg(pct)}`;
   if (!focus) w.append(head);
@@ -1463,14 +1463,41 @@ function unitView(u) {
     if (live && k !== 'test') b.style.display = 'none';
     nav.append(b);
   });
-  if (!focus) w.append(nav);
+  if (!focus && isTeacher()) w.append(nav);
 
   if (!isTeacher() && !(S.user || {}).prev) { logEvent('open', u.id, S.tab); try { const hh = (S.tab === 'lrn' && (S.lp[0] === 'seg' || (S.lp[0] === 'p' && S.lp[1]))) ? location.hash.slice(1) : undefined; localStorage.setItem('dosiati-last', JSON.stringify({ id: u.id, k: S.tab, t: Date.now(), h: hh })); } catch (e) {} }
   const body = el('div', 'tabbody');
   const R = { aims: stAims, lrn: stLrn, lab: stLab, learn: stLearn, ex: stEx, q: stQ, book: stBook, quiz: stQuiz, test: stTest, print: stPrint, t: stTeacher };
-  (R[S.tab] || stAims)(body, u);
+  if (S.tab === 'hub') stHub(body, u, sts, p); else (R[S.tab] || stAims)(body, u);
   w.append(body);
   return w;
+}
+const HUB_ICO = { aims: '🎯', lrn: '🧭', lab: '🧪', learn: '📖', ex: '✏️', q: '❓', book: '📘', quiz: '⚡', test: '📝', print: '🏅' };
+function stHub(b, u, sts, p) {
+  const live = liveNow(u);
+  if (live) { b.append(el('p', 'hint', 'اختبار الوحدة جارٍ.')); const x = el('a', 'btn', 'متابعة الاختبار'); x.href = `#${u.id}/test`; b.append(x); return; }
+  const lk = (i) => {
+    const k = sts[i][0], prev = i > 0 ? sts[i - 1][0] : null;
+    return !isTeacher() && SET.perm.seq && k !== 't' && k !== 'lrn' && prev && prev !== 't' && prev !== 'lrn' && !p.done.includes(prev) && !p.done.includes(k);
+  };
+  const hasL = sts.some(s => s[0] === 'lrn');
+  if (hasL) {
+    const c = el('div', 'box nscont');
+    c.append(el('div', 'bt', 'مسار الإتقان'));
+    const a = el('a', 'btn', p.done.includes('lrn') ? 'راجِع المسار' : 'ابدأ / تابِع'); a.href = `#${u.id}/lrn`;
+    c.append(a); b.append(c);
+  }
+  const g = el('div', 'hubg');
+  sts.forEach(([k, t], i) => {
+    if (k === 't' || k === 'lrn') return;
+    const locked = lk(i), done = p.done.includes(k);
+    const a = el('a', 'hubt' + (done ? ' done' : '') + (locked ? ' lock' : ''));
+    a.href = `#${u.id}/${k}`;
+    a.innerHTML = `<span class="hi">${HUB_ICO[k] || '•'}</span><span class="ht">${esc(t)}</span>${done ? '<span class="hd">✓</span>' : (locked ? '<span class="hd">🔒</span>' : '')}`;
+    a.onclick = (e) => { if (locked) { e.preventDefault(); flash('أكمل المحطّة السابقة أوّلًا.'); } };
+    g.append(a);
+  });
+  b.append(g);
 }
 function ringSvg(p, size) {
   const R = 22, C = 2 * Math.PI * R, s = size || 54;
