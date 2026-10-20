@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>بوابة نشامى العلم</title>
+<meta name="theme-color" content="#00205B">
+<link rel="icon" href="icon.svg">
+<style>
+@font-face{font-family:'Plex';src:url(fonts/plex-arabic-400.woff2) format('woff2');font-weight:400;font-display:swap}
+@font-face{font-family:'Plex';src:url(fonts/plex-arabic-700.woff2) format('woff2');font-weight:700;font-display:swap}
+:root{--bg:#F3F5F9;--card:#FFFFFF;--ink:#12243B;--muted:#52627A;--line:#D9E1EC;--navy:#00205B;--navy-ink:#FFFFFF;--gold:#B8832A;--soft:#E7EDF7;
+  --font:'Plex',system-ui,-apple-system,'Segoe UI',Tahoma,sans-serif}
+@media (prefers-color-scheme:dark){:root{--bg:#0E1726;--card:#16233A;--ink:#E8EEF8;--muted:#9FB0C8;--line:#27395A;--navy:#9DB8F0;--navy-ink:#0E1726;--gold:#E0B25C;--soft:#1D2D49;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);font-size:16px;line-height:1.7;
+  padding:max(20px,env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 40px max(16px,env(safe-area-inset-left))}
+.wrap{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+.top{display:flex;align-items:center;gap:14px}
+.top img{width:60px;height:60px;border-radius:50%;background:#fff;flex:none}
+h1{margin:0;font-size:1.6rem;line-height:1.3;color:var(--navy)}
+h2{margin:0 0 .3rem;font-size:1.15rem;color:var(--navy)}
+p{margin:0}.sm{font-size:.9rem;color:var(--muted)}
+.doors{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.door{border-top:5px solid var(--navy)}.door.t{border-top-color:var(--gold)}
+.btn{font:inherit;font-weight:700;min-height:50px;padding:0 1.2rem;border-radius:12px;border:0;background:var(--navy);color:var(--navy-ink);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;text-align:center}
+.btn.ghost{background:transparent;color:var(--navy);border:1px solid var(--line);font-weight:600}
+a:focus-visible{outline:3px solid var(--gold);outline-offset:2px}
+.tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:12px}
+.tool{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:4px;color:var(--ink);text-decoration:none;min-height:96px}
+.tool b{color:var(--navy);font-size:1.05rem}
+.tool.soon{border-style:dashed}
+.st{font-size:.8rem;font-weight:700;color:var(--muted)}
+.ext{display:flex;flex-wrap:wrap;gap:.6rem}
+.foot{text-align:center;font-size:.85rem;color:var(--muted)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <img src="logo.png" alt="">
+    <div><h1>بوابة نشامى العلم</h1><p class="sm">مدرسة رجم الشامي الشرقي الثانوية للبنين</p></div>
+  </header>
+
+  <section class="doors" aria-label="المدخلان">
+    <div class="card door">
+      <h2>أنا طالب</h2>
+      <p class="sm">ادخل بكودك المطبوع على بطاقتك، وتابع مسار الإتقان والاختبارات في وحداتك.</p>
+      <a class="btn" href="index.html">ادخل إلى نشامى العلم</a>
+      <a class="btn ghost" href="https://siraj.moe.gov.jo/" target="_blank" rel="noopener">عالق في فكرة؟ اسأل سراج</a>
+    </div>
+    <div class="card door t">
+      <h2>أنا معلّم</h2>
+      <p class="sm">كل أداة تحفظ بياناتها على جهازك، والبوابة نفسها لا تحفظ شيئًا.</p>
+      <div class="tools">
+        <a class="tool" href="index.html"><b>لوحة نشامى العلم</b><span class="sm">المتابعة وتقرير النتاجات وأكواد المقاعد. ادخل برمز المعلّم.</span></a>
+        <a class="tool" href="https://abutaani91.github.io/sijil/"><b>سجلي</b><span class="sm">المتابعة بالحصة والواجبات والعلامات.</span></a>
+        <a class="tool" href="https://abutaani91.github.io/tahlil/"><b>تحليل</b><span class="sm">بنك الأسئلة وورقة الإجابة وتحليل الاختبارات.</span></a>
+        <a class="tool soon" href="https://abutaani91.github.io/hudoor/"><b>حضور</b><span class="sm">الحضور والتأخير والزي.</span><span class="st">قيد البناء</span></a>
+      </div>
+    </div>
+  </section>
+
+  <section class="card" aria-label="روابط رسمية">
+    <h2>روابط رسمية</h2>
+    <div class="ext">
+      <a class="btn ghost" href="https://siraj.moe.gov.jo/" target="_blank" rel="noopener">سراج</a>
+      <a class="btn ghost" href="https://ajyal.moe.gov.jo/emis/login.aspx" target="_blank" rel="noopener">منصة أجيال</a>
+      <a class="btn ghost" href="https://www.moe.gov.jo/" target="_blank" rel="noopener">وزارة التربية والتعليم</a>
+    </div>
+    <p class="sm">الروابط الرسمية تحتاج إنترنت، وتُفتح خارج البوابة.</p>
+  </section>
+  <p class="foot">نشامى العلم · تعلّم بإتقان .. واترك أثرك</p>
+</div>
+</body>
+</html>

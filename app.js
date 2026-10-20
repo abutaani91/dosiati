@@ -1,5 +1,5 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '40', APP_SHOW = '4.0';
+const APP_VER = '41', APP_SHOW = '4.1';
 const BRAND = 'نشامى العلم', TAGLINE = 'تعلّم بإتقان .. واترك أثرك';
 const APP_DATE = '2026/10/20';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
@@ -1983,6 +1983,16 @@ function outProg(u) {
 function simNote() {
   return el('p', 'hint simn', 'أسئلة هذا الاختبار من إعداد المعلّم ، وتحاكي في أنماطها ومستوياتها المعرفية أسئلة الاختبارات الوطنية والدولية ، وليست منقولة منها.');
 }
+/* سراج عند التعثّر : ينسخ للطالب سؤالًا جاهزًا ثمّ يفتح سراج */
+function sirajAsk(u, txt) {
+  const box = el('div', 'box sirajc');
+  box.innerHTML = '<div class="bt">ما زالت الفكرة غير واضحة ؟</div><p class="hint" style="margin:.2rem 0 .5rem">اضغط الزرّ فيُنسخ سؤالك جاهزًا ويُفتح سراج ، مساعد وزارة التربية والتعليم . الصق السؤال هناك واطلب الشرح خطوة خطوة.</p>';
+  const a = el('a', 'btn sm', 'انسخ سؤالي وافتح سراج'); a.href = SIRAJ_URL; a.target = '_blank'; a.rel = 'noopener';
+  const q = String(txt || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+  a.onclick = () => { try { if (navigator.clipboard) navigator.clipboard.writeText(q).then(() => flash('نُسخ سؤالك . الصقه في سراج.'), () => {}); } catch (e) {} };
+  box.append(a);
+  return box;
+}
 function sirajCard() {
   const c = el('div', 'box sirajc');
   c.innerHTML = `<div class="bt">عالق في فكرة ؟ اسأل سراج</div><p class="hint" style="margin:.2rem 0 .5rem">سراج مساعد وزارة التربية والتعليم الذكي. حاول الحلّ بنفسك أوّلًا ، ثمّ اسأله ليشرح لك الخطوة التي توقّفتَ عندها.</p>`;
@@ -3248,6 +3258,10 @@ function lrTicket(w, u, L) {
       ? '<b>صحيح.</b> ' + (fin ? (t.seg ? 'بهذا يكتمل المقطع.' : 'بهذا يكتمل إتقان النتاج.') : 'بقي ' + (3 - streak) + ' من ثلاث متتالية.')
       : '<b>غير صحيح.</b> ' + fmt(it.fb[t.pick] || '') + '<br>الصواب : ' + fmt(it.op[it.a]) + ' .<br><span class="sm">ستعود فقرة أخرى على الموضوع نفسه ، وعدّاد المتتالية يبدأ من الصفر.</span>';
     c.append(d);
+    if (!ok && !isTeacher()) {
+      const sg = t.seg ? segOf(L, t.seg) : null;
+      c.append(sirajAsk(u, 'أنا طالب في ' + (GRADES[u.gno] || '') + ' ، مادة ' + (u.meta.subject || '') + ' ، وحدة « ' + u.unit.unitTitle + ' »' + (sg ? ' ، درس « ' + sg.t + ' »' : '') + ' . لم أفهم هذا السؤال : ' + it.q + ' اخترتُ : « ' + it.op[t.pick] + ' » والإجابة الصحيحة : « ' + it.op[it.a] + ' » . اشرح لي لماذا خطوة خطوة ، واسألني سؤالًا مشابهًا لأتأكّد من فهمي.'));
+    }
   } else c.append(el('p', 'hint', 'لديك محاولة واحدة لهذه الفقرة . الجواب لا يُعرض قبل اختيارك.'));
   w.append(c);
   if (picked) { const n = el('button', 'btn wide', 'التالي'); n.onclick = () => lrNext(u, L); w.append(n); }
@@ -3311,6 +3325,7 @@ function lrShowEnd(u, L, info) {
       w.append(el('div', 'box gold', ftxtP(s.alt)));
       const g = el('button', 'btn ok wide', 'ارجع إلى الشرح وأعد المحاولة');
       g.onclick = () => lGo(u, info.path ? 'p' : 'seg', s.i); w.append(g);
+      if (!isTeacher()) w.append(sirajAsk(u, 'أنا طالب في ' + (GRADES[u.gno] || '') + ' ، مادة ' + (u.meta.subject || '') + ' ، وحدة « ' + u.unit.unitTitle + ' » . لم أفهم فكرة : « ' + s.t + ' » . اشرحها لي بمثال من الحياة خطوة خطوة ، ثمّ اسألني ثلاثة أسئلة قصيرة لأتأكّد من فهمي.'));
       if (P.seg[s.i].fail >= 2) { const a = el('a', 'btn ghost wide', 'أرسل لأستاذي موضع تعثّري'); a.href = waAsk(u, s); a.target = '_blank'; a.style.display = 'block'; a.style.textAlign = 'center'; a.style.marginTop = '.4rem'; w.append(a); }
     } else { const g = el('button', 'btn ok wide', 'رجوع'); g.onclick = () => lGo(u, 'rev'); w.append(g); }
   }
