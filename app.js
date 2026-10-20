@@ -1,7 +1,7 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '34', APP_SHOW = '3.4';
+const APP_VER = '40', APP_SHOW = '4.0';
 const BRAND = 'نشامى العلم', TAGLINE = 'تعلّم بإتقان .. واترك أثرك';
-const APP_DATE = '2026/10/14';
+const APP_DATE = '2026/10/20';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
 const $ = s => document.querySelector(s);
 const el = (t, c, h) => { const e = document.createElement(t); if (c) e.className = c; if (h !== undefined) e.innerHTML = h; return e; };
@@ -182,6 +182,27 @@ function newCode() {
   return s;
 }
 const fmtCode = c => String(c || '').replace(/(.{3})(?=.)/g, '$1-');
+
+/* ============ أكواد المقاعد ( الإصدار 4.0 ) ============
+   الكود يُحسب من عبارة سرّية على جهاز المعلّم + السنة + الصف + الشعبة + الرقم ،
+   فيعطي كل جهاز يحمل العبارة نفسها الكود نفسه ، دون خزنة ولا رفع مع كل طالب جديد.
+   الموقع المنشور يحمل بصمة كل مقعد فقط ( PBKDF2 ) ، ولا يحمل العبارة ولا الكود ولا الاسم. */
+const SEATK = 'dosiati-seat-phrase', SEATN = 'dosiati-seat-names';
+function seatPhrase() { try { return localStorage.getItem(SEATK) || ''; } catch (e) { return ''; } }
+function seatPhraseSet(v) { try { if (v) localStorage.setItem(SEATK, v); else localStorage.removeItem(SEATK); } catch (e) {} }
+function seatNames() { try { return JSON.parse(localStorage.getItem(SEATN) || '{}') || {}; } catch (e) { return {}; } }
+function seatNamesPut(o) { try { localStorage.setItem(SEATN, JSON.stringify(o)); } catch (e) {} }
+const seatKey = (g, s, n) => g + '|' + (s || '') + '|' + (+n);
+const SEATMEMO = {};
+function seatCode(phrase, y, g, s, n) {
+  const msg = 'seat|' + y + '|' + g + '|' + (s || '') + '|' + (+n);
+  const id = phrase.length + ':' + msg;
+  if (SEATMEMO[id] && SEATMEMO[id][0] === phrase) return SEATMEMO[id][1];
+  const sig = shmac(new TextEncoder().encode(phrase), new TextEncoder().encode(msg));
+  let out = ''; for (let i = 0; i < CLEN; i++) out += CA[sig[i] % CA.length];
+  SEATMEMO[id] = [phrase, out];
+  return out;
+}
 function normCode(v) {
   const t = String(v || '').toUpperCase().replace(/[^0-9A-Z]/g, '')
     .replace(/B/g, '8').replace(/S/g, '5').replace(/Z/g, '2');
@@ -244,6 +265,7 @@ function encName(name, code) {
   return btoa(out);
 }
 function decName(b64, code) {
+  if (!b64) return '';
   try {
     const r = rng(seedOf(code));
     const bin = atob(b64);
@@ -255,28 +277,42 @@ function decName(b64, code) {
 const codeOf = (g, n, year, term) => String(year || SET.year) + (term || SET.term) + g + String(n).padStart(2, '0');
 /* الرمز المطبوع للطالب : من الخزنة ، أو مشتقّ إن كان الصفّ ما زال على النظام القديم */
 function pinOf(r) {
+  if (r.seat) { const ph = seatPhrase(); return ph ? seatCode(ph, r.y, r.g, r.s, r.n) : ''; }
   const v = vaultOf(r.h);
   if (v) return v;
   const old = codeOf(r.g, r.n);
   return (r.h === hash(old)) ? old : '';
 }
+function remoteCodes() {
+  try { const v = JSON.parse(localStorage.getItem('dosiati-remote') || '[]'); return new Set((Array.isArray(v) ? v : []).map(x => String(x.code))); } catch (e) { return new Set(); }
+}
 function rosterOf(g) {
-  return (SET.roster || []).filter(r => r.g === g && !r.out).map(r => {
+  const SN = seatNames(); let RC = null;
+  return (SET.roster || []).filter(r => {
+    if (r.g !== g || r.out) return false;
+    if (!r.seat) return true;
+    if (SN[seatKey(r.g, r.s, r.n)]) return true;
+    if (!RC) RC = remoteCodes();
+    return RC.has(String(r.h).slice(0, 12));
+  }).map(r => {
     const pin = pinOf(r);
-    return { no: r.n, sec: r.s || '', code: String(r.h).slice(0, 12), pin,
-             name: (pin ? decName(r.e, pin) : '') || ('طالب رقم ' + r.n) };
+    const nm = r.seat ? (SN[seatKey(r.g, r.s, r.n)] || '') : (pin ? decName(r.e, pin) : '');
+    return { no: r.n, sec: r.s || '', code: String(r.h).slice(0, 12), pin, seat: !!r.seat, name: nm || ('طالب رقم ' + r.n) };
   }).sort((a, b) => (+a.no) - (+b.no));
 }
 
 /* ============ تسجيل أحداث الطلبة ============ */
 const LOGQ = 'dosiati-logq', LOGL = 'dosiati-events';
+const RKEY = 'dosiati-read-key';
+function readKey() { try { return localStorage.getItem(RKEY) || ''; } catch (e) { return ''; } }
+function readKeySet(v) { try { if (v) localStorage.setItem(RKEY, v); else localStorage.removeItem(RKEY); } catch (e) {} }
 function lsGet(k) { try { return JSON.parse(localStorage.getItem(k) || '[]'); } catch (e) { return []; } }
 function lsPut(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
 function logEvent(type, unit, detail, score) {
   if (!S.user || isTeacher() || S.user.prev || !SET.log || SET.log.on === false) return;
-  const e = { t: Date.now(), code: S.user.sid || S.user.code, name: S.user.name || '', g: S.user.grade, s: S.user.sec || '', n: S.user.no, type, unit: unit || '', detail: detail || '', score: (score === undefined ? '' : score) };
-  const loc = lsGet(LOGL); loc.push(e); lsPut(LOGL, loc.slice(-800));
-  const q = lsGet(LOGQ); q.push(e); lsPut(LOGQ, q.slice(-400));
+  const e = { t: Date.now(), code: S.user.sid || S.user.code, name: '', g: S.user.grade, s: S.user.sec || '', n: S.user.no, type, unit: unit || '', detail: detail || '', score: (score === undefined ? '' : score) };
+  const loc = lsGet(LOGL); loc.push(e); lsPut(LOGL, loc.slice(-2000));
+  const q = lsGet(LOGQ); q.push(e); lsPut(LOGQ, q.slice(-1500));
   flushLog();
 }
 let flushing = false;
@@ -317,8 +353,9 @@ const mmss = s => (s < 0 ? '00:00' : String(Math.floor(s / 60)).padStart(2, '0')
 
 /* ============ كود Apps Script الجاهز ============ */
 const GS_CODE = [
-"/**  متابعة دوسياتي — Google Apps Script  **/",
-"const KEY = 'ضع-كلمة-السر-هنا';   // يجب أن تطابق المفتاح في لوحة المعلّم",
+"/**  متابعة نشامى العلم — Google Apps Script — الإصدار 4.0  **/",
+"const WRITE_KEY = 'ضع-كلمة-الكتابة-هنا';  // تطابق « كلمة الكتابة » في لوحة المعلّم ، وتُنشر مع الموقع",
+"const READ_KEY  = 'ضع-كلمة-القراءة-هنا';  // على جهاز المعلّم فقط . لا تضعها في الموقع أبدًا",
 "const HEAD = ['الوقت','رمز الطالب','الاسم','الصف','الشعبة','الرقم','الحدث','الوحدة','تفصيل','العلامة'];",
 "",
 "function sheet_() {",
@@ -328,27 +365,29 @@ const GS_CODE = [
 "  return sh;",
 "}",
 "",
+"/* الكتابة : تقبل كلمة الكتابة فقط ، ولا تحفظ أسماء الطلبة */",
 "function doPost(e) {",
 "  try {",
 "    const d = JSON.parse(e.postData.contents || '{}');",
-"    if (d.k !== KEY) return out_({ error: 'key' });",
+"    if (d.k !== WRITE_KEY) return out_({ error: 'key' });",
 "    const sh = sheet_();",
-"    const rows = (d.rows || []).map(function (r) {",
-"      return [new Date(r.t), r.code, r.name, r.g, r.s, r.n, r.type, r.unit, r.detail, r.score];",
+"    const rows = (d.rows || []).slice(0, 2000).map(function (r) {",
+"      return [new Date(r.t), String(r.code || '').slice(0, 16), '', r.g, r.s, r.n, r.type, r.unit, String(r.detail || '').slice(0, 300), String(r.score === undefined ? '' : r.score).slice(0, 300)];",
 "    });",
 "    if (rows.length) sh.getRange(sh.getLastRow() + 1, 1, rows.length, HEAD.length).setValues(rows);",
 "    return out_({ ok: true, n: rows.length });",
 "  } catch (err) { return out_({ error: String(err) }); }",
 "}",
 "",
+"/* القراءة : لكلمة القراءة فقط */",
 "function doGet(e) {",
 "  if (e.parameter.stats) return stats_(e.parameter.g, e.parameter.u);",
-"  if ((e.parameter.k || '') !== KEY) return out_({ error: 'key' });",
+"  if ((e.parameter.k || '') !== READ_KEY) return out_({ error: 'key' });",
 "  const sh = sheet_();",
 "  const v = sh.getDataRange().getValues();",
 "  v.shift();",
 "  const rows = v.map(function (r) {",
-"    return { t: new Date(r[0]).getTime(), code: String(r[1]), name: r[2], g: String(r[3]), s: r[4], n: String(r[5]), type: r[6], unit: r[7], detail: r[8], score: r[9] };",
+"    return { t: new Date(r[0]).getTime(), code: String(r[1]), g: String(r[3]), s: r[4], n: String(r[5]), type: r[6], unit: r[7], detail: r[8], score: r[9] };",
 "  });",
 "  return out_({ rows: rows });",
 "}",
@@ -697,8 +736,10 @@ function home() {
     w.append(s);
   }
   const list = el('div', 'grid');
+  if (!isTeacher()) w.append(sirajCard());
   list.append(...cards());
   w.append(list);
+  w.append(officialLinks());
   w.append(el('p', 'foot', esc(SET.teacherName) + (SET.school ? ' — ' + esc(SET.school) : '')));
   return w;
 
@@ -717,10 +758,11 @@ function home() {
         const c = el('a', 'card' + (hid ? ' off' : ''));
         c.href = '#' + u.id;
         const pp = pathP(u), sts2 = stations(u).filter(s2 => s2[0] !== 't' && s2[0] !== 'print');
-        const pc = Math.round(sts2.filter(s2 => pp.done.includes(s2[0])).length / Math.max(1, sts2.length) * 100);
-        c.innerHTML = `<div class="crow">${ringSvg(pc, 48)}<div><span class="sub">${esc(u.meta.subject)}</span>
+        const op = outProg(u);
+        const pc = op ? Math.round(op.m / Math.max(1, op.n) * 100) : Math.round(sts2.filter(s2 => pp.done.includes(s2[0])).length / Math.max(1, sts2.length) * 100);
+        c.innerHTML = `<div class="crow">${ringSvg(pc, 48, op ? op.m + '/' + op.n : null)}<div><span class="sub">${esc(u.meta.subject)}</span>
           <strong>${fmt(u.unit.unitTitle)}</strong>
-          <span class="meta">${pc ? pc + ' % منجز' : 'لم تبدأ بعد'}</span>
+          <span class="meta">${op ? (op.m ? 'أتقنتَ ' + op.m + ' من ' + op.n + ' نتاجات' : 'لم تبدأ بعد') : (pc ? pc + ' % منجز' : 'لم تبدأ بعد')}</span>
           ${hid ? '<span class="tag">مخفيّة عن الطلبة</span>' : ''}</div></div>`;
         row.append(c);
       });
@@ -732,7 +774,7 @@ function home() {
 }
 
 /* ================= لوحة التحكّم ================= */
-const ADMIN_TABS = [['follow', 'متابعة الطلبة'], ['roster', 'قائمة الطلبة'], ['gen', 'إعدادات عامة'], ['perm', 'صلاحيات الطلبة'], ['units', 'الوحدات'], ['exam', 'الاختبار'], ['link', 'الربط والإرسال'], ['file', 'حفظ ونشر']];
+const ADMIN_TABS = [['follow', 'متابعة الطلبة'], ['out', 'تقرير النتاجات'], ['rev', 'مراجعة الأسئلة'], ['roster', 'قائمة الطلبة'], ['gen', 'إعدادات عامة'], ['perm', 'صلاحيات الطلبة'], ['units', 'الوحدات'], ['exam', 'الاختبار'], ['link', 'الربط والإرسال'], ['file', 'حفظ ونشر']];
 function adminView() {
   const D = S.draft || (S.draft = clone(SET));
   const w = el('div', 'wrap');
@@ -757,6 +799,8 @@ function adminView() {
   w.append(bar2);
 
   if (S.admin === 'follow') follow();
+  if (S.admin === 'out') outcomesTab();
+  if (S.admin === 'rev') revTab();
   if (S.admin === 'roster') rosterTab();
   if (S.admin === 'link') linkTab();
   if (S.admin === 'gen') general();
@@ -1060,10 +1104,235 @@ function adminView() {
       const L = SET.log || {};
       if (!L.url) { flash('لم تُضبط بيانات الجدول . افتح تبويب « الربط والإرسال ».'); return; }
       info.textContent = 'جارٍ التحديث …';
-      fetch(L.url + (L.url.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(L.key || ''))
+      const rk = readKey();
+      if (!rk) { info.textContent = 'اكتب « كلمة القراءة » في تبويب « الربط والإرسال » على هذا الجهاز أوّلًا.'; return; }
+      fetch(L.url + (L.url.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(rk))
         .then(r => r.json())
-        .then(d => { lsPut2('dosiati-remote', d.rows || []); info.textContent = 'آخر تحديث : ' + new Date().toLocaleTimeString('ar-EG') + ' · ' + (d.rows || []).length + ' سطرًا'; render(); })
+        .then(d => {
+          if (!d || !Array.isArray(d.rows)) { info.textContent = d && d.error === 'key' ? 'رفض الجدول كلمة القراءة . تأكّد أنها تطابق READ_KEY في السكربت.' : 'ردّ غير متوقّع من الجدول.'; return; }
+          lsPut2('dosiati-remote', d.rows); info.textContent = 'آخر تحديث : ' + new Date().toLocaleTimeString('ar-EG') + ' · ' + d.rows.length + ' سطرًا'; render(); })
         .catch(() => { info.textContent = 'تعذّر الاتصال بالجدول . تأكّد من الرابط والمفتاح ومن الإنترنت.'; });
+    }
+  }
+
+  /* ---------- تقرير النتاجات ( لكل وحدة ) ---------- */
+  function revTab() {
+    const b = sec('مراجعة الأسئلة', 'لا يُعدّ أيّ سؤال معتمدًا علميًّا حتى تضع عليه علامة « روجع » بنفسك. العلامات تُحفظ على هذا الجهاز فقط ، ولا تظهر للطلبة ، ولا تُرسل إلى أيّ مكان. صدّر السجلّ لتحتفظ بنسخة.');
+    const M = revLoad();
+    const all = S.units.filter(u => lrnOf(u.id));
+    if (!all.some(u => u.id === S.ru)) S.ru = all.length ? all[0].id : null;
+    const tot = { r: 0, x: 0, n: 0 };
+    all.forEach(u => lrnOf(u.id).items.forEach(it => { tot.n++; const s = (M[it.id] || {}).s; if (s === 'r') tot.r++; else if (s === 'x') tot.x++; }));
+    b.append(el('p', '', `<b>الإجمالي :</b> روجع ${tot.r} من ${tot.n} سؤالًا ، ويحتاج تعديلًا ${tot.x} ، ولم يُراجَع ${tot.n - tot.r - tot.x}.`));
+    const row = frow(b);
+    const us = el('select'); all.forEach(u => { const o = el('option', '', esc(GRADES[u.gno] + ' · ' + plainT(fmt(u.unit.unitTitle)))); o.value = u.id; us.append(o); });
+    us.value = S.ru || ''; us.onchange = () => { S.ru = us.value; render(); };
+    row.append(wrapLab('الوحدة', us));
+    const fs = el('select'); [['', 'الكل'], ['n', 'لم يُراجَع'], ['r', 'روجع'], ['x', 'يحتاج تعديلًا']].forEach(([v, t]) => { const o = el('option', '', t); o.value = v; fs.append(o); });
+    fs.value = S.rf || ''; fs.onchange = () => { S.rf = fs.value; render(); };
+    row.append(wrapLab('العرض', fs));
+    const csvB = el('button', 'btn sm ghost', 'تصدير السجلّ CSV');
+    csvB.onclick = () => {
+      const head = ['الوحدة', 'رقم السؤال', 'النتاج', 'المستوى', 'الحالة', 'تاريخ المراجعة', 'ملاحظة'];
+      const rows = [];
+      all.forEach(u => lrnOf(u.id).items.forEach(it => { const m = M[it.id] || {}; rows.push([plainT(fmt(u.unit.unitTitle)), it.id, 'ن' + it.o, it.lvl, REV_NAME[m.s || ''], m.t ? new Date(m.t).toISOString().slice(0, 10) : '', m.n || '']); }));
+      const csv = '﻿' + [head].concat(rows).map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+      saveBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'سجل-مراجعة-الأسئلة.csv');
+    };
+    const jsB = el('button', 'btn sm ghost', 'نسخة JSON');
+    jsB.onclick = () => saveBlob(new Blob([JSON.stringify(revLoad(), null, 1)], { type: 'application/json' }), 'مراجعة-الأسئلة.json');
+    const inp = el('input'); inp.type = 'file'; inp.accept = '.json,application/json'; inp.style.display = 'none';
+    inp.onchange = () => { const f = inp.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { try { const o = JSON.parse(r.result); if (!o || typeof o !== 'object' || Array.isArray(o)) throw 0; const cur = revLoad(); Object.keys(o).forEach(k => { const v = o[k]; if (v && (v.s === 'r' || v.s === 'x') && (!cur[k] || (+v.t || 0) >= (+cur[k].t || 0))) cur[k] = { s: v.s, t: +v.t || Date.now(), n: String(v.n || '').slice(0, 300) }; }); revSave(cur); flash('تمّ الاستيراد.'); render(); } catch (e) { flash('الملف غير صالح.'); } }; r.readAsText(f); };
+    const imB = el('button', 'btn sm ghost', 'استيراد نسخة'); imB.onclick = () => inp.click();
+    const br = el('div', 'btns'); br.append(csvB, jsB, imB, inp); b.append(br);
+
+    const u = all.find(x => x.id === S.ru); if (!u) return;
+    const L = lrnOf(u.id), f = S.rf || '';
+    const mine = L.items.filter(it => { const s = (M[it.id] || {}).s || 'n'; return !f || s === f; });
+    const done = L.items.filter(it => (M[it.id] || {}).s === 'r').length;
+    body.append(el('p', 'hint', `في هذه الوحدة : روجع ${done} من ${L.items.length} . المعروض ${mine.length} .`));
+    mine.forEach(it => {
+      const m = M[it.id] || {};
+      const c = el('div', 'card2 rv ' + (m.s || 'n'));
+      c.innerHTML = `<div class="ct"><b>${esc(it.id)}</b> · ن${it.o} · ${esc(it.lvl)} <span class="rvs">${REV_NAME[m.s || '']}</span></div><p class="qq">${fmt(it.q)}</p>` +
+        '<ol class="rvo">' + it.op.map((o, i) => `<li class="${i === it.a ? 'ok' : ''}">${fmt(o)}${i === it.a ? ' <b>✓</b>' : (it.fb[i] ? '<div class="sm">' + fmt(it.fb[i]) + '</div>' : '')}</li>`).join('') + '</ol>' +
+        (L.selftest ? '' : '');
+      const note = el('input'); note.type = 'text'; note.className = 'wide'; note.placeholder = 'ملاحظة (اختياري) : الصفحة في الكتاب ، أو ما يلزم تعديله'; note.value = m.n || '';
+      const mk = (s, label, cls) => { const x = el('button', 'btn sm ' + cls, label); x.onclick = () => { const cur = revLoad(); if (s) cur[it.id] = { s, t: Date.now(), n: note.value.slice(0, 300) }; else delete cur[it.id]; if (revSave(cur)) render(); }; return x; };
+      const bt = el('div', 'btns'); bt.append(mk('r', 'روجع ✓', 'ok'), mk('x', 'يحتاج تعديلًا', 'ghost'), mk('', 'إلغاء العلامة', 'ghost'));
+      c.append(note, bt);
+      body.append(c);
+    });
+  }
+  function outcomesTab() {
+    const plain = t => String(t || '').replace(/<[^>]+>/g, '');
+    const g = S.fg || (S.fg = '09');
+    const b = sec('تقرير النتاجات', 'أين أتقن طلاب الشعبة وأين تعثّروا ، في وحدة واحدة. يعتمد على أحداث الطلبة المسجّلة في الجدول.');
+    const uns = S.units.filter(u => u.gno === g && lrnOf(u.id));
+    if (!uns.some(u => u.id === S.ou)) S.ou = uns.length ? uns[0].id : null;
+    const row = frow(b);
+    const gs = el('select'); GORDER.forEach(k => { const o = el('option', '', GRADES[k]); o.value = k; gs.append(o); });
+    gs.value = g; gs.onchange = () => { S.fg = gs.value; S.ou = null; S.fsc = ''; render(); };
+    row.append(wrapLab('الصف', gs));
+    const secs = [...new Set(rosterOf(g).map(r => r.sec).filter(Boolean))].sort();
+    if (secs.length > 1) {
+      const ss = el('select'); const o0 = el('option', '', 'كل الشعب'); o0.value = ''; ss.append(o0);
+      secs.forEach(x => { const o = el('option', '', x); o.value = x; ss.append(o); });
+      ss.value = S.fsc || ''; ss.onchange = () => { S.fsc = ss.value; render(); };
+      row.append(wrapLab('الشعبة', ss));
+    }
+    if (uns.length) {
+      const us = el('select');
+      uns.forEach(u => { const o = el('option', '', plain(u.unit.unitTitle) + ' — ' + plain(u.meta.subject)); o.value = u.id; us.append(o); });
+      us.value = S.ou; us.onchange = () => { S.ou = us.value; render(); };
+      row.append(wrapLab('الوحدة', us));
+    }
+    const info = el('p', 'hint', '');
+    const rf = el('button', 'btn sm', '⟳ تحديث من الجدول');
+    function pull() {
+      const Lg = SET.log || {};
+      if (!Lg.url) { flash('لم تُضبط بيانات الجدول . افتح تبويب « الربط والإرسال ».'); return; }
+      info.textContent = 'جارٍ التحديث …';
+      window.__fpull = Date.now();
+      fetch(Lg.url + (Lg.url.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(Lg.key || ''))
+        .then(r => r.json())
+        .then(d => { lsPut2('dosiati-remote', d.rows || []); render(); })
+        .catch(() => { info.textContent = 'تعذّر الاتصال بالجدول . تأكّد من الرابط والمفتاح ومن الإنترنت.'; });
+    }
+    rf.onclick = pull;
+    row.append(rf);
+    b.append(info);
+    if (SET.log && SET.log.url && (!window.__fpull || Date.now() - window.__fpull > 120000)) setTimeout(pull, 0);
+    else if (window.__fpull) info.textContent = 'آخر سحب من الجدول : ' + new Date(window.__fpull).toLocaleTimeString('ar-EG');
+    if (!uns.length) { b.append(el('p', 'empty', 'لا توجد وحدات بمسار إتقان لهذا الصف.')); return; }
+
+    const u = S.units.find(x => x.id === S.ou), L = lrnOf(u.id);
+    const list = rosterOf(g).filter(r => !S.fsc || r.sec === S.fsc);
+    if (!list.length) { b.append(el('p', 'empty', 'لا توجد أسماء لهذا الصف . أضفها من تبويب « قائمة الطلبة ».')); return; }
+    const nums = Object.keys(L.outcomes).map(Number).sort((x, y) => x - y);
+    const lessons = (L.lessons && L.lessons.length) ? L.lessons.map(l => ({ t: l.t, o: (l.o || []).filter(n => L.outcomes[n]) })) : [{ t: '', o: nums }];
+    const listed = new Set([].concat(...lessons.map(l => l.o)));
+    const rest = nums.filter(n => !listed.has(n));
+    if (rest.length) lessons.push({ t: 'نتاجات أخرى', o: rest });
+    const cols = [].concat(...lessons.map(l => l.o));
+
+    /* حالة كل طالب في كل نتاج : 2 متقن · 1 يحتاج مراجعة · 0 لم يبدأ */
+    const by = {};
+    allRows().filter(r => r.unit === u.id).forEach(r => {
+      const a = by[r.code] = by[r.code] || { mast: new Set(), seg: new Set(), att: new Set(), last: 0, exits: 0, exitTxt: '', exitT: 0 };
+      const t = +r.t || Date.parse(r.t) || 0;
+      if (t > a.last) a.last = t;
+      if (r.type === 'exit') { a.exits++; if (t >= a.exitT && r.score) { a.exitT = t; a.exitTxt = String(r.score); } return; }
+      const m = String(r.detail || '').match(/(\d+)/); if (!m) return;
+      const n = +m[1];
+      if (r.type === 'إتقان') a.mast.add(n); else if (r.type === 'مقطع') a.seg.add(n); else if (r.type === 'محاولة') a.att.add(n);
+    });
+    const stOf = (a, n) => {
+      if (!a) return 0;
+      const sg = segsOfOut(L, n);
+      if (a.mast.has(n) || (sg.length && sg.every(i => a.seg.has(i)))) return 2;
+      if (a.att.has(n) || sg.some(i => a.seg.has(i))) return 1;
+      return 0;
+    };
+    const M = list.map(r => ({ r, a: by[r.code], s: cols.map(n => stOf(by[r.code], n)) }));
+    const entered = M.filter(x => x.a).length;
+    const okN = cols.map((n, j) => M.filter(x => x.s[j] === 2).length);
+    const pcts = okN.map(k => Math.round(k / list.length * 100));
+    const avg = Math.round(pcts.reduce((x, y) => x + y, 0) / cols.length);
+    const minP = Math.min.apply(null, pcts);
+    const weak = cols.filter((n, j) => pcts[j] === minP);
+
+    const cards = el('div', 'cards');
+    cards.innerHTML = `<div class="stat"><b>${list.length}</b><span>طلاب في الشعبة</span></div>
+      <div class="stat g"><b>${entered}</b><span>دخلوا الوحدة</span></div>
+      <div class="stat"><b>${avg} %</b><span>متوسّط إتقان النتاجات</span></div>
+      <div class="stat r"><b>${weak.map(n => 'ن' + n).join(' · ')}</b><span>الأضعف : ${minP} % فقط أتقنوه</span></div>`;
+    body.append(cards);
+
+    /* جدول النتاجات كاملة فوق جدول الطلبة */
+    const oc = el('div', 'card2');
+    oc.append(el('h2', 'lvl', 'نتاجات الوحدة'));
+    const ot = el('table', 'orp-key');
+    lessons.forEach(l => {
+      if (l.t) ot.append(el('tr', 'orp-ls', `<td colspan="2">${fmt(l.t)}</td>`));
+      l.o.forEach(n => ot.append(el('tr', '', `<td class="n">ن${n}</td><td>${fmt(L.outcomes[n])}</td>`)));
+    });
+    const otw = el('div', 'tw'); otw.append(ot); oc.append(otw);
+    body.append(oc);
+
+    /* خريطة الإتقان */
+    const hc = el('div', 'card2');
+    const hh = el('div', 'orp-hd');
+    hh.append(el('h2', 'lvl', 'خريطة الإتقان'));
+    hh.append(el('div', 'orp-lg', '<span><i class="hm hm2">✓</i>أتقنه</span><span><i class="hm hm1">◐</i>بدأه ولم يُتقنه</span><span><i class="hm hm0">–</i>لم يبدأ</span>'));
+    hc.append(hh);
+    const ht = el('table', 'orp-map');
+    let h1 = '<tr><th></th>';
+    lessons.forEach((l, i) => { if (l.o.length) h1 += `<th colspan="${l.o.length}" class="ls ls${i % 3}">${esc(String(l.t).replace(/<[^>]+>/g, '').replace(/^[^:：]*[:：]\s*/, '') || '')}</th>`; });
+    h1 += '<th></th></tr>';
+    let h2 = '<tr><th class="nm">الطالب</th>' + cols.map(n => `<th>ن${n}</th>`).join('') + '<th class="lt">آخر دخول</th></tr>';
+    ht.innerHTML = '<thead>' + h1 + h2 + '</thead>';
+    const tb = el('tbody');
+    const GL = ['–', '◐', '✓'];
+    M.forEach(x => {
+      const tr = el('tr');
+      const nb = el('td', 'nm'); const bt = el('button', 'orp-nb', esc(x.r.name)); bt.onclick = () => stuCard(x); nb.append(bt); tr.append(nb);
+      x.s.forEach(v => tr.append(el('td', 'c', `<i class="hm hm${v}">${GL[v]}</i>`)));
+      tr.append(el('td', 'lt', x.a && x.a.last ? when(x.a.last) : 'لم يدخل'));
+      tb.append(tr);
+    });
+    ht.append(tb);
+    const tf = el('tfoot');
+    tf.innerHTML = '<tr><td class="nm"><b>أتقنه من ' + list.length + '</b></td>' + pcts.map((p, j) => `<td class="c"><b class="${p === minP ? 'w' : ''}">${p}%</b><div class="bar"><i class="${p === minP ? 'w' : ''}" style="width:${p}%"></i></div></td>`).join('') + '<td></td></tr>';
+    ht.append(tf);
+    const hw = el('div', 'tw'); hw.append(ht); hc.append(hw);
+    body.append(hc);
+
+    /* ماذا أفعل ؟ */
+    const ac = el('div', 'card2');
+    ac.append(el('h2', 'lvl', 'ما الذي أفعله في الحصة القادمة ؟'));
+    weak.slice(0, 3).forEach(n => {
+      const j = cols.indexOf(n);
+      const near = M.filter(x => x.a && x.s[j] === 1).map(x => esc(x.r.name));
+      const none = M.filter(x => x.a && x.s[j] === 0).map(x => esc(x.r.name));
+      ac.append(el('div', 'box gold', `<div class="bt">ن${n}</div><p style="margin:0">${fmt(L.outcomes[n])}<br><b>أتقنه ${okN[j]} من ${list.length}</b> — أعِد شرحه في الحصة القادمة.</p>` +
+        (near.length ? `<p class="hint" style="margin:.4rem 0 0"><b>بدؤوه ولم يُتقنوه :</b> ${near.join(' ، ')}</p>` : '') +
+        (none.length ? `<p class="hint" style="margin:.2rem 0 0"><b>دخلوا الوحدة ولم يبدؤوه :</b> ${none.join(' ، ')}</p>` : '')));
+    });
+    const out = M.filter(x => !x.a).map(x => esc(x.r.name));
+    if (out.length) ac.append(el('p', 'hint', '<b>لم يدخلوا الوحدة :</b> ' + out.join(' ، ')));
+    ac.append(el('p', 'hint', 'الحالة « بدأه » تظهر من الأحداث المسجّلة بعد الإصدار 3.5 ؛ ما سبقه يظهر منه المتقن فقط.'));
+    body.append(ac);
+
+    const fb = el('div', 'btns2');
+    const ex = el('button', 'btn', '⬇ تصدير CSV لسجلي');
+    ex.onclick = () => {
+      const head = ['الرقم', 'الاسم', 'الشعبة', 'الوحدة', 'نتاجات متقنة', 'تحتاج مراجعة', 'لم تبدأ', 'آخر دخول', 'بطاقات خروج', 'النتاجات غير المتقنة'].concat(cols.map(n => 'ن' + n));
+      const T = ['لم يبدأ', 'بدأ', 'متقن'];
+      const bodyR = M.map(x => [x.r.no, x.r.name, x.r.sec, plain(u.unit.unitTitle),
+        x.s.filter(v => v === 2).length, x.s.filter(v => v === 1).length, x.s.filter(v => v === 0).length,
+        x.a && x.a.last ? new Date(x.a.last).toLocaleString('ar-EG') : 'لم يدخل', x.a ? x.a.exits : 0,
+        cols.filter((n, j) => x.s[j] !== 2).map(n => 'ن' + n).join(' ')].concat(x.s.map(v => T[v])));
+      const csv = '﻿' + [head].concat(bodyR).map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
+      saveBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'نتاجات-' + u.id + '-' + GRADES[g] + '.csv');
+    };
+    const pr = el('button', 'btn ghost', 'طباعة التقرير');
+    pr.onclick = () => printList('<h2>' + esc(plain(u.unit.unitTitle)) + ' — ' + esc(GRADES[g]) + '</h2>' + oc.innerHTML + hc.innerHTML + ac.innerHTML);
+    fb.append(ex, pr);
+    body.append(fb);
+
+    function stuCard(x) {
+      const w = $('#modal') || (() => { const d = el('div'); d.id = 'modal'; document.body.append(d); return d; })();
+      w.innerHTML = ''; w.className = 'on';
+      const card = el('div', 'mcard');
+      card.append(el('h3', '', esc(x.r.name) + ' <span class="sm">— ' + GRADES[g] + (x.r.sec ? ' · الشعبة ' + esc(x.r.sec) : '') + ' · رقم ' + esc(x.r.no) + '</span>'));
+      card.append(el('p', 'hint', 'أتقن ' + x.s.filter(v => v === 2).length + ' من ' + cols.length + ' نتاجات.'));
+      const NM = ['لم يبدأ', 'بدأه', 'أتقنه'];
+      cols.forEach((n, j) => card.append(el('div', 'orp-sr', `<i class="hm hm${x.s[j]}">${GL[x.s[j]]}</i><div><b>ن${n}</b> ${fmt(L.outcomes[n])}</div><span class="st${x.s[j]}">${NM[x.s[j]]}</span>`)));
+      if (x.a && x.a.exitTxt) card.append(el('div', 'box mint', '<div class="bt">آخر بطاقة خروج</div><p style="margin:0">' + esc(x.a.exitTxt) + '</p>'));
+      const cl = el('button', 'btn', 'إغلاق'); cl.onclick = () => { w.className = ''; w.innerHTML = ''; };
+      card.append(cl); w.append(card);
+      w.onclick = e => { if (e.target === w) cl.click(); };
     }
   }
 
@@ -1143,8 +1412,123 @@ function adminView() {
   }
 
   /* ---------- قائمة الطلبة ---------- */
+  function seatsSection() {
+    const b = sec('أكواد المقاعد ( الإصدار 4.0 )', 'لكل رقم في كل صف وشعبة كود ثابت يُحسب من عبارتك السرّية . تجهّز البصمات مرّة واحدة في السنة وتنشرها ، ثمّ تعطي أيّ طالب جديد رقمه وكوده فورًا ، من اللابتوب أو الهاتف ، دون نشر جديد.');
+    const g = S.rg || (S.rg = '09'), s = (S.rs || '').trim(), Y = String(D.year || SET.year);
+    const ph = seatPhrase();
+    const row = frow(b);
+    const gs = el('select'); GORDER.forEach(k => { const o = el('option', '', GRADES[k]); o.value = k; gs.append(o); });
+    gs.value = g; gs.onchange = () => { S.rg = gs.value; render(); };
+    const se = el('input'); se.type = 'text'; se.className = 'num'; se.value = s; se.placeholder = 'أ';
+    se.onchange = () => { S.rs = se.value.trim(); render(); };
+    row.append(wrapLab('الصف', gs), wrapLab('الشعبة', se));
+    // العبارة السرّية
+    const pr = frow(b);
+    const pi = el('input'); pi.type = 'password'; pi.value = ph; pi.autocomplete = 'off'; pi.placeholder = '12 حرفًا على الأقل ، مثل : أربع كلمات لا تُنسى';
+    const shw = el('button', 'btn sm ghost', 'إظهار'); shw.onclick = () => { pi.type = pi.type === 'password' ? 'text' : 'password'; shw.textContent = pi.type === 'password' ? 'إظهار' : 'إخفاء'; };
+    pi.onchange = () => {
+      const v = pi.value.trim();
+      if (v && v.length < 12) { flash('العبارة قصيرة . اجعلها 12 حرفًا على الأقل.'); pi.value = ph; return; }
+      seatPhraseSet(v); flash(v ? 'حُفظت العبارة على هذا الجهاز فقط.' : 'حُذفت العبارة من هذا الجهاز.'); render();
+    };
+    pr.append(wrapLab('العبارة السرّية ( على هذا الجهاز فقط )', pi), shw);
+    const st = el('p', 'hint', ph ? 'جارٍ التحقّق من العبارة …' : 'اكتب العبارة نفسها على كل جهاز تستعمله ( اللابتوب والهاتف ) ، فتظهر الأكواد نفسها عليهما.');
+    b.append(st);
+    const mine = (D.roster || []).filter(r => r.seat && r.g === g && (r.s || '') === s && String(r.y) === Y);
+    if (ph && mine.length) {
+      const r0 = mine[0];
+      codeHash(seatCode(ph, r0.y, r0.g, r0.s, r0.n)).then(h => {
+        st.innerHTML = h === r0.h ? '<b style="color:var(--ok,#1E6B3B)">✓ العبارة صحيحة</b> : الأكواد على هذا الجهاز تطابق البصمات المنشورة.'
+          : '<b style="color:#B3261E">✗ العبارة لا تطابق البصمات</b> المجهّزة لهذا الصفّ . الأكواد التي تُطبع الآن لن تعمل . اكتب العبارة التي جهّزت بها البصمات.';
+      });
+    } else if (ph) st.textContent = 'لم تُجهَّز بصمات لهذا الصفّ والشعبة بعد.';
+    // التجهيز
+    const max = Math.max(1, +((D.grades || {})[g] || {}).max || 60);
+    const r2 = el('div', 'btns');
+    const prep = el('button', 'btn', mine.length ? 'إكمال البصمات حتى الرقم ' + max : 'تجهيز بصمات المقاعد 1 – ' + max);
+    prep.onclick = async () => {
+      if (!seatPhrase()) return flash('اكتب العبارة السرّية أولًا.');
+      const have = new Set(mine.map(r => +r.n)); const todo = [];
+      for (let n = 1; n <= max; n++) if (!have.has(n)) todo.push(n);
+      if (!todo.length) return flash('بصمات هذا الصفّ جاهزة.');
+      prep.disabled = true;
+      for (let k = 0; k < todo.length; k++) {
+        const n = todo[k]; prep.textContent = 'جارٍ التجهيز ' + (k + 1) + ' من ' + todo.length + ' …';
+        const h = await codeHash(seatCode(seatPhrase(), Y, g, s, n));
+        D.roster = D.roster || []; D.roster.push({ h, g, s, n: String(n), seat: 1, y: Y });
+      }
+      prep.disabled = false;
+      flash('جُهّزت ' + todo.length + ' بصمة . اضغط « حفظ التغييرات » ثمّ نزّل ملف الإعدادات وارفعه مرّة واحدة.');
+      render();
+    };
+    r2.append(prep); b.append(r2);
+    if (!mine.length) { b.append(el('p', 'hint', 'بعد التجهيز والنشر لا تحتاج إلى نشر جديد عند دخول طالب جديد.')); return; }
+    // الطلبة على المقاعد
+    const SN = seatNames();
+    const used = new Set((D.roster || []).filter(r => !r.seat && r.g === g && (r.s || '') === s && !r.out).map(r => +r.n));
+    const ar = frow(b);
+    const no = el('input'); no.type = 'number'; no.className = 'num'; no.min = 1; no.max = max;
+    const nxt = (() => { for (let n = 1; n <= max; n++) if (!used.has(n) && !SN[seatKey(g, s, n)]) return n; return ''; })(); no.value = nxt;
+    const nm = el('input'); nm.type = 'text'; nm.placeholder = 'اسم الطالب'; nm.style.minWidth = '12rem';
+    const addB = el('button', 'btn', 'إضافة وطباعة بطاقته');
+    addB.onclick = () => {
+      const n = +no.value, t = nm.value.trim();
+      if (!n || n < 1 || n > max) return flash('اختر رقمًا بين 1 و' + max + '.');
+      if (!t) return flash('اكتب اسم الطالب.');
+      if (used.has(n) && !confirm('الرقم ' + n + ' مستعمل لطالب بكود سابق . إعطاؤه لطالب جديد يجعل للرقم كودين . متابعة ؟')) return;
+      if (SN[seatKey(g, s, n)] && !confirm('الرقم ' + n + ' معطى لـ « ' + SN[seatKey(g, s, n)] + ' » . استبداله ؟')) return;
+      const o = seatNames(); o[seatKey(g, s, n)] = t; seatNamesPut(o);
+      if (seatPhrase()) printSeatCards([{ n, name: t }]);
+      render();
+    };
+    ar.append(wrapLab('الرقم', no), wrapLab('الاسم', nm), addB);
+    const ta = el('textarea'); ta.placeholder = 'أو الصق عدّة طلبة : الرقم ثم الاسم في كل سطر';
+    const bulk = el('button', 'btn ghost', 'حفظ الأسماء');
+    bulk.onclick = () => {
+      const o = seatNames(); let k = 0;
+      ta.value.split(/\n/).map(x => x.trim()).filter(Boolean).forEach(ln => { const m = ln.match(/^(\d{1,3})[\s\t.\-]+(.+)$/); if (m && +m[1] >= 1 && +m[1] <= max) { o[seatKey(g, s, +m[1])] = m[2].trim(); k++; } });
+      seatNamesPut(o); flash('حُفظ ' + k + ' اسمًا على هذا الجهاز.'); render();
+    };
+    b.append(ta, (() => { const x = el('div', 'btns'); x.append(bulk); return x; })());
+    const named = mine.filter(r => SN[seatKey(g, s, r.n)]).sort((x, y) => (+x.n) - (+y.n));
+    const tw = el('div', 'tw codes'); const t = el('table');
+    t.append(el('tr', '', '<th>#</th><th>اسم الطالب</th><th>الكود</th><th>إجراء</th>'));
+    named.forEach(r => {
+      const tr = el('tr'); const code = ph ? fmtCode(seatCode(ph, r.y, r.g, r.s, r.n)) : '— اكتب العبارة —';
+      tr.innerHTML = `<td>${esc(r.n)}</td><td>${esc(SN[seatKey(g, s, r.n)])}</td><td dir="ltr">${esc(code)}</td>`;
+      const td = el('td'); td.className = 'act';
+      const p1 = el('button', 'mini', 'طباعة'); p1.onclick = () => { if (!ph) return flash('اكتب العبارة أولًا.'); printSeatCards([{ n: +r.n, name: SN[seatKey(g, s, r.n)] }]); };
+      const d1 = el('button', 'mini danger', 'إزالة الاسم'); d1.onclick = () => { if (!confirm('إزالة الاسم عن الرقم ' + r.n + ' ؟ يبقى الكود صالحًا حتى تُلغيه.')) return; const o = seatNames(); delete o[seatKey(g, s, r.n)]; seatNamesPut(o); render(); };
+      const x1 = el('button', 'mini danger', 'إلغاء الكود'); x1.title = 'لطالب غادر : يتوقّف الكود بعد نشر ملف الإعدادات';
+      x1.onclick = () => { if (!confirm('إلغاء كود الرقم ' + r.n + ' ؟ يتوقّف بعد أن تنشر ملف الإعدادات . لا تُعطِ هذا الرقم لطالب آخر.')) return; const row = (D.roster || []).find(x => x.h === r.h); if (row) { row.out = 1; row.outAt = new Date().toISOString().slice(0, 10); } flash('أُلغي الكود . احفظ التغييرات وانشر ملف الإعدادات.'); render(); };
+      td.append(p1, d1, x1); tr.append(td); t.append(tr);
+    });
+    tw.append(t); b.append(tw);
+    const r3 = el('div', 'btns');
+    const pa = el('button', 'btn ghost', '🖨 طباعة بطاقات كل الطلبة المسجّلين');
+    pa.onclick = () => { if (!ph) return flash('اكتب العبارة أولًا.'); printSeatCards(named.map(r => ({ n: +r.n, name: SN[seatKey(g, s, r.n)] }))); };
+    r3.append(pa); b.append(r3);
+    b.append(el('p', 'hint', named.length + ' طالبًا مسجّلًا على مقاعد هذا الصفّ · ' + mine.filter(r => !r.out).length + ' مقعدًا جاهزًا . الأسماء على هذا الجهاز فقط ، وتنتقل إلى جهاز آخر بنسخة الأكواد الاحتياطية.'));
+    b.append(el('div', 'box gold', '<div class="bt">قواعد ثابتة</div><p style="margin:0;font-size:.88rem">' +
+      'لا تُعطِ رقم طالب غادر لطالب جديد ، فالكود نفسه يعود . أعطِ الجديد رقمًا تاليًا.<br>' +
+      'العبارة السرّية مفتاح كل الأكواد : إن نُسيت لا تُستعاد الأكواد ، وإن تسرّبت يمكن حساب أكواد الصفّ كلّه . احفظها خارج المتصفّح.<br>' +
+      'الأكواد تتغيّر مع السنة الدراسية ، فتجهّز البصمات مرّة في بداية كل سنة.</p>'));
+    function printSeatCards(list) {
+      const p = seatPhrase();
+      const cards = list.map(x => '<div class="cd"><div class="cn">' + esc(x.name) + '</div>' +
+        '<div class="cg">' + esc(GRADES[g]) + (s ? ' / ' + esc(s) : '') + ' · رقم ' + esc(x.n) + '</div>' +
+        '<div class="cc">' + esc(fmtCode(seatCode(p, Y, g, s, x.n))) + '</div>' +
+        '<div class="cf">' + esc((D.site && D.site.url) || 'نشامى العلم') + '</div></div>').join('');
+      printList('<style>.wrap{display:flex;flex-wrap:wrap;gap:6mm}.cd{width:85mm;border:1px dashed #888;border-radius:4mm;padding:4mm;text-align:center}' +
+        '.cn{font-weight:700;font-size:12pt}.cg{font-size:9pt;color:#444;margin:1mm 0 3mm}' +
+        '.cc{direction:ltr;font-family:Consolas,monospace;font-size:19pt;letter-spacing:.12em;font-weight:700}' +
+        '.cf{font-size:8pt;color:#666;margin-top:2mm}</style>' +
+        '<h3>بطاقات دخول ' + GRADES[g] + (s ? ' / ' + s : '') + ' — ' + Y + '</h3><div class="wrap">' + cards + '</div>');
+    }
+  }
   function rosterTab() {
-    const b = sec('قائمة الطلبة وتوليد الأكواد', 'الصق الأسماء مرّة واحدة . يُخزَّن كل اسم مُشفَّرًا برمز صاحبه ، فلا يقرؤه إلا من يملك رمز الطالب نفسه.');
+    seatsSection();
+    const b = sec('الأكواد السابقة ( العشوائية )', 'الصق الأسماء مرّة واحدة . يُخزَّن كل اسم مُشفَّرًا برمز صاحبه ، فلا يقرؤه إلا من يملك رمز الطالب نفسه.');
     const g0 = S.rg || (S.rg = '09');
     const row = frow(b);
     const gs = el('select'); GORDER.forEach(k => { const o = el('option', '', GRADES[k]); o.value = k; gs.append(o); });
@@ -1164,7 +1548,7 @@ function adminView() {
       if (!lines.length) return flash('الصق الأسماء أولًا.');
       let n = +st.value || 1;
       add.disabled = true; add.textContent = 'جارٍ توليد الأكواد …';
-      D.roster = (D.roster || []).filter(r => r.g !== gs.value || (se.value && r.s !== se.value));
+      D.roster = (D.roster || []).filter(r => r.seat || r.g !== gs.value || (se.value && r.s !== se.value));
       const made = [];
       for (const ln of lines) {
         const m = ln.match(/^(\d{1,3})[\s\t.\-]+(.+)$/);
@@ -1182,11 +1566,11 @@ function adminView() {
       ta.value = ''; render();
     };
     const clr = el('button', 'btn ghost', 'حذف قائمة هذا الصف');
-    clr.onclick = () => { if (confirm('حذف أسماء ' + GRADES[gs.value] + ' ؟')) { D.roster = (D.roster || []).filter(r => r.g !== gs.value); render(); } };
+    clr.onclick = () => { if (confirm('حذف أسماء ' + GRADES[gs.value] + ' ذات الأكواد السابقة ؟ لا تتأثّر أكواد المقاعد.')) { D.roster = (D.roster || []).filter(r => r.seat || r.g !== gs.value); render(); } };
     const pb = el('button', 'btn ghost', '🖨 طباعة بطاقات الأكواد');
     const mg = el('button', 'btn ghost', '⟳ تحويل هذا الصف إلى أكواد آمنة');
     mg.onclick = async () => {
-      const rows = (D.roster || []).filter(r => r.g === gs.value);
+      const rows = (D.roster || []).filter(r => r.g === gs.value && !r.seat);
       const old = rows.filter(r => !vaultOf(r.h));
       if (!old.length) return flash('أكواد هذا الصف آمنة أصلًا.');
       if (!confirm('سيُعطى ' + old.length + ' طالبًا أكوادًا جديدة ، وتبطل أكوادهم القديمة . هل تريد المتابعة ؟')) return;
@@ -1211,7 +1595,8 @@ function adminView() {
       inp.onchange = () => { const fl = inp.files[0]; if (!fl) return;
         const rd = new FileReader();
         rd.onload = () => { try { const o = JSON.parse(rd.result); const v = vaultGet();
-            Object.keys(o.codes || o).forEach(k => { v[k] = (o.codes || o)[k]; });
+            if (o.seatNames && typeof o.seatNames === 'object') { const sn = seatNames(); Object.assign(sn, o.seatNames); seatNamesPut(sn); }
+            Object.keys(o.codes || o).filter(k => k !== 'seatNames').forEach(k => { v[k] = (o.codes || o)[k]; });
             vaultPut(v); flash('استُعيدت ' + Object.keys(o.codes || o).length + ' بطاقة.'); render();
           } catch (e) { flash('الملف غير صالح.'); } };
         rd.readAsText(fl); };
@@ -1228,7 +1613,7 @@ function adminView() {
     r2.append(add, clr, pb, mg, bk, rs, zp);
     b.append(r2);
 
-    const cur = (D.roster || []).filter(r => r.g === gs.value).map(r => {
+    const cur = (D.roster || []).filter(r => r.g === gs.value && !r.seat).map(r => {
       const pin = pinOf(r);
       return { h: r.h, out: !!r.out, no: r.n, s: r.s, pin, safe: !!vaultOf(r.h), name: (pin ? decName(r.e, pin) : '') || ('طالب رقم ' + r.n) };
     }).sort((a, c) => (+a.no) - (+c.no));
@@ -1299,14 +1684,18 @@ function adminView() {
     D.log = D.log || { url: '', key: '', on: true };
     const r = frow(b);
     ftxt(r, 'رابط السكربت ( ينتهي بـ /exec )', D.log, 'url', 'https://script.google.com/macros/s/..../exec');
-    ftxt(r, 'المفتاح السرّي', D.log, 'key', 'اكتب كلمة سرّ تضعها في السكربت نفسه');
+    ftxt(r, 'كلمة الكتابة ( تُنشر مع الموقع )', D.log, 'key', 'تطابق WRITE_KEY في السكربت');
+    const rkIn = el('input'); rkIn.type = 'password'; rkIn.value = readKey(); rkIn.placeholder = 'تطابق READ_KEY في السكربت'; rkIn.autocomplete = 'off';
+    rkIn.onchange = () => { readKeySet(rkIn.value.trim()); flash(rkIn.value.trim() ? 'حُفظت كلمة القراءة على هذا الجهاز فقط.' : 'حُذفت كلمة القراءة من هذا الجهاز.'); };
+    r.append(wrapLab('كلمة القراءة ( على هذا الجهاز فقط ، لا تُنشر )', rkIn));
     fchk(b, 'تشغيل الإرسال', D.log, 'on');
     const r2 = el('div', 'btns');
     const tst = el('button', 'btn', 'اختبار الاتصال');
     tst.onclick = () => {
       if (!D.log.url) return flash('ضع الرابط أولًا.');
-      fetch(D.log.url + (D.log.url.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(D.log.key || ''))
-        .then(x => x.json()).then(d => flash(d.rows ? 'الاتصال سليم · عدد الأسطر ' + d.rows.length : 'ردّ غير متوقّع : ' + JSON.stringify(d).slice(0, 60)))
+      if (!readKey()) return flash('اكتب كلمة القراءة أولًا.');
+      fetch(D.log.url + (D.log.url.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(readKey()))
+        .then(x => x.json()).then(d => flash(d.rows ? 'الاتصال سليم · عدد الأسطر ' + d.rows.length : (d.error === 'key' ? 'رفض الجدول كلمة القراءة . حدّث السكربت إلى نسخة 4.0 وتأكّد من READ_KEY.' : 'ردّ غير متوقّع : ' + JSON.stringify(d).slice(0, 60))))
         .catch(() => flash('تعذّر الاتصال . راجع الرابط والمفتاح.'));
     };
     const cp = el('button', 'btn ghost', 'نسخ كود السكربت');
@@ -1317,8 +1706,8 @@ function adminView() {
       'افتح جدول Google جديدًا وسمّه « متابعة دوسياتي ».',
       'من القائمة : الإضافات ← Apps Script.',
       'احذف ما في المحرّر والصق كود السكربت ( زرّ « نسخ كود السكربت » أعلاه ، أو ملف code.gs المرفق ).',
-      'غيّر السطر الأول KEY إلى كلمة السرّ نفسها التي كتبتها هنا.',
-      'احفظ ، ثم : Deploy ← New deployment ← Web app ، واجعل Execute as : Me ، و Who has access : Anyone.',
+      'اكتب في أوّل سطرين : WRITE_KEY ( كلمة الكتابة نفسها هنا ) و READ_KEY ( كلمة القراءة ، وتبقى على جهازك ).',
+      'احفظ ، ثم : Deploy ← New deployment ← Web app ، واجعل Execute as : Me ، و Who has access : Anyone . ( عند التحديث لاحقًا : Manage deployments ← القلم ← Version : New version ، ليبقى الرابط نفسه ).',
       'انسخ الرابط الذي ينتهي بـ /exec والصقه في الحقل أعلاه ، ثم اضغط « اختبار الاتصال ».',
       'احفظ التغييرات ونزّل ملف الإعدادات وارفعه مع الموقع ؛ عندها تبدأ أجهزة الطلبة بالإرسال.'
     ].forEach((x, i) => b2.append(el('div', 'li', (i + 1) + ' ) ' + x)));
@@ -1373,7 +1762,7 @@ function backupVault() {
     .filter((r, i, a) => r && a.findIndex(x => x.h === r.h) === i);
   const list = rows.filter(r => v[r.h]).map(r => ({ g: r.g, s: r.s || '', n: r.n, h: r.h, code: v[r.h],
     name: decName(r.e, v[r.h]) || '' }));
-  const out = { app: 'dosiati', kind: 'codes', at: new Date().toISOString(), count: list.length, codes: v, students: list };
+  const out = { app: 'dosiati', kind: 'codes', at: new Date().toISOString(), count: list.length, codes: v, students: list, seatNames: seatNames() };
   saveBlob2(JSON.stringify(out, null, 1), 'dosiati-codes-backup.json');
 }
 function flash(t) {
@@ -1404,7 +1793,7 @@ const ST_ALL = [
   ['book', 'حلول أسئلة الكتاب', 'book'],
   ['quiz', 'اختبار قصير', 'quiz'],
   ['test', 'اختبار الوحدة', 'test'],
-  ['print', 'بصمة الوحدة', null],
+  ['print', 'بصمتي في النتاجات', null],
   ['t', 'للمعلّم', null]
 ];
 function stations(u) {
@@ -1441,14 +1830,15 @@ function unitView(u) {
   if (live && S.tab !== 'test') { location.hash = `#${u.id}/test`; S.tab = 'test'; }
   const p = pathP(u);
   const learn = keys.filter(k => k !== 't' && k !== 'print');
-  const pct = Math.round(learn.filter(k => p.done.includes(k)).length / Math.max(1, learn.length) * 100);
+  const op = outProg(u);
+  const pct = op ? Math.round(op.m / Math.max(1, op.n) * 100) : Math.round(learn.filter(k => p.done.includes(k)).length / Math.max(1, learn.length) * 100);
 
   const focus = !live && S.tab === 'lrn' && ((S.lp[0] === 'seg' && S.lp[1]) || (S.lp[0] === 'p' && S.lp[1]));
   const head = el('div', 'uhead uhead2');
   head.innerHTML = `<div style="flex:1">
       ${live ? '' : (S.tab === 'hub' ? '<a class="back" href="#">‹ الرئيسية</a>' : `<a class="back" href="#${u.id}/hub">‹ ${esc(fmt(u.unit.unitTitle))}</a>`)}
       <strong>${fmt(u.unit.unitTitle)}</strong>
-      <span>${esc(u.meta.subject)}</span></div>${ringSvg(pct)}`;
+      <span>${esc(u.meta.subject)}${op ? ' · أتقنتَ ' + op.m + ' من ' + op.n + ' نتاجات' : ''}</span></div>${ringSvg(pct, undefined, op ? op.m + '/' + op.n : null)}`;
   if (!focus) w.append(head);
 
   const nav = el('div', 'steps');
@@ -1487,6 +1877,7 @@ function stHub(b, u, sts, p) {
     const a = el('a', 'btn', p.done.includes('lrn') ? 'راجِع المسار' : 'ابدأ / تابِع'); a.href = `#${u.id}/lrn`;
     c.append(a); b.append(c);
   }
+  b.append(sirajCard());
   const g = el('div', 'hubg');
   sts.forEach(([k, t], i) => {
     if (k === 't' || k === 'lrn') return;
@@ -1498,12 +1889,120 @@ function stHub(b, u, sts, p) {
     g.append(a);
   });
   b.append(g);
+  if (lrnOf(u.id)) { b.append(unitMap(u)); b.append(unitLimits(u, true)); }
 }
-function ringSvg(p, size) {
+/* ---------- 3.6 : خطة الوحدة · خريطة الوحدة · حدود الوحدة ---------- */
+const plainT = t => String(t || '').replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim();
+function lessonOfOut(L, n) { return (L.lessons || []).find(ls => (ls.o || []).map(Number).includes(+n)) || null; }
+function unitPlan(u) {
+  const L = lrnOf(u.id), nums = Object.keys(L.outcomes).sort((x, y) => x - y);
+  const labN = (() => { const x = xOf(u.id); return Array.isArray(x.lab) ? x.lab.length : (x.lab ? 1 : 0); })();
+  const c = el('div', 'card2');
+  c.append(el('h2', 'lvl', 'خطّة الوحدة'));
+  c.append(el('p', 'hint', 'لكلّ نتاج : أين مصدره في الكتاب ، وما الذي ستفعله ، وبماذا يُعدّ متقنًا. اضغط رقم المقطع لتفتحه.'));
+  const wrap = el('div', 'uplw'), t = el('table', 'upl');
+  t.innerHTML = '<thead><tr><th>النتاج</th><th>المصدر</th><th>النشاط</th><th>معيار المراجعة</th><th>حالتك</th></tr></thead>';
+  const tb = el('tbody');
+  nums.forEach(n => {
+    const segs = L.segments.filter(s => +s.o === +n), ls = lessonOfOut(L, n);
+    const mins = segs.reduce((a, s) => a + (+s.min || 0), 0), sims = segs.filter(s => s.sim).length;
+    const figs = segs.reduce((a, s) => a + ((s.figs || []).length), 0);
+    const nq = L.items.filter(it => +it.o === +n).length;
+    const st = isTeacher() ? '' : lOst(u, n);
+    const tr = el('tr');
+    const segLinks = segs.map(s => `<a href="#${u.id}/lrn/seg/${s.i}">م${s.i}</a>`).join(' ');
+    tr.innerHTML = `<td><b>ن${n}</b> ${fmt(L.outcomes[n])}</td>
+      <td data-l="المصدر">${ls ? esc(plainT(ls.t)) + (ls.p ? '<br><span class="sm">' + esc(ls.p) + '</span>' : '') : '—'}${figs ? '<br><span class="sm">' + figs + ' شكلًا من الكتاب</span>' : ''}</td>
+      <td data-l="النشاط">${segs.length} مقاطع · ${mins} دقيقة<br>${segLinks}${sims ? '<br><span class="sm">' + sims + ' محاكاة</span>' : ''}</td>
+      <td data-l="معيار المراجعة">ثلاث إجابات صحيحة متتالية في كلّ مقطع ، ثمّ في أسئلة النتاج<br><span class="sm">بنك النتاج : ${nq} سؤالًا</span></td>
+      <td data-l="حالتك">${st ? '<b class="os ' + st + '">' + lStName(st) + '</b>' : '—'}</td>`;
+    tb.append(tr);
+  });
+  t.append(tb); wrap.append(t); c.append(wrap);
+  if (labN) c.append(el('p', 'hint', 'وفي الوحدة ' + labN + ' من الأنشطة العملية في محطّة التجارب ، وهي خارج معيار الإتقان أعلاه.'));
+  return c;
+}
+function unitMap(u) {
+  const L = lrnOf(u.id), kc = keycardOf(u) || [];
+  const d = el('details', 'box umapd');
+  d.append(el('summary', 'bt', 'خريطة الوحدة'));
+  d.append(el('p', 'hint', 'الدروس ثمّ النتاجات ثمّ المقاطع ، وتحت كلّ نتاج المصطلحات التي وردت في شرحه. لونُ النتاج حالتُك فيه.'));
+  const root = el('div', 'umap');
+  root.append(el('div', 'um-root', fmt(u.unit.unitTitle)));
+  const lessons = (L.lessons && L.lessons.length) ? L.lessons : [{ t: '', o: Object.keys(L.outcomes).map(Number) }];
+  lessons.forEach(ls => {
+    const lb = el('div', 'um-les');
+    if (ls.t) lb.append(el('div', 'um-lt', fmt(plainT(ls.t)) + (ls.p ? ' <span class="sm">· ' + esc(ls.p) + '</span>' : '')));
+    (ls.o || []).forEach(n => {
+      if (!L.outcomes[n]) return;
+      const segs = L.segments.filter(s => +s.o === +n);
+      const txt = segs.map(s => plainT(s.teach)).join(' ');
+      const terms = kc.map(r => plainT(r[0])).filter(w => w.length >= 3 && txt.includes(w)).slice(0, 5);
+      const st = isTeacher() ? 'no' : lOst(u, n);
+      const nd = el('div', 'um-out ' + st);
+      nd.innerHTML = `<div class="um-ot"><b>ن${n}</b> ${fmt(L.outcomes[n])}</div>
+        <div class="um-sg">${segs.map(s => `<a href="#${u.id}/lrn/seg/${s.i}">م${s.i}</a>`).join('')}</div>
+        ${terms.length ? '<div class="um-tm">' + terms.map(w => '<span>' + esc(w) + '</span>').join('') + '</div>' : ''}`;
+      lb.append(nd);
+    });
+    root.append(lb);
+  });
+  d.append(root);
+  return d;
+}
+function unitLimits(u, collapsed) {
+  const L = lrnOf(u.id);
+  const d = el('details', 'box umapd');
+  if (!collapsed) d.open = true;
+  d.append(el('summary', 'bt', 'ما لم تعالجه الوحدة'));
+  const later = {};
+  L.segments.forEach(s => (s.after || []).forEach(a => { if (a && a.u && !later[a.u]) later[a.u] = a; }));
+  const lv = Object.values(later);
+  let h = '<p class="hint">المسار مبنيّ على نتاجات هذه الوحدة والصفحات المذكورة في خطّتها ؛ وما خرج عنها لا يُحاسَب عليه هنا.</p>';
+  if (lv.length) h += '<div class="um-h">يُستكمل في وحدات أخرى</div><ul class="um-l">' + lv.map(a => `<li><b>${esc(plainT(a.t))}</b> : ${fmt(a.x || '')}</li>`).join('') + '</ul>';
+  const w = L.segments.filter(s => s.warn);
+  if (w.length) h += '<div class="um-h">أخطاء شائعة وقيود يجب مراعاتها</div><ul class="um-l">' + w.map(s => `<li><b>م${s.i}</b> ${fmt(String(s.warn).replace(/^الخطأ الشائع\s*:\s*/, ''))}</li>`).join('') + '</ul>';
+  const thin = Object.keys(L.outcomes).filter(n => L.items.filter(it => +it.o === +n).length < 4);
+  if (thin.length) h += '<div class="um-h">تغطية محدودة</div><p class="hint">النتاجات ' + thin.map(n => 'ن' + n).join(' ، ') + ' لها أقلّ من أربعة أسئلة في البنك ، فقد يتكرّر السؤال عليك.</p>';
+  const body = el('div', 'um-b'); body.innerHTML = h; d.append(body);
+  return d;
+}
+
+/* ---------- 3.6 : مراجعة الأسئلة (جهاز المعلّم فقط) ---------- */
+const REV_KEY = 'dosiati-rev';
+function revLoad() { try { return JSON.parse(localStorage.getItem(REV_KEY) || '{}') || {}; } catch (e) { return {}; } }
+function revSave(m) { try { localStorage.setItem(REV_KEY, JSON.stringify(m)); return true; } catch (e) { flash('تعذّر الحفظ على هذا الجهاز.'); return false; } }
+const REV_NAME = { r: 'روجع', x: 'يحتاج تعديلًا', '': 'لم يُراجَع' };
+
+const SIRAJ_URL = 'https://siraj.moe.gov.jo/';
+function outProg(u) {
+  const L = lrnOf(u.id); if (!L || isTeacher()) return null;
+  const nums = Object.keys(L.outcomes);
+  return { m: nums.filter(n => lOst(u, n) === 'ok').length, n: nums.length };
+}
+function simNote() {
+  return el('p', 'hint simn', 'أسئلة هذا الاختبار من إعداد المعلّم ، وتحاكي في أنماطها ومستوياتها المعرفية أسئلة الاختبارات الوطنية والدولية ، وليست منقولة منها.');
+}
+function sirajCard() {
+  const c = el('div', 'box sirajc');
+  c.innerHTML = `<div class="bt">عالق في فكرة ؟ اسأل سراج</div><p class="hint" style="margin:.2rem 0 .5rem">سراج مساعد وزارة التربية والتعليم الذكي. حاول الحلّ بنفسك أوّلًا ، ثمّ اسأله ليشرح لك الخطوة التي توقّفتَ عندها.</p>`;
+  const x = el('a', 'btn sm', 'افتح سراج'); x.href = SIRAJ_URL; x.target = '_blank'; x.rel = 'noopener';
+  c.append(x); return c;
+}
+const OFFICIAL = [['منصة أجيال', 'https://ajyal.moe.gov.jo/emis/login.aspx'], ['موقع وزارة التربية والتعليم', 'https://www.moe.gov.jo/'], ['سراج · المساعد الذكي', SIRAJ_URL]];
+function officialLinks() {
+  const d = el('details', 'box umapd');
+  d.append(el('summary', 'bt', 'روابط رسمية'));
+  const ul = el('div', 'offl');
+  OFFICIAL.forEach(([t, u]) => { const x = el('a', '', esc(t)); x.href = u; x.target = '_blank'; x.rel = 'noopener'; ul.append(x); });
+  d.append(ul, el('p', 'hint', 'هذه الروابط تحتاج إنترنت ، وتُفتح خارج الموقع.'));
+  return d;
+}
+function ringSvg(p, size, label) {
   const R = 22, C = 2 * Math.PI * R, s = size || 54;
   return `<svg class="ring" width="${s}" height="${s}" viewBox="0 0 52 52"><circle cx="26" cy="26" r="${R}" fill="none" stroke="#E7EDF5" stroke-width="6"/>
   <circle cx="26" cy="26" r="${R}" fill="none" stroke="#2B5CA8" stroke-width="6" stroke-linecap="round" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - p / 100)}" transform="rotate(-90 26 26)"/>
-  <text x="26" y="31" text-anchor="middle" font-size="14" fill="#00205B">${p}%</text></svg>`;
+  <text x="26" y="31" text-anchor="middle" font-size="${label ? 13 : 14}" fill="#00205B">${label || (p + '%')}</text></svg>`;
 }
 function nextBtn(b, u, k, label) {
   const sts = stations(u).map(x => x[0]).filter(x => x !== 't');
@@ -1551,6 +2050,7 @@ function stAims(b, u) {
   const aims = (u.aims && u.aims.length) ? u.aims : u.body.filter(n => n.t === 'li').slice(0, 10).map(n => n.x);
   aims.forEach(t => c.append(el('div', 'li', fmt(t))));
   b.append(c);
+  if (lrnOf(u.id)) b.append(unitPlan(u));
   const sts = stations(u).filter(x => x[0] !== 't').map(x => x[1]);
   b.append(el('div', 'box', `<div class="bt">خطّتك في هذه الوحدة</div><p style="margin:0">${esc(sts.join('  ←  '))}</p>
     ${SET.perm.seq ? '<p class="hint" style="margin:.3rem 0 0">لا تُفتح المحطّة إلا بعد إتمام التي قبلها.</p>' : ''}`));
@@ -1642,6 +2142,7 @@ function stLearn(b, u) {
     c.append(flashCards(kc));
     b.append(c);
   }
+  if (lrnOf(u.id)) b.append(unitLimits(u, false));
   exitCard(b, u, 'learn');
   nextBtn(b, u, 'learn');
 }
@@ -1757,6 +2258,7 @@ function stBook(b, u) {
 
 /* ---------- 7 ) اختبار قصير ---------- */
 function stQuiz(b, u) {
+  b.append(simNote());
   const p = pathP(u), ex = u.exam;
   const N = Math.max(1, Math.min(ex.mcq.length, (SET.quiz || {}).n || 5));
   const D = Math.max(1, (SET.quiz || {}).dur || 5);
@@ -1838,7 +2340,7 @@ function stQuiz(b, u) {
 }
 
 /* ---------- 8 ) اختبار الوحدة ---------- */
-function stTest(b, u) { b.append(examView(u)); if (att(u) && att(u).submitted) nextBtn(b, u, 'test'); }
+function stTest(b, u) { b.append(simNote()); b.append(examView(u)); if (att(u) && att(u).submitted) nextBtn(b, u, 'test'); }
 function stTeacher(b, u) { b.append(teacherView(u)); }
 
 /* ---------- 9 ) بصمة الوحدة ---------- */
@@ -1854,6 +2356,32 @@ function stPrint(b, u) {
   if (a && a.submitted) { let r = 0; u.exam.mcq.forEach((it, i) => { if (a.mcq[i] === it.a) r++; }); examPct = Math.round(r / u.exam.mcq.length * 100); }
   const overall = Math.round((doneN / Math.max(1, sts.length)) * 100);
 
+  const LR = lrnOf(u.id);
+  if (LR) {
+    const P = lp(u);
+    const opct = n => { const sg = segsOfOut(LR, n); const o = P.out[n] || {}; if (o.mast) return 100; return sg.length ? Math.round(sg.filter(i => P.seg[i].done).length / sg.length * 100) : 0; };
+    const nums = Object.keys(LR.outcomes).sort((x, y) => x - y);
+    const mastered = nums.filter(n => lOst(u, n) === 'ok').length;
+    const c0 = el('div', 'card2');
+    c0.append(el('h2', 'lvl', 'بصمتك في نتاجات الوحدة'));
+    c0.append(el('p', 'hint', 'أتقنتَ ' + mastered + ' من ' + nums.length + ' نتاجات.'));
+    if (nums.length <= 10) c0.append(radarSvg(nums.map(n => [String(n), opct(n)])));
+    b.append(c0);
+    const lessons = (LR.lessons && LR.lessons.length) ? LR.lessons : [{ t: '', o: nums.map(Number) }];
+    lessons.forEach(ls => {
+      const cc = el('div', 'card2');
+      if (ls.t) cc.append(el('h2', 'lvl', fmt(ls.t)));
+      (ls.o || []).forEach(n => {
+        if (!LR.outcomes[n]) return;
+        const st = lOst(u, n), pc = opct(n);
+        const row = el('div', 'orow');
+        row.innerHTML = `<div class="ot"><b>ن${n}</b> ${fmt(LR.outcomes[n])}</div><div class="brow"><div class="bar"><i class="${st === 'ok' ? 'g' : ''}" style="width:${st === 'ok' ? 100 : pc}%"></i></div><b class="os ${st}">${lStName(st)}</b></div>`;
+        cc.append(row);
+      });
+      b.append(cc);
+    });
+  }
+  if (!LR) {
   const c = el('div', 'card2');
   c.append(el('h2', 'lvl', 'بصمتك في هذه الوحدة'));
   c.append(radarSvg([
@@ -1878,6 +2406,7 @@ function stPrint(b, u) {
     d.append(row);
   });
   b.append(d);
+  }
 
   /* الشارات */
   const badges = [];
@@ -2727,7 +3256,9 @@ function lrAnswer(u, L, i) {
   const P = lp(u), t = P.tk, it = tkItemOf(L, P);
   const rec = P.out[it.o], sg = t.seg ? P.seg[t.seg] : null;
   t.pick = i; rec.tries++; if (sg) sg.tries++;
+  if (rec.tries === 1) logEvent('محاولة', u.id, 'نتاج ' + it.o);
   const ok = i === it.a;
+  logEvent('إجابة', u.id, it.id, 'op' + i + (ok ? '-ok' : '-no'));
   if (ok) {
     rec.first++;
     if (sg) { sg.streak++; if (sg.streak >= 3) { sg.done = true; logEvent('مقطع', u.id, 'المقطع ' + t.seg, 1); } }
