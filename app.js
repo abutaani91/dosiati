@@ -1,5 +1,5 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '41', APP_SHOW = '4.1';
+const APP_VER = '42', APP_SHOW = '4.2';
 const BRAND = 'نشامى العلم', TAGLINE = 'تعلّم بإتقان .. واترك أثرك';
 const APP_DATE = '2026/10/20';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
@@ -587,7 +587,7 @@ function bar() {
   const bs = $('#bsub'); if (bs) bs.textContent = SET.school || '';
   const bl = $('#blogo'); if (bl) bl.src = window.__LOGO__ || LOGO;
   const cr = $('#mcred'); if (cr) cr.textContent = SET.teacherName ? 'إعداد : ' + SET.teacherName : '';
-  const vf = $('#vfoot'); if (vf) vf.textContent = 'نسخة تجريبية · الإصدار ' + APP_SHOW;
+  const vf = $('#vfoot'); if (vf) vf.textContent = 'الإصدار ' + APP_SHOW + ' · العام الدراسي 2026 / 2027';
   const sb = $('#sbtn'); if (sb) { const off = localStorage.getItem('dosiati-snd') === '0'; sb.textContent = off ? 'تشغيل الأصوات' : 'كتم الأصوات'; sb.style.display = (SET.snd && SET.snd.on === false && !isTeacher()) ? 'none' : ''; }
   const tb = $('#tbtn'); if (tb) tb.textContent = document.body.classList.contains('dark') ? 'الوضع النهاري' : 'الوضع الليلي';
   pb.style.display = (S.user && !isTeacher() && !SET.perm.present) ? 'none' : '';
