@@ -1,5 +1,5 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '42', APP_SHOW = '4.2';
+const APP_VER = '43', APP_SHOW = '4.3';
 const BRAND = 'نشامى العلم', TAGLINE = 'تعلّم بإتقان .. واترك أثرك';
 const APP_DATE = '2026/10/20';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
@@ -36,7 +36,7 @@ const DEF = {
   log: { url: '', key: '', on: true }
 };
 let SET = clone(DEF);
-const DEF_UNIT = { on: true, sum: true, ex: true, q: true, qa: true, test: true, lab: true, quiz: true, book: true };
+const DEF_UNIT = { on: true, sum: true, ex: true, q: true, qa: true, test: true, lab: true, quiz: true, book: true, topen: false };
 const uset = id => Object.assign({}, DEF_UNIT, SET.units[id] || {});
 function merge(base, add) {
   if (!add || typeof add !== 'object') return base;
@@ -193,6 +193,19 @@ function seatPhraseSet(v) { try { if (v) localStorage.setItem(SEATK, v); else lo
 function seatNames() { try { return JSON.parse(localStorage.getItem(SEATN) || '{}') || {}; } catch (e) { return {}; } }
 function seatNamesPut(o) { try { localStorage.setItem(SEATN, JSON.stringify(o)); } catch (e) {} }
 const seatKey = (g, s, n) => g + '|' + (s || '') + '|' + (+n);
+/* ربط الكود القديم بكود المقعد ( على جهاز المعلّم ) ليبقى سجلّ الطالب واحدًا في التقارير */
+const ALIASK = 'dosiati-alias';
+function aliasMap() { try { return JSON.parse(localStorage.getItem(ALIASK) || '{}') || {}; } catch (e) { return {}; } }
+function aliasPut(o) { try { localStorage.setItem(ALIASK, JSON.stringify(o)); } catch (e) {} }
+const rowKey = r => r.g + '|' + (r.s || '') + '|' + (+r.n);
+/* الطالب الحالي يبقى صاحب سجلّه : كود مقعده يُحسب على سجلّه القديم بالرقم نفسه ، على أيّ جهاز */
+function autoAlias(roster) {
+  const R = roster || SET.roster || [], old = {}, m = {};
+  R.forEach(r => { if (!r.seat && !r.out) old[rowKey(r)] = String(r.h).slice(0, 12); });
+  R.forEach(r => { if (r.seat && old[rowKey(r)]) m[String(r.h).slice(0, 12)] = old[rowKey(r)]; });
+  return m;
+}
+function sidsFor(g, s, n) { return (SET.roster || []).filter(r => !r.out && r.g === g && (r.s || '') === (s || '') && +r.n === +n).map(r => String(r.h).slice(0, 12)); }
 const SEATMEMO = {};
 function seatCode(phrase, y, g, s, n) {
   const msg = 'seat|' + y + '|' + g + '|' + (s || '') + '|' + (+n);
@@ -228,6 +241,7 @@ function legacyRead(v) {
   const row = (SET.roster || []).find(r => r.h === hash(t));
   if (!row) return null;
   if (row.out) return { out: true };
+  if (row.mig) return { mig: true };
   const g = SET.grades[row.g];
   if (!g || !g.on) return null;
   return { code: t, sid: String(row.h).slice(0, 12), legacy: true, year: +SET.year, term: SET.term,
@@ -240,6 +254,7 @@ async function readCodeAsync(v) {
     const row = (SET.roster || []).find(r => r.h === h);
     if (row) {
       if (row.out) return { out: true };
+      if (row.mig) return { mig: true };
       const g = SET.grades[row.g];
       if (!g || !g.on) return null;
       return { code: t, sid: h.slice(0, 12), year: +SET.year, term: SET.term,
@@ -288,9 +303,11 @@ function remoteCodes() {
 }
 function rosterOf(g) {
   const SN = seatNames(); let RC = null;
+  const OLD = new Set((SET.roster || []).filter(r => !r.seat && !r.out && r.g === g).map(rowKey));
   return (SET.roster || []).filter(r => {
     if (r.g !== g || r.out) return false;
     if (!r.seat) return true;
+    if (OLD.has(rowKey(r))) return false;
     if (SN[seatKey(r.g, r.s, r.n)]) return true;
     if (!RC) RC = remoteCodes();
     return RC.has(String(r.h).slice(0, 12));
@@ -353,7 +370,7 @@ const mmss = s => (s < 0 ? '00:00' : String(Math.floor(s / 60)).padStart(2, '0')
 
 /* ============ كود Apps Script الجاهز ============ */
 const GS_CODE = [
-"/**  متابعة نشامى العلم — Google Apps Script — الإصدار 4.0  **/",
+"/**  متابعة نشامى العلم — Google Apps Script — الإصدار 4.3  **/",
 "const WRITE_KEY = 'ضع-كلمة-الكتابة-هنا';  // تطابق « كلمة الكتابة » في لوحة المعلّم ، وتُنشر مع الموقع",
 "const READ_KEY  = 'ضع-كلمة-القراءة-هنا';  // على جهاز المعلّم فقط . لا تضعها في الموقع أبدًا",
 "const HEAD = ['الوقت','رمز الطالب','الاسم','الصف','الشعبة','الرقم','الحدث','الوحدة','تفصيل','العلامة'];",
@@ -369,6 +386,7 @@ const GS_CODE = [
 "function doPost(e) {",
 "  try {",
 "    const d = JSON.parse(e.postData.contents || '{}');",
+"    if (d.hw) return hwPost_(d);",
 "    if (d.k !== WRITE_KEY) return out_({ error: 'key' });",
 "    const sh = sheet_();",
 "    const rows = (d.rows || []).slice(0, 2000).map(function (r) {",
@@ -382,6 +400,7 @@ const GS_CODE = [
 "/* القراءة : لكلمة القراءة فقط */",
 "function doGet(e) {",
 "  if (e.parameter.stats) return stats_(e.parameter.g, e.parameter.u);",
+"  if (e.parameter.hw) return hwGet_(String(e.parameter.hw).slice(0, 16));",
 "  if ((e.parameter.k || '') !== READ_KEY) return out_({ error: 'key' });",
 "  const sh = sheet_();",
 "  const v = sh.getDataRange().getValues();",
@@ -390,6 +409,32 @@ const GS_CODE = [
 "    return { t: new Date(r[0]).getTime(), code: String(r[1]), g: String(r[3]), s: r[4], n: String(r[5]), type: r[6], unit: r[7], detail: r[8], score: r[9] };",
 "  });",
 "  return out_({ rows: rows });",
+"}",
+"",
+"/* الواجبات : ينشرها المعلّم بكلمة القراءة ، ويقرأ كل طالب واجباته برمزه وحده */",
+"function hwSheet_() {",
+"  const ss = SpreadsheetApp.getActiveSpreadsheet();",
+"  let sh = ss.getSheetByName('الواجبات');",
+"  if (!sh) { sh = ss.insertSheet('الواجبات'); sh.appendRow(['رمز الطالب', 'البيانات', 'آخر نشر']); }",
+"  return sh;",
+"}",
+"function hwPost_(d) {",
+"  if (d.k !== READ_KEY) return out_({ error: 'key' });",
+"  const sh = hwSheet_();",
+"  const v = sh.getDataRange().getValues();",
+"  const head = v.shift();",
+"  const now = new Date(), map = {};",
+"  v.forEach(function (r) { map[String(r[0])] = r; });",
+"  (d.rows || []).slice(0, 3000).forEach(function (r) { map[String(r.c).slice(0, 16)] = [String(r.c).slice(0, 16), JSON.stringify(r.v).slice(0, 45000), now]; });",
+"  const rows = Object.keys(map).map(function (k) { return map[k]; });",
+"  sh.clearContents(); sh.getRange(1, 1, 1, 3).setValues([head]);",
+"  if (rows.length) sh.getRange(2, 1, rows.length, 3).setValues(rows);",
+"  return out_({ ok: true, n: (d.rows || []).length });",
+"}",
+"function hwGet_(c) {",
+"  const v = hwSheet_().getDataRange().getValues();",
+"  for (let i = 1; i < v.length; i++) if (String(v[i][0]) === c) return out_({ hw: JSON.parse(v[i][1]), at: new Date(v[i][2]).getTime() });",
+"  return out_({ hw: null });",
 "}",
 "",
 "function out_(o) {",
@@ -631,7 +676,15 @@ function loginView() {
     try { u = await readCodeAsync(v); } catch (e) { u = null; }
     b.disabled = false; msg.className = 'err';
     if (u && u.out) { msg.textContent = 'هذا الرمز موقوف . راجع معلّمك.'; i.select(); return; }
+    if (u && u.mig) { msg.textContent = 'هذا كودك القديم ، واستُبدل ببطاقة جديدة . اطلب بطاقتك الجديدة من معلّمك.'; i.select(); return; }
     if (!u) { msg.textContent = 'رمز غير صحيح . تحقّق من الحروف والأرقام كما هي على بطاقتك.'; i.select(); return; }
+    try {
+      const pv = loadUser();
+      if (pv && !pv.teacher && pv.code && pv.code !== u.code && pv.grade === u.grade && String(pv.no) === String(u.no) && (pv.sec || '') === (u.sec || '')) {
+        const from = STPRE + pv.code, to = STPRE + u.code;
+        if (localStorage.getItem(from) && !localStorage.getItem(to)) localStorage.setItem(to, localStorage.getItem(from));
+      }
+    } catch (e) {}
     setUser(u); openStore(); location.hash = '';
     logEvent('login'); S.screenLogin = false; stopNasheed(); play('ok');
     render();
@@ -736,7 +789,7 @@ function home() {
     w.append(s);
   }
   const list = el('div', 'grid');
-  if (!isTeacher()) w.append(sirajCard());
+  if (!isTeacher()) { const hc = hwCard(); if (hc) w.append(hc); w.append(sirajCard()); }
   list.append(...cards());
   w.append(list);
   w.append(officialLinks());
@@ -774,7 +827,7 @@ function home() {
 }
 
 /* ================= لوحة التحكّم ================= */
-const ADMIN_TABS = [['follow', 'متابعة الطلبة'], ['out', 'تقرير النتاجات'], ['rev', 'مراجعة الأسئلة'], ['roster', 'قائمة الطلبة'], ['gen', 'إعدادات عامة'], ['perm', 'صلاحيات الطلبة'], ['units', 'الوحدات'], ['exam', 'الاختبار'], ['link', 'الربط والإرسال'], ['file', 'حفظ ونشر']];
+const ADMIN_TABS = [['follow', 'متابعة الطلبة'], ['out', 'تقرير النتاجات'], ['rev', 'مراجعة الأسئلة'], ['hw', 'الواجبات من سجلي'], ['roster', 'قائمة الطلبة'], ['gen', 'إعدادات عامة'], ['perm', 'صلاحيات الطلبة'], ['units', 'الوحدات'], ['exam', 'الاختبار'], ['link', 'الربط والإرسال'], ['file', 'حفظ ونشر']];
 function adminView() {
   const D = S.draft || (S.draft = clone(SET));
   const w = el('div', 'wrap');
@@ -801,6 +854,7 @@ function adminView() {
   if (S.admin === 'follow') follow();
   if (S.admin === 'out') outcomesTab();
   if (S.admin === 'rev') revTab();
+  if (S.admin === 'hw') hwTab();
   if (S.admin === 'roster') rosterTab();
   if (S.admin === 'link') linkTab();
   if (S.admin === 'gen') general();
@@ -933,7 +987,7 @@ function adminView() {
 
   function units() {
     const b = sec('إظهار الوحدات وتبويباتها', 'الوحدة المطفأة لا تظهر للطالب إطلاقًا . والتبويب المطفأ يختفي من وحدته.');
-    const cols = [['on', 'إظهار'], ['lab', 'تجارب'], ['sum', 'شرح'], ['ex', 'أمثلة'], ['q', 'أسئلة'], ['book', 'حلول الكتاب'], ['quiz', 'قصير'], ['test', 'الوحدة']];
+    const cols = [['on', 'إظهار'], ['lab', 'تجارب'], ['sum', 'شرح'], ['ex', 'أمثلة'], ['q', 'أسئلة'], ['book', 'حلول الكتاب'], ['quiz', 'قصير'], ['test', 'اختبار الوحدة يظهر'], ['topen', 'اختبار الوحدة مفتوح']];
     GORDER.forEach(g => {
       const list = S.units.filter(u => u.gno === g);
       if (!list.length) return;
@@ -943,7 +997,11 @@ function adminView() {
       const off = el('button', 'btn ghost sm', 'إخفاء الكل');
       on.onclick = () => { list.forEach(u => { D.units[u.id] = Object.assign({}, DEF_UNIT, D.units[u.id] || SET.units[u.id] || {}, { on: true }); }); render(); };
       off.onclick = () => { list.forEach(u => { D.units[u.id] = Object.assign({}, DEF_UNIT, D.units[u.id] || SET.units[u.id] || {}, { on: false }); }); render(); };
-      bt.append(on, off); b.append(bt);
+      const to = el('button', 'btn ghost sm', 'فتح كل الاختبارات');
+      const tc = el('button', 'btn ghost sm', 'إغلاق كل الاختبارات');
+      to.onclick = () => { list.forEach(u => { D.units[u.id] = Object.assign({}, DEF_UNIT, D.units[u.id] || SET.units[u.id] || {}, { topen: true }); }); render(); };
+      tc.onclick = () => { list.forEach(u => { D.units[u.id] = Object.assign({}, DEF_UNIT, D.units[u.id] || SET.units[u.id] || {}, { topen: false }); }); render(); };
+      bt.append(on, off, to, tc); b.append(bt);
       const t = el('table', 'perm');
       const hr = el('tr'); hr.append(el('th', '', 'الوحدة')); cols.forEach(c => hr.append(el('th', '', c[1]))); t.append(hr);
       list.forEach(u => {
@@ -1164,6 +1222,64 @@ function adminView() {
       body.append(c);
     });
   }
+  function hwTab() {
+    const b = sec('نشر حالة الواجبات من سجلي', 'افتح هذه الصفحة على الجهاز الذي فيه سجلي ( هاتفك ) وفي المتصفّح نفسه . تقرأ اللوحة الواجبات من سجلي مباشرة ، فتنشر لكل طالب حالة واجباته برمزه ، دون أسماء.');
+    let SJ = null; try { SJ = JSON.parse(localStorage.getItem('sijil-data-v1') || 'null'); } catch (e) { SJ = null; }
+    if (!SJ || SJ.app !== 'sijil') { b.append(el('div', 'box warn2', '<div class="bt">لم أجد بيانات سجلي على هذا الجهاز</div><p class="hint" style="margin:0">افتح لوحة نشامى العلم من المتصفّح الذي تستعمل فيه سجلي على هاتفك ، ثمّ ارجع إلى هذا التبويب.</p>')); return; }
+    const L = SET.log || {};
+    if (!L.url) { b.append(el('p', 'hint', 'اضبط رابط الجدول أوّلًا من تبويب « الربط والإرسال ».')); return; }
+    const GM = { g8: '08', g9: '09', g10: '10' };
+    const norm = t => String(t || '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/[ًٌٍَُِّْ]/g, '').replace(/\s+/g, '').trim();
+    const MAPK = 'dosiati-hwmap'; let MAP = {}; try { MAP = JSON.parse(localStorage.getItem(MAPK) || '{}') || {}; } catch (e) {}
+    const out = []; const report = [];
+    Object.keys(GM).forEach(gk => {
+      const g = GM[gk]; const sts = ((SJ.grades || {})[gk] || {}).students || []; if (!sts.length) return;
+      const ros = rosterOf(g); const byName = {}; ros.forEach(r => { byName[norm(r.name)] = r; });
+      const subs = Object.keys(SJ.rec || {}).filter(k => k.split('|')[0] === gk);
+      const unmatched = [];
+      sts.forEach((st, idx) => {
+        let r = byName[norm(st.name)];
+        if (!r && MAP[st.id]) r = ros.find(x => String(x.no) === String(MAP[st.id]));
+        if (!r) { unmatched.push({ st, idx }); return; }
+        const sObj = {};
+        subs.forEach(k => {
+          const R = SJ.rec[k], s = k.split('|')[1]; const m = (R.hw && R.hw.m && R.hw.m[st.id]) || {};
+          const items = ((R.hw && R.hw.items) || []).map((it, i) => ({ i: i + 1, t: it.title || '', d: it.date || '', v: m[i] })).filter(x => x.d || x.t || x.v !== undefined);
+          if (items.length) sObj[{ 'علوم': 'العلوم', 'فيزياء': 'الفيزياء', 'كيمياء': 'الكيمياء', 'أحياء': 'العلوم الحياتية', 'أرض': 'علوم الأرض والبيئة' }[s] || s] = items;
+        });
+        const v = { s: sObj };
+        const cs = new Set([r.code].concat(sidsFor(g, r.sec, r.no))); cs.forEach(c => out.push({ c, v }));
+      });
+      report.push({ g, n: sts.length, ok: sts.length - unmatched.length, unmatched, ros });
+    });
+    report.forEach(x => {
+      b.append(el('p', '', '<b>' + GRADES[x.g] + '</b> : رُبط ' + x.ok + ' من ' + x.n + ' طالبًا في سجلي بطلبة نشامى العلم.'));
+      if (x.unmatched.length) {
+        const box = el('div', 'box warn2'); box.append(el('div', 'bt', 'لم أجد هؤلاء بالاسم . اختر رقم كل واحد في نشامى العلم :'));
+        x.unmatched.forEach(({ st }) => {
+          const row = frow(box); const sel = el('select'); const o0 = el('option', '', '—'); o0.value = ''; sel.append(o0);
+          x.ros.forEach(r => { const o = el('option', '', r.no + ' · ' + r.name); o.value = r.no; sel.append(o); });
+          sel.value = MAP[st.id] || ''; sel.onchange = () => { MAP[st.id] = sel.value; try { localStorage.setItem(MAPK, JSON.stringify(MAP)); } catch (e) {} render(); };
+          row.append(wrapLab(st.name, sel));
+        });
+        b.append(box);
+      }
+    });
+    const br = el('div', 'btns');
+    const pub = el('button', 'btn', 'نشر حالة الواجبات لـ ' + out.length + ' رمزًا');
+    pub.onclick = () => {
+      const rk = readKey(); if (!rk) return flash('اكتب كلمة القراءة في تبويب « الربط والإرسال » على هذا الجهاز.');
+      if (!out.length) return flash('لا يوجد طلبة مربوطون.');
+      pub.disabled = true; pub.textContent = 'جارٍ النشر …';
+      fetch(L.url, { method: 'POST', body: JSON.stringify({ hw: 1, k: rk, rows: out }) }).then(r => r.json()).then(d => {
+        pub.disabled = false; pub.textContent = 'نشر حالة الواجبات لـ ' + out.length + ' رمزًا';
+        if (d && d.ok) flash('نُشرت حالة الواجبات لـ ' + d.n + ' رمزًا . يراها كل طالب في « واجباتي ».');
+        else flash(d && d.error === 'key' ? 'رفض الجدول كلمة القراءة . حدّث السكربت إلى نسخة 4.3.' : 'لم يقبل الجدول النشر . حدّث السكربت إلى نسخة 4.3 ثمّ أعد المحاولة.');
+      }).catch(() => { pub.disabled = false; pub.textContent = 'نشر حالة الواجبات لـ ' + out.length + ' رمزًا'; flash('تعذّر الاتصال بالجدول.'); });
+    };
+    br.append(pub); b.append(br);
+    b.append(el('p', 'hint', 'انشر بعد كل رصد للواجبات في سجلي . الطالب يرى : عنوان الواجب وتاريخه وحالته ( سلّمه ، جزئيًّا ، لم يسلّمه ، غائب ، لم يُرصد بعد ) ، لكل مادة.'));
+  }
   function outcomesTab() {
     const plain = t => String(t || '').replace(/<[^>]+>/g, '');
     const g = S.fg || (S.fg = '09');
@@ -1340,7 +1456,8 @@ function adminView() {
     const rem = lsGet2('dosiati-remote');
     const loc = lsGet('dosiati-events');
     const arr = (Array.isArray(rem) ? rem : []).concat(loc);
-    return arr.filter(r => r && r.code);
+    const AL = autoAlias();
+    return arr.filter(r => r && r.code).map(r => AL[String(r.code)] ? Object.assign({}, r, { code: AL[String(r.code)] }) : r);
   }
   function aggregate(rows) {
     const o = {};
@@ -1463,6 +1580,48 @@ function adminView() {
     };
     r2.append(prep); b.append(r2);
     if (!mine.length) { b.append(el('p', 'hint', 'بعد التجهيز والنشر لا تحتاج إلى نشر جديد عند دخول طالب جديد.')); return; }
+    // ترحيل الطلبة الحاليين إلى أكواد المقاعد
+    const olds = (D.roster || []).filter(r => !r.seat && r.g === g && (r.s || '') === s && !r.out);
+    const SNm = seatNames();
+    const notMoved = olds.filter(r => !SNm[seatKey(g, s, r.n)]);
+    if (olds.length) {
+      const mv = el('div', 'box gold');
+      mv.append(el('div', 'bt', 'الطلبة الحاليون ( ' + olds.length + ' )'));
+      mv.append(el('p', 'hint', notMoved.length
+        ? 'يأخذ كل طالب حالي كود المقعد بالرقم نفسه ، ويبقى سجلّه في التقارير واحدًا . اطبع بطاقاتهم بعد الترحيل . أكوادهم القديمة تبقى تعمل حتى توقفها.'
+        : 'رُحّل كل الطلبة الحاليين . وزّع بطاقاتهم الجديدة ، ثمّ أوقف الأكواد القديمة.'));
+      const mb = el('div', 'btns');
+      if (notMoved.length) {
+        const go1 = el('button', 'btn', 'ترحيل ' + notMoved.length + ' طالبًا إلى أكواد المقاعد');
+        go1.onclick = () => {
+          if (!seatPhrase()) return flash('اكتب العبارة السرّية أولًا.');
+          const SN0 = seatNames(); let k = 0, skip = [];
+          notMoved.forEach(r => {
+            const seat = mine.find(x => +x.n === +r.n);
+            if (!seat) { skip.push(r.n); return; }
+            const key = seatKey(g, s, r.n), pin = pinOf(r), nm = (pin ? decName(r.e, pin) : '') || ('طالب رقم ' + r.n);
+            if (SN0[key] && SN0[key] !== nm) { skip.push(r.n); return; }
+            SN0[key] = nm; k++;
+          });
+          seatNamesPut(SN0);
+          flash('رُحّل ' + k + ' طالبًا' + (skip.length ? ' . لم يُرحَّل الرقم ' + skip.join(' ، ') + ' لأن مقعده مشغول أو غير مجهّز' : '') + ' . اطبع البطاقات الآن.');
+          render();
+        };
+        mb.append(go1);
+      }
+      const moved = olds.filter(r => SNm[seatKey(g, s, r.n)]);
+      if (moved.length) {
+        const stop = el('button', 'btn ghost', moved.some(r => !r.mig) ? 'إيقاف الأكواد القديمة لهؤلاء ( بعد توزيع البطاقات )' : 'الأكواد القديمة موقوفة ✓');
+        stop.disabled = !moved.some(r => !r.mig);
+        stop.onclick = () => {
+          if (!confirm('بعد النشر لا يدخل أيّ طالب بكوده القديم ، ويُطلب منه بطاقته الجديدة . هل وزّعت البطاقات الجديدة ؟')) return;
+          moved.forEach(r => { const row = (D.roster || []).find(x => x.h === r.h); if (row) row.mig = 1; });
+          flash('أوقفت ' + moved.length + ' كودًا قديمًا . احفظ التغييرات ونزّل ملف الإعدادات وارفعه.'); render();
+        };
+        mb.append(stop);
+      }
+      mv.append(mb); b.append(mv);
+    }
     // الطلبة على المقاعد
     const SN = seatNames();
     const used = new Set((D.roster || []).filter(r => !r.seat && r.g === g && (r.s || '') === s && !r.out).map(r => +r.n));
@@ -1596,7 +1755,8 @@ function adminView() {
         const rd = new FileReader();
         rd.onload = () => { try { const o = JSON.parse(rd.result); const v = vaultGet();
             if (o.seatNames && typeof o.seatNames === 'object') { const sn = seatNames(); Object.assign(sn, o.seatNames); seatNamesPut(sn); }
-            Object.keys(o.codes || o).filter(k => k !== 'seatNames').forEach(k => { v[k] = (o.codes || o)[k]; });
+            if (o.alias && typeof o.alias === 'object') { const al = aliasMap(); Object.assign(al, o.alias); aliasPut(al); }
+            Object.keys(o.codes || o).filter(k => k !== 'seatNames' && k !== 'alias').forEach(k => { v[k] = (o.codes || o)[k]; });
             vaultPut(v); flash('استُعيدت ' + Object.keys(o.codes || o).length + ' بطاقة.'); render();
           } catch (e) { flash('الملف غير صالح.'); } };
         rd.readAsText(fl); };
@@ -1762,7 +1922,7 @@ function backupVault() {
     .filter((r, i, a) => r && a.findIndex(x => x.h === r.h) === i);
   const list = rows.filter(r => v[r.h]).map(r => ({ g: r.g, s: r.s || '', n: r.n, h: r.h, code: v[r.h],
     name: decName(r.e, v[r.h]) || '' }));
-  const out = { app: 'dosiati', kind: 'codes', at: new Date().toISOString(), count: list.length, codes: v, students: list, seatNames: seatNames() };
+  const out = { app: 'dosiati', kind: 'codes', at: new Date().toISOString(), count: list.length, codes: v, students: list, seatNames: seatNames(), alias: aliasMap() };
   saveBlob2(JSON.stringify(out, null, 1), 'dosiati-codes-backup.json');
 }
 function flash(t) {
@@ -1845,11 +2005,11 @@ function unitView(u) {
   nav.setAttribute('role', 'tablist');
   sts.forEach(([k, t], i) => {
     const prev = i > 0 ? sts[i - 1][0] : null;
-    const locked = !isTeacher() && SET.perm.seq && k !== 't' && k !== 'lrn' && prev && prev !== 't' && prev !== 'lrn' && !p.done.includes(prev) && !p.done.includes(k);
+    const locked = stLocked(u, sts, i, p);
     const b = el('button', 'st' + (S.tab === k ? ' on' : '') + (p.done.includes(k) ? ' done' : '') + (locked ? ' lock' : ''));
     b.setAttribute('role', 'tab'); b.setAttribute('aria-selected', S.tab === k ? 'true' : 'false');
     b.innerHTML = `<b>${p.done.includes(k) ? '✓' : (k === 't' ? '★' : i + 1)}</b>${esc(t)}`;
-    b.onclick = () => { if (locked) { flash('أكمل المحطّة السابقة أوّلًا.'); return; } location.hash = `#${u.id}/${k}`; };
+    b.onclick = () => { if (locked) { flash(lockMsg(k)); return; } location.hash = `#${u.id}/${k}`; };
     if (live && k !== 'test') b.style.display = 'none';
     nav.append(b);
   });
@@ -1863,13 +2023,20 @@ function unitView(u) {
   return w;
 }
 const HUB_ICO = { aims: '🎯', lrn: '🧭', lab: '🧪', learn: '📖', ex: '✏️', q: '❓', book: '📘', quiz: '⚡', test: '📝', print: '🏅' };
+/* القفل : بصمتي مفتوحة دائمًا ، واختبار الوحدة يفتحه المعلّم ، وبقية المحطات بالتسلسل إن فُعّل */
+function stLocked(u, sts, i, p) {
+  if (isTeacher()) return false;
+  const k = sts[i][0];
+  if (k === 'test') return !uset(u.id).topen;
+  if (k === 'print' || k === 't' || k === 'lrn') return false;
+  const prev = i > 0 ? sts[i - 1][0] : null;
+  return !!(SET.perm.seq && prev && !['t', 'lrn', 'test', 'print'].includes(prev) && !p.done.includes(prev) && !p.done.includes(k));
+}
+const lockMsg = k => k === 'test' ? 'اختبار الوحدة مغلق ، ويفتحه المعلّم عندما يحين موعده.' : 'أكمل المحطّة السابقة أوّلًا.';
 function stHub(b, u, sts, p) {
   const live = liveNow(u);
   if (live) { b.append(el('p', 'hint', 'اختبار الوحدة جارٍ.')); const x = el('a', 'btn', 'متابعة الاختبار'); x.href = `#${u.id}/test`; b.append(x); return; }
-  const lk = (i) => {
-    const k = sts[i][0], prev = i > 0 ? sts[i - 1][0] : null;
-    return !isTeacher() && SET.perm.seq && k !== 't' && k !== 'lrn' && prev && prev !== 't' && prev !== 'lrn' && !p.done.includes(prev) && !p.done.includes(k);
-  };
+  const lk = (i) => stLocked(u, sts, i, p);
   const hasL = sts.some(s => s[0] === 'lrn');
   if (hasL) {
     const c = el('div', 'box nscont');
@@ -1885,7 +2052,7 @@ function stHub(b, u, sts, p) {
     const a = el('a', 'hubt' + (done ? ' done' : '') + (locked ? ' lock' : ''));
     a.href = `#${u.id}/${k}`;
     a.innerHTML = `<span class="hi">${HUB_ICO[k] || '•'}</span><span class="ht">${esc(t)}</span>${done ? '<span class="hd">✓</span>' : (locked ? '<span class="hd">🔒</span>' : '')}`;
-    a.onclick = (e) => { if (locked) { e.preventDefault(); flash('أكمل المحطّة السابقة أوّلًا.'); } };
+    a.onclick = (e) => { if (locked) { e.preventDefault(); flash(lockMsg(k)); } };
     g.append(a);
   });
   b.append(g);
@@ -1982,6 +2149,44 @@ function outProg(u) {
 }
 function simNote() {
   return el('p', 'hint simn', 'أسئلة هذا الاختبار من إعداد المعلّم ، وتحاكي في أنماطها ومستوياتها المعرفية أسئلة الاختبارات الوطنية والدولية ، وليست منقولة منها.');
+}
+
+/* ============ واجباتي : من سجلي إلى الطالب ============
+   ينشرها المعلّم من لوحة التحكّم على الجهاز الذي فيه سجلي ( بكلمة القراءة ) ،
+   ويقرأ كل طالب واجباته برمزه وحده . لا أسماء في الجدول. */
+const HW_ST = { 1: ['سلّمته', 'ok'], 2: ['سلّمته جزئيًّا', 'mid'], 0: ['لم تسلّمه', 'no'], 'غ': ['كنت غائبًا', 'abs'] };
+function hwCache() { try { return JSON.parse(localStorage.getItem('dosiati-hw') || 'null'); } catch (e) { return null; } }
+function hwCard() {
+  const L = SET.log || {};
+  if (isTeacher() || !S.user || S.user.prev || !L.url) return null;
+  const d = el('details', 'box umapd hwc'); d.open = true;
+  d.append(el('summary', 'bt', 'واجباتي'));
+  const body = el('div', ''); d.append(body);
+  const draw = o => {
+    body.innerHTML = '';
+    if (!o || !o.hw) { body.append(el('p', 'hint', 'لم ينشر معلّمك حالة الواجبات بعد.')); return; }
+    const subs = Object.keys(o.hw.s || {});
+    if (!subs.length) { body.append(el('p', 'hint', 'لا توجد واجبات مرصودة لك بعد.')); return; }
+    subs.forEach(sb => {
+      const list = o.hw.s[sb] || [];
+      const c = { ok: 0, mid: 0, no: 0 };
+      list.forEach(x => { const st = HW_ST[x.v]; if (st && c[st[1]] !== undefined) c[st[1]]++; });
+      body.append(el('div', 'um-h', esc(sb) + ' <span class="sm">· سلّمت ' + c.ok + (c.mid ? ' وجزئيًّا ' + c.mid : '') + ' · لم تسلّم ' + c.no + '</span>'));
+      const ul = el('div', 'hwl');
+      list.slice().reverse().slice(0, 12).forEach(x => {
+        const st = HW_ST[x.v] || ['لم يُرصد بعد', 'pend'];
+        ul.append(el('div', 'hwr ' + st[1], '<span class="t">' + esc(x.t || ('الواجب ' + x.i)) + (x.d ? ' <span class="sm" dir="ltr">' + esc(x.d.slice(5).split('-').reverse().join('/')) + '</span>' : '') + '</span><b>' + st[0] + '</b>'));
+      });
+      body.append(ul);
+    });
+    if (o.at) body.append(el('p', 'hint', 'آخر تحديث من معلّمك : ' + new Date(o.at).toLocaleDateString('ar-EG')));
+  };
+  draw(hwCache());
+  const sid = S.user.sid || S.user.code;
+  fetch(L.url + (L.url.includes('?') ? '&' : '?') + 'hw=' + encodeURIComponent(sid))
+    .then(r => r.json()).then(o => { if (o && !o.error) { try { localStorage.setItem('dosiati-hw', JSON.stringify(o)); } catch (e) {} draw(o); } })
+    .catch(() => {});
+  return d;
 }
 /* سراج عند التعثّر : ينسخ للطالب سؤالًا جاهزًا ثمّ يفتح سراج */
 function sirajAsk(u, txt) {
@@ -2350,7 +2555,12 @@ function stQuiz(b, u) {
 }
 
 /* ---------- 8 ) اختبار الوحدة ---------- */
-function stTest(b, u) { b.append(simNote()); b.append(examView(u)); if (att(u) && att(u).submitted) nextBtn(b, u, 'test'); }
+function stTest(b, u) {
+  if (!isTeacher() && !uset(u.id).topen && !liveNow(u) && !(att(u) && att(u).submitted)) {
+    b.append(el('div', 'box gold', '<div class="bt">🔒 اختبار الوحدة مغلق</div><p class="hint" style="margin:.2rem 0 0">يفتحه معلّمك عندما يحين موعده . حتى ذلك الحين راجع مسار الإتقان وتابع تقدّمك في « بصمتي في النتاجات ».</p>'));
+    const x = el('a', 'btn ghost', 'بصمتي في النتاجات'); x.href = `#${u.id}/print`; b.append(x); return;
+  }
+  b.append(simNote()); b.append(examView(u)); if (att(u) && att(u).submitted) nextBtn(b, u, 'test'); }
 function stTeacher(b, u) { b.append(teacherView(u)); }
 
 /* ---------- 9 ) بصمة الوحدة ---------- */
