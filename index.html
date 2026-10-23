@@ -1170,6 +1170,20 @@ body.dark .orp-key tr.orp-ls td{background:#16202F}
 .offl{display:flex;flex-direction:column;gap:.4rem;margin:.4rem 0}.offl a{display:flex;align-items:center;min-height:44px;padding:0 .8rem;border:1px solid var(--line);border-radius:12px;background:#fff;color:var(--navy);text-decoration:none;font-weight:600}
 @media (prefers-reduced-motion:reduce){.umapd *{transition:none!important;animation:none!important}}
 .hwl{display:flex;flex-direction:column;gap:.3rem;margin:.3rem 0 .6rem}.hwr{display:flex;justify-content:space-between;gap:.6rem;align-items:center;background:#fff;border:1px solid var(--line);border-inline-start:5px solid #C9D3E0;border-radius:10px;padding:.4rem .7rem;font-size:.9rem}.hwr .t{min-width:0}.hwr.ok{border-inline-start-color:#1C7C54}.hwr.mid{border-inline-start-color:#E0A82E}.hwr.no{border-inline-start-color:#C0392B}.hwr.abs{border-inline-start-color:#8896A8}.hwr b{white-space:nowrap;font-size:.85rem}
+
+#fbov{position:fixed;inset:0;background:rgba(10,20,35,.55);display:flex;align-items:center;justify-content:center;z-index:9999;padding:1rem}
+#fbov .fbbox{background:var(--card,#fff);color:var(--ink);border-radius:14px;max-width:30rem;width:100%;padding:1.1rem 1.2rem;box-shadow:0 10px 40px rgba(0,0,0,.3);max-height:92vh;overflow:auto}
+#fbov h2{margin:.1rem 0 .5rem;font-size:1.15rem}
+#fbov .fbwh{margin:.1rem 0 .6rem;font-size:.9rem;opacity:.8}
+#fbov .fbcats{display:flex;flex-wrap:wrap;gap:.45rem;margin:.4rem 0 .7rem}
+#fbov .fbc{border:1.5px solid var(--line);background:transparent;color:inherit;border-radius:999px;padding:.5rem .9rem;min-height:2.75rem;font:inherit;cursor:pointer}
+#fbov .fbc.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+#fbov textarea{width:100%;box-sizing:border-box;border:1.5px solid var(--line);border-radius:10px;padding:.6rem;font:inherit;background:transparent;color:inherit;resize:vertical}
+#fbov .fbmsg{min-height:1.3rem;margin:.4rem 0;color:#B3261E;font-size:.9rem}
+#fbov .fbact{display:flex;gap:.6rem;justify-content:flex-start}
+.fbit{border:1px solid var(--line);border-radius:10px;padding:.55rem .75rem;margin:.4rem 0}
+.fbit .fbmeta{font-size:.85rem;opacity:.85}
+.fbit .fbtx{margin-top:.3rem;white-space:pre-wrap}
 </style>
 </head>
 <body>
@@ -1183,6 +1197,7 @@ body.dark .orp-key tr.orp-ls td{background:#16202F}
     <button id="sbtn" type="button" class="mi"></button>
     <button id="tbtn" type="button" class="mi"></button>
     <button id="pbtn" type="button" class="mi">وضع العرض</button>
+    <button id="fbtn" type="button" class="mi" style="display:none">أرسل ملاحظة</button>
     <button id="out" type="button" class="mi danger" style="display:none">تسجيل الخروج</button>
     <div class="mcred" id="mcred"></div>
   </div>

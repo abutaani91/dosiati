@@ -1,4 +1,4 @@
-const CACHE = 'dosiati-v43';
+const CACHE = 'dosiati-v44';
 /* خزانة مستقلّة للأشكال لا يمسّها تحديث الإصدار ، فلا يفقد الطالب ما نزّله */
 const FIGC = 'dosiati-fig';
 const FILES = ['./', 'index.html', 'app.js', 'data.json', 'extras.json', 'learn.json', 'figs.json', 'sims.js', 'logo.png', 'manifest.webmanifest', 'icon.svg', 'fonts/plex-arabic-400.woff2', 'fonts/plex-arabic-700.woff2', 'fonts/plex-latin-400.woff2', 'fonts/plex-latin-700.woff2'];

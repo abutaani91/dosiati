@@ -1,5 +1,5 @@
 /* دوسياتي — منطق التطبيق  (v4 : لوحة تحكّم للمعلّم + صلاحيات + اختبار مؤقّت) */
-const APP_VER = '43', APP_SHOW = '4.3';
+const APP_VER = '44', APP_SHOW = '4.4';
 const BRAND = 'نشامى العلم', TAGLINE = 'تعلّم بإتقان .. واترك أثرك';
 const APP_DATE = '2026/10/20';
 const S = { units: [], unit: null, tab: 'sum', present: false, user: null, q: '', iv: null, admin: 'gen' };
@@ -268,6 +268,9 @@ function loadUser() { try { return JSON.parse(localStorage.getItem(userKey) || '
 function setUser(u) { S.user = u; try { localStorage.setItem(userKey, JSON.stringify(u)); } catch (e) {} }
 function logout() { try { localStorage.removeItem(userKey); } catch (e) {} S.user = null; location.hash = ''; render(); }
 const isTeacher = () => !!(S.user && S.user.teacher);
+/* الزائر : كود مقعد عادي في شعبة اسمها « زائر » . يرى المحتوى ولا يدخل في الواجبات ولا في شهادات المدرسة */
+const VIS = 'زائر';
+const isVisitor = () => !!(S.user && !S.user.teacher && S.user.sec === VIS);
 const okPin = v => hash(String(v)) === SET.pinHash || String(v) === localStorage.getItem('dosiati-pin');
 
 /* ============ أسماء الطلبة : إخفاء بمفتاح رمز الطالب ============ */
@@ -629,15 +632,16 @@ function render() {
 
 function bar() {
   const who = $('#who'), out = $('#out'), pb = $('#pbtn');
-  const bs = $('#bsub'); if (bs) bs.textContent = SET.school || '';
+  const bs = $('#bsub'); if (bs) bs.textContent = '';
   const bl = $('#blogo'); if (bl) bl.src = window.__LOGO__ || LOGO;
   const cr = $('#mcred'); if (cr) cr.textContent = SET.teacherName ? 'إعداد : ' + SET.teacherName : '';
   const vf = $('#vfoot'); if (vf) vf.textContent = 'الإصدار ' + APP_SHOW + ' · العام الدراسي 2026 / 2027';
   const sb = $('#sbtn'); if (sb) { const off = localStorage.getItem('dosiati-snd') === '0'; sb.textContent = off ? 'تشغيل الأصوات' : 'كتم الأصوات'; sb.style.display = (SET.snd && SET.snd.on === false && !isTeacher()) ? 'none' : ''; }
   const tb = $('#tbtn'); if (tb) tb.textContent = document.body.classList.contains('dark') ? 'الوضع النهاري' : 'الوضع الليلي';
   pb.style.display = (S.user && !isTeacher() && !SET.perm.present) ? 'none' : '';
+  const fb = $('#fbtn'); if (fb) fb.style.display = (S.user && !isTeacher() && !S.user.prev && SET.log && SET.log.url && SET.log.on !== false) ? '' : 'none';
   if (!S.user) { who.textContent = ''; out.style.display = 'none'; return; }
-  who.textContent = isTeacher() ? 'المعلّم' : ((S.user.name ? S.user.name.split(' ')[0] + ' · ' : '') + GRADES[S.user.grade] + ' · ' + S.user.no);
+  who.textContent = isTeacher() ? 'المعلّم' : isVisitor() ? ('زائر · ' + GRADES[S.user.grade]) : ((S.user.name ? S.user.name.split(' ')[0] + ' · ' : '') + GRADES[S.user.grade] + ' · ' + S.user.no);
   out.style.display = '';
 }
 
@@ -645,8 +649,6 @@ const LOGO = 'logo.png';
 function orgHead() {
   const o = SET.org || {};
   return el('div', 'ohead', `<img class="olog" src="${window.__LOGO__ || LOGO}" alt="شعار وزارة التربية والتعليم">
-    <div class="d1">${esc(o.dir || '')}</div>
-    <div class="d2">${esc(SET.school || '')}</div>
     <div class="d3">${BRAND}</div>
     <div class="d4">${TAGLINE}</div>`);
 }
@@ -770,6 +772,7 @@ function spacedQuiz(u) {
 function home() {
   const w = el('div', 'wrap');
   const sub = isTeacher() ? 'وضع المعلّم — جميع الصفوف والاختبارات'
+    : isVisitor() ? (GRADES[S.user.grade] + ' · زائر · ' + (TERMS[S.user.term] || ''))
     : GRADES[S.user.grade] + (S.user.sec ? ' · الشعبة ' + S.user.sec : '') + ' · ' + (TERMS[S.user.term] || '') + ' · رقمك ' + S.user.no;
   const head = isTeacher() ? 'وضع المعلّم' : (S.user.name ? 'أهلًا ' + S.user.name : 'أهلًا بك');
   w.append(el('div', 'hero', `<h1>${esc(head)}</h1>` + (isTeacher() ? `<p>${esc(sub)}</p>` : '')));
@@ -793,7 +796,7 @@ function home() {
   list.append(...cards());
   w.append(list);
   w.append(officialLinks());
-  w.append(el('p', 'foot', esc(SET.teacherName) + (SET.school ? ' — ' + esc(SET.school) : '')));
+  w.append(el('p', 'foot', esc(SET.teacherName || '')));
   return w;
 
   function cards() {
@@ -827,7 +830,7 @@ function home() {
 }
 
 /* ================= لوحة التحكّم ================= */
-const ADMIN_TABS = [['follow', 'متابعة الطلبة'], ['out', 'تقرير النتاجات'], ['rev', 'مراجعة الأسئلة'], ['hw', 'الواجبات من سجلي'], ['roster', 'قائمة الطلبة'], ['gen', 'إعدادات عامة'], ['perm', 'صلاحيات الطلبة'], ['units', 'الوحدات'], ['exam', 'الاختبار'], ['link', 'الربط والإرسال'], ['file', 'حفظ ونشر']];
+const ADMIN_TABS = [['follow', 'متابعة الطلبة'], ['out', 'تقرير النتاجات'], ['rev', 'مراجعة الأسئلة'], ['fb', 'ملاحظات الطلبة'], ['hw', 'الواجبات من سجلي'], ['roster', 'قائمة الطلبة'], ['gen', 'إعدادات عامة'], ['perm', 'صلاحيات الطلبة'], ['units', 'الوحدات'], ['exam', 'الاختبار'], ['link', 'الربط والإرسال'], ['file', 'حفظ ونشر']];
 function adminView() {
   const D = S.draft || (S.draft = clone(SET));
   const w = el('div', 'wrap');
@@ -854,6 +857,7 @@ function adminView() {
   if (S.admin === 'follow') follow();
   if (S.admin === 'out') outcomesTab();
   if (S.admin === 'rev') revTab();
+  if (S.admin === 'fb') fbTab();
   if (S.admin === 'hw') hwTab();
   if (S.admin === 'roster') rosterTab();
   if (S.admin === 'link') linkTab();
@@ -1171,6 +1175,74 @@ function adminView() {
           lsPut2('dosiati-remote', d.rows); info.textContent = 'آخر تحديث : ' + new Date().toLocaleTimeString('ar-EG') + ' · ' + d.rows.length + ' سطرًا'; render(); })
         .catch(() => { info.textContent = 'تعذّر الاتصال بالجدول . تأكّد من الرابط والمفتاح ومن الإنترنت.'; });
     }
+  }
+
+
+  /* ---------- ملاحظات الطلبة ( 4.4 ) ---------- */
+  function fbTab() {
+    const b = sec('ملاحظات الطلبة', 'تصل من زر « أرسل ملاحظة » في قائمة الموقع . لا تحمل اسمًا ، بل الصفّ والشعبة والرقم ( أو « زائر » ) والوحدة . اضغط « تحديث من الجدول » لجلب الجديد.');
+    const raw = allRows().filter(r => r.type === 'fb');
+    const seen = new Set(), rows = [];
+    raw.forEach(r => { const k = r.code + '|' + r.t; if (seen.has(k)) return; seen.add(k); rows.push(r); });
+    rows.sort((x, y) => (+y.t || Date.parse(y.t) || 0) - (+x.t || Date.parse(x.t) || 0));
+    const catOf = r => String(r.detail || '').split(' | ')[0];
+    const unitName = id => { const u = S.units.find(x => x.id === id); const t = u && u.unit && u.unit.unitTitle ? String(u.unit.unitTitle).replace(/<[^>]*>/g, '').trim() : ''; return t ? t : (id || 'عامّة'); };
+    const who = r => (r.s === VIS ? 'زائر' : ((GRADES[r.g] || r.g) + (r.s ? ' · شعبة ' + r.s : '') + ' · رقم ' + r.n));
+    const top = frow(b);
+    const upd = el('button', 'btn', 'تحديث من الجدول');
+    const info = el('span', 'hint', '');
+    upd.onclick = () => {
+      const L = SET.log || {}, rk = readKey();
+      if (!L.url) return flash('لم تُضبط بيانات الجدول في تبويب « الربط والإرسال ».');
+      if (!rk) return flash('اكتب « كلمة القراءة » في تبويب « الربط والإرسال » أوّلًا.');
+      info.textContent = 'جارٍ التحديث …';
+      fetch(L.url + (L.url.includes('?') ? '&' : '?') + 'k=' + encodeURIComponent(rk)).then(r => r.json()).then(d => {
+        if (!d || !Array.isArray(d.rows)) { info.textContent = 'ردّ غير متوقّع من الجدول.'; return; }
+        lsPut2('dosiati-remote', d.rows); render();
+      }).catch(() => { info.textContent = 'تعذّر الاتصال بالجدول.'; });
+    };
+    top.append(upd, info);
+    if (!rows.length) { b.append(el('p', 'hint', 'لا توجد ملاحظات بعد.')); return; }
+    // ملخّص حسب النوع
+    const cnt = {}; rows.forEach(r => { const c = catOf(r); cnt[c] = (cnt[c] || 0) + 1; });
+    b.append(el('p', '', '<b>الإجمالي :</b> ' + rows.length + ' ملاحظة — ' + Object.keys(FBCATS).map(k => FBCATS[k] + ' : ' + (cnt[k] || 0)).join(' · ')));
+    // ملخّص حسب الوحدة
+    const byU = {}; rows.forEach(r => { const o = byU[r.unit || ''] = byU[r.unit || ''] || { n: 0, problem: 0, unclear: 0 }; o.n++; const c = catOf(r); if (c === 'problem') o.problem++; if (c === 'unclear') o.unclear++; });
+    const tb = el('table', 'tbl');
+    tb.innerHTML = '<thead><tr><th>الوحدة</th><th>الكل</th><th>مشكلة</th><th>غير مفهوم</th></tr></thead>';
+    const tbd = el('tbody');
+    Object.keys(byU).sort((a, c) => (byU[c].problem + byU[c].unclear) - (byU[a].problem + byU[a].unclear) || byU[c].n - byU[a].n).forEach(id => {
+      const o = byU[id]; const tr = el('tr'); tr.innerHTML = '<td>' + esc(unitName(id)) + '</td><td>' + o.n + '</td><td>' + o.problem + '</td><td>' + o.unclear + '</td>'; tbd.append(tr);
+    });
+    tb.append(tbd); b.append(tb);
+    // تصفية
+    const fr = frow(b);
+    const sc = el('select'); const o0 = el('option', '', 'كل الأنواع'); o0.value = ''; sc.append(o0);
+    Object.keys(FBCATS).forEach(k => { const o = el('option', '', FBCATS[k]); o.value = k; sc.append(o); });
+    sc.value = S.fbCat || ''; sc.onchange = () => { S.fbCat = sc.value; render(); };
+    const sv = el('select'); const v0 = el('option', '', 'الكل ( طلبة وزوّار )'); v0.value = ''; sv.append(v0);
+    [['s', 'الطلبة فقط'], ['v', 'الزوّار فقط']].forEach(([k, t]) => { const o = el('option', '', t); o.value = k; sv.append(o); });
+    sv.value = S.fbVis || ''; sv.onchange = () => { S.fbVis = sv.value; render(); };
+    fr.append(wrapLab('النوع', sc), wrapLab('الفئة', sv));
+    const list = rows.filter(r => (!S.fbCat || catOf(r) === S.fbCat) && (!S.fbVis || (S.fbVis === 'v') === (r.s === VIS)));
+    const box = el('div', '');
+    list.slice(0, 200).forEach(r => {
+      const t = +r.t || Date.parse(r.t) || 0;
+      const c = el('div', 'fbit');
+      c.innerHTML = '<div class="fbmeta"><b>' + esc(FBCATS[catOf(r)] || catOf(r)) + '</b> · ' + esc(unitName(r.unit)) + ' · ' + esc(who(r)) + ' · ' + esc(t ? when(t) : '') + '</div>' + (r.score ? '<div class="fbtx">' + esc(String(r.score)) + '</div>' : '');
+      box.append(c);
+    });
+    b.append(box);
+    if (list.length > 200) b.append(el('p', 'hint', 'يظهر أحدث 200 ملاحظة . نزّل الملف لرؤية الباقي.'));
+    const dl = el('button', 'btn ghost', 'تنزيل الملاحظات ( CSV )');
+    dl.onclick = () => {
+      const head = ['التاريخ', 'النوع', 'الوحدة', 'الفئة', 'الصف', 'الشعبة', 'الرقم', 'الموضع', 'النص'];
+      const body = list.map(r => { const t = +r.t || Date.parse(r.t) || 0; const p = String(r.detail || '').split(' | ');
+        return [t ? new Date(t).toISOString().slice(0, 16).replace('T', ' ') : '', FBCATS[p[0]] || p[0], unitName(r.unit), r.s === VIS ? 'زائر' : 'طالب', GRADES[r.g] || r.g, r.s || '', r.n, p[1] || '', r.score || '']; });
+      const csv = '﻿' + [head].concat(body).map(x => x.map(y => '"' + String(y).replace(/"/g, '""') + '"').join(',')).join('\n');
+      saveBlob(new Blob([csv], { type: 'text/csv;charset=utf-8' }), 'ملاحظات-الطلبة.csv');
+    };
+    b.append(dl);
   }
 
   /* ---------- تقرير النتاجات ( لكل وحدة ) ---------- */
@@ -2158,7 +2230,7 @@ const HW_ST = { 1: ['سلّمته', 'ok'], 2: ['سلّمته جزئيًّا', 'm
 function hwCache() { try { return JSON.parse(localStorage.getItem('dosiati-hw') || 'null'); } catch (e) { return null; } }
 function hwCard() {
   const L = SET.log || {};
-  if (isTeacher() || !S.user || S.user.prev || !L.url) return null;
+  if (isTeacher() || isVisitor() || !S.user || S.user.prev || !L.url) return null;
   const d = el('details', 'box umapd hwc'); d.open = true;
   d.append(el('summary', 'bt', 'واجباتي'));
   const body = el('div', ''); d.append(body);
@@ -2685,8 +2757,8 @@ function certificate(u) {
   if (!box) { box = el('div'); box.id = 'certbox'; document.body.append(box); }
   box.innerHTML = `<div class="cert">
     <img class="clogo" src="${window.__LOGO__ || LOGO}" alt="">
-    <div class="c1">${esc(o.dir || '')}</div>
-    <div class="c2">${esc(SET.school || '')}</div>
+    <div class="c1">${esc(isVisitor() ? '' : (o.dir || ''))}</div>
+    <div class="c2">${esc(isVisitor() ? '' : (SET.school || ''))}</div>
     <div class="ctitle">شهادة إتمــام وحــدة</div>
     <div class="c3">تشهد إدارة المدرسة بأنّ</div>
     <div class="cname">${esc(name)}</div>
@@ -3037,11 +3109,67 @@ window.addEventListener('DOMContentLoaded', () => {
   $('#zin').onclick = () => zoom(1);
   $('#zout').onclick = () => zoom(-1);
   $('#out').onclick = () => { if (confirm('تسجيل الخروج ؟')) logout(); };
+  const fbb = $('#fbtn'); if (fbb) fbb.onclick = openFeedback;
   initMenu();
   setZoom(+(localStorage.getItem('dosiati-zoom') || 0));
   boot();
   if ('serviceWorker' in navigator && location.protocol.startsWith('http') && !window.__DATA__) navigator.serviceWorker.register('sw.js');
 });
+
+/* ============ ملاحظات الطلبة ( 4.4 ) ============ */
+const FBCATS = { suggest: 'اقتراح', problem: 'مشكلة في سؤال أو معلومة', unclear: 'شيء غير مفهوم', like: 'أعجبني' };
+const FBK = 'dosiati-fb-sent';
+function fbSent() { try { return (JSON.parse(localStorage.getItem(FBK) || '[]') || []).filter(t => Date.now() - t < 86400000); } catch (e) { return []; } }
+function fbMark() { try { const a = fbSent(); a.push(Date.now()); localStorage.setItem(FBK, JSON.stringify(a)); } catch (e) {} }
+function fbWhere() {
+  const u = S.unit ? S.units.find(x => x.id === S.unit) : null;
+  const t = u && u.unit && u.unit.unitTitle ? String(u.unit.unitTitle).replace(/<[^>]*>/g, '').trim() : '';
+  return { id: S.unit || '', title: t, hash: (location.hash || '').slice(1, 80) };
+}
+function openFeedback() {
+  if (!S.user || isTeacher() || S.user.prev) return;
+  if (document.getElementById('fbov')) return;
+  const where = fbWhere();
+  const ov = el('div', ''); ov.id = 'fbov'; ov.setAttribute('role', 'dialog'); ov.setAttribute('aria-modal', 'true'); ov.setAttribute('aria-label', 'أرسل ملاحظة');
+  const bx = el('div', 'fbbox'); ov.append(bx);
+  bx.append(el('h2', '', 'ملاحظتك تساعدنا'));
+  if (where.title) bx.append(el('p', 'fbwh', 'عن الوحدة : ' + esc(where.title)));
+  let cat = '';
+  const row = el('div', 'fbcats');
+  Object.keys(FBCATS).forEach(k => {
+    const b = el('button', 'fbc', FBCATS[k]); b.type = 'button';
+    b.onclick = () => { cat = k; [...row.children].forEach(x => x.classList.toggle('on', x === b)); b.setAttribute('aria-pressed', 'true'); [...row.children].forEach(x => { if (x !== b) x.setAttribute('aria-pressed', 'false'); }); msg.textContent = ''; };
+    row.append(b);
+  });
+  bx.append(row);
+  const ta = el('textarea'); ta.maxLength = 300; ta.rows = 4; ta.placeholder = 'اكتب ملاحظتك هنا ( اختياري ، حتى 300 حرف ). لا تكتب اسمك أو معلومات شخصية.';
+  ta.setAttribute('aria-label', 'نص الملاحظة');
+  bx.append(ta);
+  const msg = el('p', 'fbmsg', ''); msg.setAttribute('role', 'status'); bx.append(msg);
+  const act = el('div', 'fbact');
+  const send = el('button', 'btn', 'إرسال'); send.type = 'button';
+  const cancel = el('button', 'btn ghost', 'إغلاق'); cancel.type = 'button';
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = e => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  cancel.onclick = close;
+  ov.addEventListener('click', e => { if (e.target === ov) close(); });
+  send.onclick = () => {
+    const txt = ta.value.trim().replace(/\s+/g, ' ');
+    if (!cat) { msg.textContent = 'اختر نوع الملاحظة أولًا.'; return; }
+    if ((cat === 'problem' || cat === 'unclear' || cat === 'suggest') && txt.length < 5) { msg.textContent = 'اكتب سطرًا قصيرًا يوضّح ملاحظتك.'; return; }
+    const sent = fbSent();
+    if (sent.length >= 5) { msg.textContent = 'وصلت إلى حدّ الملاحظات لهذا اليوم . شكرًا لك ، جرّب غدًا.'; return; }
+    if (sent.length && Date.now() - sent[sent.length - 1] < 60000) { msg.textContent = 'انتظر دقيقة قبل إرسال ملاحظة أخرى.'; return; }
+    logEvent('fb', where.id, cat + (where.hash ? ' | ' + where.hash : ''), txt.slice(0, 300));
+    fbMark();
+    bx.replaceChildren(el('h2', '', 'وصلتنا ملاحظتك'), el('p', '', 'شكرًا لك . ملاحظتك تساعد على تحسين الموقع.'));
+    const ok = el('button', 'btn', 'حسنًا'); ok.type = 'button'; ok.onclick = close; bx.append(ok); ok.focus();
+  };
+  act.append(send, cancel); bx.append(act);
+  document.body.append(ov);
+  setTimeout(() => { const f = row.firstChild; if (f) f.focus(); }, 0);
+}
 function initMenu() {
   const mb = $('#mbtn'), mn = $('#menu');
   if (!mb || !mn) return;
@@ -3049,7 +3177,7 @@ function initMenu() {
   mb.onclick = e => { e.stopPropagation(); const open = mn.hidden; mn.hidden = !open; mb.setAttribute('aria-expanded', open ? 'true' : 'false'); };
   document.addEventListener('click', e => { if (!mn.hidden && !mn.contains(e.target) && e.target !== mb) close(); });
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !mn.hidden) { close(); mb.focus(); } });
-  ['sbtn', 'tbtn', 'pbtn', 'out'].forEach(id => { const b = $('#' + id); if (b) b.addEventListener('click', close); });
+  ['sbtn', 'tbtn', 'pbtn', 'fbtn', 'out'].forEach(id => { const b = $('#' + id); if (b) b.addEventListener('click', close); });
   window.addEventListener('hashchange', close);
 }
 function zoom(d) { setZoom((+(localStorage.getItem('dosiati-zoom') || 0)) + d); }
